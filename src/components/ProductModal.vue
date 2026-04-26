@@ -15,7 +15,7 @@
       </button>
 
       <img
-        :src="product.img"
+        :src="product.image_url || 'https://via.placeholder.com/300x200'"
         :alt="product.name"
         class="mb-4 h-56 w-full rounded-2xl object-cover"
       />
@@ -27,7 +27,7 @@
       </p>
 
       <p class="mb-4 text-zinc-300">
-        <span class="font-semibold">Quantity:</span> {{ product.qty }}
+        <span class="font-semibold">Quantity:</span> {{ product.quantity }}
       </p>
 
       <div class="mb-4">
@@ -44,6 +44,14 @@
           />
         </div>
       </div>
+
+      <p v-if="successMessage" class="mb-3 rounded-xl bg-emerald-600/20 p-3 text-sm text-emerald-400">
+        {{ successMessage }}
+      </p>
+
+      <p v-if="errorMessage" class="mb-3 rounded-xl bg-red-600/20 p-3 text-sm text-red-400">
+        {{ errorMessage }}
+      </p>
 
       <div class="flex gap-3">
         <button
@@ -65,17 +73,22 @@
 
 <script setup>
 import { ref, watch } from 'vue'
+import { supabase } from '../lib/supabase'
 
 const props = defineProps(['product'])
-const emit = defineEmits(['close'])
+const emit = defineEmits(['close', 'updated'])
 
 const selectedDate = ref('')
 const dateInput = ref(null)
+const errorMessage = ref('')
+const successMessage = ref('')
 
 watch(
   () => props.product,
   (newProduct) => {
-    selectedDate.value = newProduct?.inspectionDate || ''
+    selectedDate.value = newProduct?.inspection_date || ''
+    errorMessage.value = ''
+    successMessage.value = ''
   },
   { immediate: true }
 )
@@ -84,9 +97,58 @@ function close() {
   emit('close')
 }
 
-function saveInspectionDate() {
-  if (!props.product || !selectedDate.value) return
-  props.product.inspectionDate = selectedDate.value
-  emit('close')
+function formatDate(date) {
+  return new Date(date).toLocaleDateString(undefined, {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  })
+}
+
+async function saveInspectionDate() {
+  if (!props.product || !selectedDate.value) {
+    errorMessage.value = 'Please select an inspection date.'
+    return
+  }
+
+  errorMessage.value = ''
+  successMessage.value = ''
+
+  const { error: updateError } = await supabase
+    .from('products')
+    .update({
+      inspection_date: selectedDate.value,
+      inspection_result: null,
+      approved_count: 0,
+      return_count: 0,
+    })
+    .eq('id', props.product.id)
+
+  if (updateError) {
+    errorMessage.value = updateError.message
+    return
+  }
+
+  const { error: notifError } = await supabase
+    .from('notifications')
+    .insert({
+      title: 'Inspection Scheduled',
+      message: `${props.product.name} is scheduled for inspection on ${formatDate(selectedDate.value)}.`,
+      type: 'inspection',
+      product_id: props.product.id,
+    })
+
+  if (notifError) {
+    errorMessage.value = notifError.message
+    return
+  }
+
+  successMessage.value = 'Inspection date saved and notification created.'
+
+  emit('updated')
+
+  setTimeout(() => {
+    emit('close')
+  }, 700)
 }
 </script>

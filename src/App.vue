@@ -1,17 +1,22 @@
 <template>
   <div class="min-h-screen bg-black text-white">
     <div class="grid min-h-screen grid-cols-[270px_1fr]">
+      
+      <!-- SIDEBAR -->
       <aside
         class="sticky top-0 h-screen border-r border-white/5 bg-gradient-to-b from-[#1b0909] to-[#0c0c0c] p-5"
       >
+        <!-- LOGO -->
         <div
           class="mb-6 rounded-3xl border border-white/10 bg-gradient-to-br from-red-500/20 to-white/5 p-4"
         >
-          <h1 class="text-4xl font-extrabold text-red-500">RedCore</h1>
+          <h1 class="text-4xl font-extrabold text-red-500">Hardware</h1>
           <p class="mt-1 text-sm text-zinc-400">Inventory Management System</p>
         </div>
 
+        <!-- NAVIGATION -->
         <nav class="flex flex-col gap-2">
+
           <RouterLink
             to="/"
             class="block rounded-2xl px-4 py-3 font-semibold text-zinc-300 transition hover:bg-white/5 hover:text-white"
@@ -36,20 +41,22 @@
             Calendar
           </RouterLink>
 
+          <!-- UPDATED -->
           <RouterLink
-            to="/scanner"
+            to="/documentation"
             class="block rounded-2xl px-4 py-3 font-semibold text-zinc-300 transition hover:bg-white/5 hover:text-white"
             active-class="bg-red-600 text-white"
           >
-            Scanner
+            Documentation
           </RouterLink>
 
+          <!-- UPDATED -->
           <RouterLink
-            to="/deleted"
+            to="/archived"
             class="block rounded-2xl px-4 py-3 font-semibold text-zinc-300 transition hover:bg-white/5 hover:text-white"
             active-class="bg-red-600 text-white"
           >
-            Deleted
+            Archived
           </RouterLink>
 
           <RouterLink
@@ -59,12 +66,24 @@
           >
             Profile
           </RouterLink>
+
         </nav>
       </aside>
 
+      <!-- MAIN CONTENT -->
       <main class="bg-black p-7">
+        <div class="mb-5 flex justify-end">
+          <NotificationBell />
+        </div>
         <RouterView />
       </main>
     </div>
   </div>
 </template>
+
+<script setup>
+import NotificationBell from './components/NotificationBell.vue'
+</script>
+
+<style>
+</style>
