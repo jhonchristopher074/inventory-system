@@ -2,8 +2,8 @@
   <div class="flex gap-5">
     <div class="flex-1">
       <PageHeader
-      title="Archived"
-      subtitle="Drag archived products to restore them or hide them from the web."
+        title="Archived"
+        subtitle="Drag archived products to restore them or hide them from the web."
       />
 
       <p v-if="loading" class="text-zinc-400">Loading archived products...</p>
@@ -72,7 +72,6 @@
       </div>
     </aside>
 
-    <!-- Custom Proceed Modal -->
     <div
       v-if="actionModal"
       class="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4"
@@ -115,13 +114,15 @@
 
 <script setup>
 import { computed, onMounted, ref } from 'vue'
-import { supabase } from '../lib/supabase'
-import PageHeader from '../components/PageHeader.vue'
+import { supabase } from '../../lib/supabase'
+import PageHeader from '../../components/PageHeader.vue'
 
 const archivedProducts = ref([])
 const draggedProduct = ref(null)
+
 const loading = ref(false)
 const errorMessage = ref('')
+
 const restoreDragOver = ref(false)
 const deleteDragOver = ref(false)
 
@@ -141,7 +142,7 @@ const actionMessage = computed(() => {
   }
 
   if (actionType.value === 'delete') {
-    return 'This item will be hidden from the system. It will not be visible on the web.'
+    return 'This item will be hidden from the system.'
   }
 
   return ''
@@ -156,11 +157,14 @@ async function fetchArchivedProducts() {
     .select('*')
     .eq('is_archived', true)
     .eq('is_deleted', false)
-    .order('id', { ascending: true })
+    .order('id', { ascending: false })
 
   if (error) {
+    console.error('ARCHIVED ERROR:', error)
     errorMessage.value = error.message
+    archivedProducts.value = []
   } else {
+    console.log('ARCHIVED PRODUCTS:', data)
     archivedProducts.value = data || []
   }
 
@@ -173,6 +177,7 @@ function startDrag(product) {
 
 function openRestoreModal() {
   restoreDragOver.value = false
+
   if (!draggedProduct.value) return
 
   actionType.value = 'restore'
@@ -182,6 +187,7 @@ function openRestoreModal() {
 
 function openDeleteModal() {
   deleteDragOver.value = false
+
   if (!draggedProduct.value) return
 
   actionType.value = 'delete'
@@ -193,10 +199,13 @@ function closeActionModal() {
   actionModal.value = false
   actionType.value = ''
   modalError.value = ''
+  draggedProduct.value = null
 }
 
 async function confirmAction() {
   if (!draggedProduct.value) return
+
+  modalError.value = ''
 
   let updateData = {}
 
@@ -209,6 +218,7 @@ async function confirmAction() {
 
   if (actionType.value === 'delete') {
     updateData = {
+      is_archived: true,
       is_deleted: true,
     }
   }
@@ -224,18 +234,42 @@ async function confirmAction() {
   }
 
   if (actionType.value === 'restore') {
-    await supabase.from('notifications').insert({
-      title: 'Product Restored',
-      message: `${draggedProduct.value.name} was brought back to Inventory.`,
-      type: 'restore',
-      product_id: draggedProduct.value.id,
-    })
+    await createNotification(
+      'Product Restored',
+      `${draggedProduct.value.name} was brought back to Inventory.`,
+      'restore'
+    )
+  }
+
+  if (actionType.value === 'delete') {
+    await createNotification(
+      'Product Deleted',
+      `${draggedProduct.value.name} was hidden from the system.`,
+      'archive'
+    )
   }
 
   actionModal.value = false
   actionType.value = ''
   draggedProduct.value = null
+
   await fetchArchivedProducts()
+}
+
+async function createNotification(title, message, type) {
+  if (!draggedProduct.value) return
+
+  const { error } = await supabase.from('notifications').insert({
+    title,
+    message,
+    type,
+    product_id: draggedProduct.value.id,
+    is_read: false,
+  })
+
+  if (error) {
+    console.error('NOTIFICATION ERROR:', error)
+  }
 }
 
 onMounted(fetchArchivedProducts)

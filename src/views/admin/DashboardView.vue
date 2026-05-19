@@ -153,8 +153,8 @@
 
 <script setup>
 import { computed, onMounted, ref } from 'vue'
-import PageHeader from '../components/PageHeader.vue'
-import { supabase } from '../lib/supabase'
+import { supabase } from '../../lib/supabase'
+import PageHeader from '../../components/PageHeader.vue'
 
 const products = ref([])
 const loading = ref(false)

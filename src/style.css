@@ -1,5 +1,9 @@
 @import "tailwindcss";
 
+:root {
+  font-size: 90%;
+}
+
 html,
 body,
 #app {
@@ -12,4 +16,29 @@ body,
 body {
   overflow-x: hidden;
   overflow-y: auto;
+}
+
+/* LEFT SIDEBAR STICKY */
+.sidebar {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  flex-shrink: 0;
+  overflow-y: auto;
+}
+
+/* ARCHIVE / DELETE BOX STICKY */
+.archive-box,
+.delete-box,
+.sticky-drag-area {
+  position: sticky;
+  top: 24px;
+  align-self: flex-start;
+  height: fit-content;
+  flex-shrink: 0;
+}
+
+/* REMOVE UNWANTED HORIZONTAL SCROLL */
+* {
+  box-sizing: border-box;
 }

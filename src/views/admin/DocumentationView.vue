@@ -121,13 +121,32 @@
       />
     </div>
 
+  <!-- FULL IMAGE PREVIEW -->
+<div
+  v-if="previewImage"
+  class="fixed inset-0 z-[70] flex items-center justify-center bg-black/90 p-4"
+  @click.self="previewImage = null"
+>
+  <button
+    class="absolute right-6 top-6 rounded-full bg-zinc-900 px-4 py-2 text-2xl text-white hover:bg-red-600"
+    @click="previewImage = null"
+  >
+    ×
+  </button>
+
+  <img
+    :src="previewImage"
+    class="max-h-[90vh] max-w-[95vw] rounded-2xl object-contain"
+  />
+</div>
+
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { supabase } from '../lib/supabase'
-import PageHeader from '../components/PageHeader.vue'
+import { supabase } from '../../lib/supabase'
+import PageHeader from '../../components/PageHeader.vue'
 
 const docs = ref([])
 const selectedDoc = ref(null)
@@ -157,6 +176,9 @@ async function fetchDocs() {
     .from('documentations')
     .select('*')
     .order('id', { ascending: false })
+
+    console.log('DOCS DATA:', data)
+    console.log('DOCS ERROR:', error)
 
   if (error) {
     errorMessage.value = error.message
