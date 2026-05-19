@@ -5,7 +5,9 @@
       subtitle="Review and approve staff inspection requests."
     />
 
-    <p v-if="loading" class="text-sm text-zinc-400">Loading approvals...</p>
+    <p v-if="loading" class="text-sm text-zinc-400">
+      Loading approvals...
+    </p>
 
     <p
       v-if="errorMessage"
@@ -34,34 +36,30 @@
         :key="approval.id"
         class="rounded-[24px] border border-white/10 bg-zinc-900 p-5"
       >
-        <div class="flex items-start justify-between gap-4">
-          <div>
-            <h2 class="text-2xl font-bold text-white">
-              {{ approval.product_name }}
-            </h2>
+        <h2 class="text-2xl font-bold text-white">
+          {{ approval.product_name }}
+        </h2>
 
-            <p class="mt-1 text-sm text-zinc-400">
-              Requested by: {{ approval.requested_by || 'Staff' }}
-            </p>
+        <p class="mt-2 text-sm text-zinc-400">
+          Requested by: {{ approval.requested_by || 'Staff' }}
+        </p>
 
-            <p class="mt-1 text-sm text-zinc-400">
-              Date: {{ formatDate(approval.created_at) }}
-            </p>
+        <p class="mt-1 text-sm text-zinc-400">
+          Date: {{ formatDate(approval.created_at) }}
+        </p>
 
-            <div class="mt-4 flex flex-wrap gap-2">
-              <span class="rounded-full bg-emerald-600/20 px-3 py-1 text-xs font-bold text-emerald-400">
-                Approved: {{ approval.approved_qty || 0 }}
-              </span>
+        <div class="mt-4 flex flex-wrap gap-2">
+          <span class="rounded-full bg-emerald-600/20 px-3 py-1 text-xs font-bold text-emerald-400">
+            Approved: {{ approval.approved_qty || 0 }}
+          </span>
 
-              <span class="rounded-full bg-red-600/20 px-3 py-1 text-xs font-bold text-red-400">
-                Return: {{ approval.return_qty || 0 }}
-              </span>
+          <span class="rounded-full bg-red-600/20 px-3 py-1 text-xs font-bold text-red-400">
+            Return: {{ approval.return_qty || 0 }}
+          </span>
 
-              <span class="rounded-full bg-yellow-500/20 px-3 py-1 text-xs font-bold text-yellow-400">
-                Pending
-              </span>
-            </div>
-          </div>
+          <span class="rounded-full bg-yellow-500/20 px-3 py-1 text-xs font-bold text-yellow-400">
+            Submitted
+          </span>
         </div>
 
         <div class="mt-5 flex gap-3">
@@ -106,7 +104,7 @@ async function fetchApprovals() {
   const { data, error } = await supabase
     .from('inspection_approvals')
     .select('*')
-    .eq('status', 'pending')
+    .eq('status', 'submitted')
     .order('created_at', { ascending: false })
 
   if (error) {
@@ -135,10 +133,12 @@ async function approveInspection(approval) {
   }
 
   const newApproved =
-    Number(product.approved_count || 0) + Number(approval.approved_qty || 0)
+    Number(product.approved_count || 0) +
+    Number(approval.approved_qty || 0)
 
   const newReturn =
-    Number(product.return_count || 0) + Number(approval.return_qty || 0)
+    Number(product.return_count || 0) +
+    Number(approval.return_qty || 0)
 
   if (newApproved + newReturn > Number(product.quantity || 0)) {
     errorMessage.value = 'Approved + Return cannot exceed product quantity.'

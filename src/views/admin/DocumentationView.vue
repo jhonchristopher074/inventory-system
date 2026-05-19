@@ -121,25 +121,6 @@
       />
     </div>
 
-  <!-- FULL IMAGE PREVIEW -->
-<div
-  v-if="previewImage"
-  class="fixed inset-0 z-[70] flex items-center justify-center bg-black/90 p-4"
-  @click.self="previewImage = null"
->
-  <button
-    class="absolute right-6 top-6 rounded-full bg-zinc-900 px-4 py-2 text-2xl text-white hover:bg-red-600"
-    @click="previewImage = null"
-  >
-    ×
-  </button>
-
-  <img
-    :src="previewImage"
-    class="max-h-[90vh] max-w-[95vw] rounded-2xl object-contain"
-  />
-</div>
-
   </div>
 </template>
 
