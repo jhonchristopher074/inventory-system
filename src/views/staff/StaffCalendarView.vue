@@ -59,63 +59,26 @@
             class="flex min-h-[390px] flex-col justify-between rounded-[22px] border border-white/10 bg-black p-4 shadow-xl"
           >
             <div>
-              <h3 class="text-xl font-bold text-white">
-                {{ item.name }}
-              </h3>
-
-              <p class="mt-2 text-sm text-red-400">
-                {{ item.category || 'Uncategorized' }}
-              </p>
-
-              <p class="mt-2 text-sm text-zinc-300">
-                Qty: {{ item.quantity }}
-              </p>
-
+              <h3 class="text-xl font-bold text-white">{{ item.name }}</h3>
+              <p class="mt-2 text-sm text-red-400">{{ item.category || 'Uncategorized' }}</p>
+              <p class="mt-2 text-sm text-zinc-300">Qty: {{ item.quantity }}</p>
               <p class="mt-2 text-sm text-zinc-300">
                 Admin Approved: {{ adminApprovedQty(item) }} / {{ item.quantity }}
               </p>
+              <p class="mt-1 text-sm text-lime-400">Saved: {{ savedQty(item) }}</p>
+              <p class="mt-1 text-sm text-yellow-400">Submitted: {{ submittedQty(item) }}</p>
+              <p class="mt-1 text-sm font-bold text-yellow-400">Remaining: {{ remainingInspectable(item) }}</p>
 
-              <p class="mt-1 text-sm text-lime-400">
-                Saved: {{ savedQty(item) }}
-              </p>
-
-              <p class="mt-1 text-sm text-yellow-400">
-                Submitted: {{ submittedQty(item) }}
-              </p>
-
-              <p class="mt-1 text-sm font-bold text-yellow-400">
-                Remaining: {{ remainingInspectable(item) }}
-              </p>
-
-              <!-- ONE PROGRESS BAR -->
               <div class="mt-3">
                 <div class="mb-1 flex justify-between text-xs">
                   <span class="text-zinc-400">Inspection Progress</span>
-                  <span class="font-bold text-white">
-                    {{ totalProgressPercent(item) }}%
-                  </span>
+                  <span class="font-bold text-white">{{ totalProgressPercent(item) }}%</span>
                 </div>
-
                 <div class="flex h-2 w-full overflow-hidden rounded-full bg-zinc-800">
-                  <!-- APPROVED BY ADMIN -->
-                  <div
-                    class="h-full bg-red-600 transition-all"
-                    :style="{ width: approvedPercentByProduct(item) + '%' }"
-                  ></div>
-
-                  <!-- SAVED BUT NOT SUBMITTED -->
-                  <div
-                    class="h-full bg-lime-400 transition-all"
-                    :style="{ width: savedPercentByProduct(item) + '%' }"
-                  ></div>
-
-                  <!-- SUBMITTED TO ADMIN -->
-                  <div
-                    class="h-full bg-yellow-400 transition-all"
-                    :style="{ width: submittedPercentByProduct(item) + '%' }"
-                  ></div>
+                  <div class="h-full bg-red-600 transition-all" :style="{ width: approvedPercentByProduct(item) + '%' }"></div>
+                  <div class="h-full bg-lime-400 transition-all" :style="{ width: savedPercentByProduct(item) + '%' }"></div>
+                  <div class="h-full bg-yellow-400 transition-all" :style="{ width: submittedPercentByProduct(item) + '%' }"></div>
                 </div>
-
                 <div class="mt-2 flex flex-wrap gap-2 text-[10px]">
                   <span class="text-red-400">Red: Approved</span>
                   <span class="text-lime-400">Green: Saved</span>
@@ -127,7 +90,6 @@
                 <span class="rounded-full bg-emerald-600/20 px-3 py-1 text-xs font-bold text-emerald-400">
                   Approved: {{ item.approved_count || 0 }}
                 </span>
-
                 <span class="rounded-full bg-red-600/20 px-3 py-1 text-xs font-bold text-red-400">
                   Return: {{ item.return_count || 0 }}
                 </span>
@@ -160,252 +122,241 @@
           :key="delivery.id"
           class="rounded-[22px] border border-white/10 bg-zinc-900 p-5 shadow-xl"
         >
-          <h2 class="text-xl font-bold text-white">
-            {{ delivery.title }}
-          </h2>
-
-          <p class="mt-3 text-sm text-zinc-400">
-            Supplier: {{ delivery.supplier || 'No supplier' }}
-          </p>
-
-          <p class="mt-2 text-sm font-bold text-red-400">
-            {{ formatDate(delivery.delivery_date) }}
-          </p>
-
-          <p class="mt-2 text-sm text-emerald-400">
-            {{ delivery.status || 'Scheduled' }}
-          </p>
+          <h2 class="text-xl font-bold text-white">{{ delivery.title }}</h2>
+          <p class="mt-3 text-sm text-zinc-400">Supplier: {{ delivery.supplier || 'No supplier' }}</p>
+          <p class="mt-2 text-sm font-bold text-red-400">{{ formatDate(delivery.delivery_date) }}</p>
+          <p class="mt-2 text-sm text-emerald-400">{{ delivery.status || 'Scheduled' }}</p>
         </div>
       </div>
     </div>
 
-    <!-- MODAL -->
+    <!-- LANDSCAPE MODAL -->
     <div
       v-if="selectedProduct"
       class="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4"
       @click.self="closePanel"
     >
-      <div class="w-full max-w-md rounded-2xl border border-white/10 bg-zinc-900 p-5">
-        <h2 class="mb-3 text-2xl font-bold text-white">
-          Approval Inspection
-        </h2>
+      <div class="w-full max-w-5xl rounded-2xl border border-white/10 bg-zinc-900 overflow-hidden">
 
-        <p class="text-sm text-zinc-300">
-          <b>Product:</b> {{ selectedProduct.name }}
-        </p>
-
-        <p class="text-sm text-zinc-300">
-          <b>Category:</b> {{ selectedProduct.category || 'Uncategorized' }}
-        </p>
-
-        <p class="text-sm text-zinc-300">
-          <b>Quantity:</b> {{ selectedProduct.quantity }}
-        </p>
-
-        <p class="text-sm text-zinc-300">
-          <b>Admin Approved:</b> {{ adminApprovedQty(selectedProduct) }}
-        </p>
-
-        <p class="text-sm text-lime-400">
-          <b>Saved Not Submitted:</b> {{ savedQty(selectedProduct) }}
-        </p>
-
-        <p class="text-sm text-yellow-400">
-          <b>Submitted to Admin:</b> {{ submittedQty(selectedProduct) }}
-        </p>
-
-        <p class="mb-4 text-sm font-bold text-yellow-400">
-          <b>Remaining:</b> {{ remainingInspectable(selectedProduct) }}
-        </p>
-
-        <!-- MODAL PROGRESS -->
-        <div class="mb-4 rounded-xl border border-white/10 bg-black p-3">
-          <div class="mb-1 flex justify-between text-xs">
-            <span class="text-zinc-400">Inspection Progress</span>
-            <span class="font-bold text-white">
-              {{ liveTotalProgressPercent }}%
-            </span>
-          </div>
-
-          <div class="flex h-2 w-full overflow-hidden rounded-full bg-zinc-800">
-            <div
-              class="h-full bg-red-600 transition-all duration-300"
-              :style="{ width: approvedSegmentPercent + '%' }"
-            ></div>
-
-            <div
-              class="h-full bg-lime-400 transition-all duration-300"
-              :style="{ width: savedSegmentPercent + '%' }"
-            ></div>
-
-            <div
-              class="h-full bg-yellow-400 transition-all duration-300"
-              :style="{ width: submittedSegmentPercent + '%' }"
-            ></div>
-          </div>
-
-          <div class="mt-2 flex flex-wrap gap-3 text-[11px]">
-            <span class="text-red-400">Red: Approved</span>
-            <span class="text-lime-400">Green: Saved</span>
-            <span class="text-yellow-400">Yellow: Submitted</span>
-          </div>
-        </div>
-
-        <div class="mb-4 grid grid-cols-2 gap-4">
+        <!-- MODAL HEADER -->
+        <div class="flex items-center justify-between border-b border-white/10 px-6 py-4">
           <div>
-            <label class="mb-1 block text-xs text-zinc-300">
-              Approved Qty
-            </label>
-
-            <input
-              v-model.number="approvedQty"
-              type="number"
-              min="0"
-              :max="maxApprovedInput"
-              class="inspection-input"
-              @input="limitApproved"
-            />
-
-            <p class="mt-1 text-[10px] text-zinc-500">
-              Max: {{ maxApprovedInput }}
-            </p>
+            <h2 class="text-2xl font-bold text-white">{{ selectedProduct.name }}</h2>
+            <p class="text-sm text-red-400">{{ selectedProduct.category || 'Uncategorized' }}</p>
           </div>
-
-          <div>
-            <label class="mb-1 block text-xs text-zinc-300">
-              Return Qty
-            </label>
-
-            <input
-              v-model.number="returnQty"
-              type="number"
-              min="0"
-              :max="maxReturnInput"
-              class="inspection-input"
-              @input="limitReturn"
-            />
-
-            <p class="mt-1 text-[10px] text-zinc-500">
-              Max: {{ maxReturnInput }}
-            </p>
-          </div>
-        </div>
-
-        <p class="mb-2 text-xs text-zinc-400">
-          Total current input:
-          {{ liveInputQty }} / {{ availableForEditing }}
-        </p>
-
-        <!-- SAVED INSPECTIONS -->
-        <div
-          v-if="selectedProductSavedList.length > 0"
-          class="mb-4 rounded-xl border border-lime-500/20 bg-lime-500/10 p-3"
-        >
-          <h3 class="mb-2 text-sm font-bold text-lime-400">
-            Saved Inspections Not Submitted
-          </h3>
-
-          <div
-            v-for="approval in selectedProductSavedList"
-            :key="approval.id"
-            class="mb-2 rounded-lg bg-black p-3"
-          >
-            <p class="text-sm text-white">
-              Approved: {{ approval.approved_qty }} |
-              Return: {{ approval.return_qty }}
-            </p>
-
-            <p class="text-xs text-zinc-400">
-              Total:
-              {{ Number(approval.approved_qty || 0) + Number(approval.return_qty || 0) }}
-              <span v-if="approval.requested_by">
-                • {{ approval.requested_by }}
-              </span>
-            </p>
-
-            <div v-if="isMyApproval(approval)" class="mt-2 flex gap-2">
-              <button
-                class="flex-1 rounded-lg bg-yellow-500 py-2 text-xs font-bold text-black hover:bg-yellow-400"
-                @click="submitSavedApproval(approval)"
-              >
-                Submit
-              </button>
-
-              <button
-                class="flex-1 rounded-lg bg-red-600 py-2 text-xs font-bold text-white hover:bg-red-700"
-                @click="removeSavedInspection(approval)"
-              >
-                Remove
-              </button>
-            </div>
-
-            <p v-else class="mt-2 rounded-lg bg-zinc-800 p-2 text-xs text-zinc-400">
-              Other staff inspection. Read-only.
-            </p>
-          </div>
-        </div>
-
-        <!-- SUBMITTED INSPECTIONS -->
-        <div
-          v-if="selectedProductSubmittedList.length > 0"
-          class="mb-4 rounded-xl border border-yellow-500/20 bg-yellow-500/10 p-3"
-        >
-          <h3 class="mb-2 text-sm font-bold text-yellow-400">
-            Submitted to Admin
-          </h3>
-
-          <div
-            v-for="approval in selectedProductSubmittedList"
-            :key="approval.id"
-            class="mb-2 rounded-lg bg-black p-3"
-          >
-            <p class="text-sm text-white">
-              Approved: {{ approval.approved_qty }} |
-              Return: {{ approval.return_qty }}
-            </p>
-
-            <p class="text-xs text-zinc-400">
-              Total:
-              {{ Number(approval.approved_qty || 0) + Number(approval.return_qty || 0) }}
-              <span v-if="approval.requested_by">
-                • {{ approval.requested_by }}
-              </span>
-            </p>
-
-            <p class="mt-2 rounded-lg bg-zinc-800 p-2 text-xs text-zinc-400">
-              Waiting for admin approval.
-            </p>
-          </div>
-        </div>
-
-        <p
-          v-if="panelMessage"
-          class="mb-3 rounded-lg bg-emerald-600/20 p-2 text-xs text-emerald-400"
-        >
-          {{ panelMessage }}
-        </p>
-
-        <p
-          v-if="panelError"
-          class="mb-3 rounded-lg bg-red-600/20 p-2 text-xs text-red-400"
-        >
-          {{ panelError }}
-        </p>
-
-        <div class="flex flex-col gap-2">
           <button
-            class="w-full rounded-lg bg-red-600 py-2 text-sm font-semibold text-white hover:bg-red-700"
-            @click="saveInspection"
-          >
-            {{ editingApprovalId ? 'Update My Saved Inspection' : 'Save Inspection' }}
-          </button>
-
-          <button
-            class="w-full rounded-lg bg-zinc-800 py-2 text-sm font-semibold text-white hover:bg-zinc-700"
+            class="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-xl text-white hover:bg-white/20"
             @click="closePanel"
           >
-            Close
+            ×
           </button>
+        </div>
+
+        <!-- TWO COLUMN BODY -->
+        <div class="grid grid-cols-2 gap-0 max-h-[80vh] overflow-y-auto">
+
+          <!-- LEFT: INFO + INPUTS -->
+          <div class="border-r border-white/10 p-6 space-y-5">
+
+            <!-- STATS -->
+            <div class="grid grid-cols-2 gap-3">
+              <div class="rounded-xl bg-black p-3">
+                <p class="text-xs text-zinc-500 mb-1">Quantity</p>
+                <p class="text-xl font-bold text-white">{{ selectedProduct.quantity }}</p>
+              </div>
+              <div class="rounded-xl bg-black p-3">
+                <p class="text-xs text-zinc-500 mb-1">Admin Approved</p>
+                <p class="text-xl font-bold text-white">{{ adminApprovedQty(selectedProduct) }}</p>
+              </div>
+              <div class="rounded-xl bg-black p-3">
+                <p class="text-xs text-zinc-500 mb-1">Saved</p>
+                <p class="text-xl font-bold text-lime-400">{{ savedQty(selectedProduct) }}</p>
+              </div>
+              <div class="rounded-xl bg-black p-3">
+                <p class="text-xs text-zinc-500 mb-1">Submitted</p>
+                <p class="text-xl font-bold text-yellow-400">{{ submittedQty(selectedProduct) }}</p>
+              </div>
+              <div class="col-span-2 rounded-xl bg-black p-3">
+                <p class="text-xs text-zinc-500 mb-1">Remaining</p>
+                <p class="text-xl font-bold text-yellow-400">{{ remainingInspectable(selectedProduct) }}</p>
+              </div>
+            </div>
+
+            <!-- PROGRESS BAR -->
+            <div class="rounded-xl border border-white/10 bg-black p-4">
+              <div class="mb-2 flex justify-between text-xs">
+                <span class="text-zinc-400">Inspection Progress</span>
+                <span class="font-bold text-white">{{ liveTotalProgressPercent }}%</span>
+              </div>
+              <div class="flex h-3 w-full overflow-hidden rounded-full bg-zinc-800">
+                <div
+                  class="h-full bg-red-600 transition-all duration-300"
+                  :style="{ width: approvedSegmentPercent + '%' }"
+                ></div>
+                <div
+                  class="h-full bg-lime-400 transition-all duration-300"
+                  :style="{ width: savedSegmentPercent + '%' }"
+                ></div>
+                <div
+                  class="h-full bg-yellow-400 transition-all duration-300"
+                  :style="{ width: submittedSegmentPercent + '%' }"
+                ></div>
+              </div>
+              <div class="mt-3 flex flex-wrap gap-3 text-[11px]">
+                <span class="text-red-400">● Red: Approved</span>
+                <span class="text-lime-400">● Green: Saved</span>
+                <span class="text-yellow-400">● Yellow: Submitted</span>
+              </div>
+            </div>
+
+            <!-- INPUTS -->
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <label class="mb-1 block text-xs text-zinc-300">Approved Qty</label>
+                <input
+                  v-model.number="approvedQty"
+                  type="number"
+                  min="0"
+                  :max="maxApprovedInput"
+                  class="inspection-input"
+                  @input="limitApproved"
+                />
+                <p class="mt-1 text-[10px] text-zinc-500">Max: {{ maxApprovedInput }}</p>
+              </div>
+              <div>
+                <label class="mb-1 block text-xs text-zinc-300">Return Qty</label>
+                <input
+                  v-model.number="returnQty"
+                  type="number"
+                  min="0"
+                  :max="maxReturnInput"
+                  class="inspection-input"
+                  @input="limitReturn"
+                />
+                <p class="mt-1 text-[10px] text-zinc-500">Max: {{ maxReturnInput }}</p>
+              </div>
+            </div>
+
+            <p class="text-xs text-zinc-400">
+              Total current input: {{ liveInputQty }} / {{ availableForEditing }}
+            </p>
+
+            <!-- MESSAGES -->
+            <p v-if="panelMessage" class="rounded-lg bg-emerald-600/20 p-3 text-xs text-emerald-400">
+              {{ panelMessage }}
+            </p>
+            <p v-if="panelError" class="rounded-lg bg-red-600/20 p-3 text-xs text-red-400">
+              {{ panelError }}
+            </p>
+
+            <!-- ACTION BUTTONS -->
+            <div class="flex flex-col gap-2">
+              <button
+                class="w-full rounded-lg bg-red-600 py-3 text-sm font-semibold text-white hover:bg-red-700"
+                @click="saveInspection"
+              >
+                {{ editingApprovalId ? 'Update My Saved Inspection' : 'Save Inspection' }}
+              </button>
+              <button
+                class="w-full rounded-lg bg-zinc-800 py-3 text-sm font-semibold text-white hover:bg-zinc-700"
+                @click="closePanel"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+
+          <!-- RIGHT: SAVED + SUBMITTED LISTS -->
+          <div class="p-6 space-y-5 overflow-y-auto">
+
+            <!-- SAVED INSPECTIONS -->
+            <div v-if="selectedProductSavedList.length > 0">
+              <h3 class="mb-3 text-sm font-bold text-lime-400 flex items-center gap-2">
+                <span class="inline-block h-2 w-2 rounded-full bg-lime-400"></span>
+                Saved Inspections Not Submitted
+              </h3>
+              <div class="space-y-3">
+                <div
+                  v-for="approval in selectedProductSavedList"
+                  :key="approval.id"
+                  class="rounded-xl border border-lime-500/20 bg-black p-4"
+                >
+                  <div class="flex items-start justify-between mb-2">
+                    <div>
+                      <p class="text-sm font-bold text-white">
+                        Approved: {{ approval.approved_qty }} | Return: {{ approval.return_qty }}
+                      </p>
+                      <p class="text-xs text-zinc-400 mt-1">
+                        Total: {{ Number(approval.approved_qty || 0) + Number(approval.return_qty || 0) }}
+                        <span v-if="approval.requested_by"> • {{ approval.requested_by }}</span>
+                      </p>
+                    </div>
+                    <span class="rounded-full bg-lime-500/20 px-2 py-1 text-[10px] font-bold text-lime-400">Saved</span>
+                  </div>
+                  <div v-if="isMyApproval(approval)" class="flex gap-2 mt-3">
+                    <button
+                      class="flex-1 rounded-lg bg-yellow-500 py-2 text-xs font-bold text-black hover:bg-yellow-400"
+                      @click="submitSavedApproval(approval)"
+                    >
+                      Submit
+                    </button>
+                    <button
+                      class="flex-1 rounded-lg bg-red-600 py-2 text-xs font-bold text-white hover:bg-red-700"
+                      @click="removeSavedInspection(approval)"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                  <p v-else class="mt-2 rounded-lg bg-zinc-800 p-2 text-xs text-zinc-400">
+                    Other staff inspection. Read-only.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <!-- SUBMITTED INSPECTIONS -->
+            <div v-if="selectedProductSubmittedList.length > 0">
+              <h3 class="mb-3 text-sm font-bold text-yellow-400 flex items-center gap-2">
+                <span class="inline-block h-2 w-2 rounded-full bg-yellow-400"></span>
+                Submitted to Admin
+              </h3>
+              <div class="space-y-3">
+                <div
+                  v-for="approval in selectedProductSubmittedList"
+                  :key="approval.id"
+                  class="rounded-xl border border-yellow-500/20 bg-black p-4"
+                >
+                  <div class="flex items-start justify-between mb-2">
+                    <div>
+                      <p class="text-sm font-bold text-white">
+                        Approved: {{ approval.approved_qty }} | Return: {{ approval.return_qty }}
+                      </p>
+                      <p class="text-xs text-zinc-400 mt-1">
+                        Total: {{ Number(approval.approved_qty || 0) + Number(approval.return_qty || 0) }}
+                        <span v-if="approval.requested_by"> • {{ approval.requested_by }}</span>
+                      </p>
+                    </div>
+                    <span class="rounded-full bg-yellow-500/20 px-2 py-1 text-[10px] font-bold text-yellow-400">Submitted</span>
+                  </div>
+                  <p class="mt-2 rounded-lg bg-zinc-800 p-2 text-xs text-zinc-400">
+                    Waiting for admin approval.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <!-- EMPTY STATE -->
+            <div
+              v-if="selectedProductSavedList.length === 0 && selectedProductSubmittedList.length === 0"
+              class="flex h-full min-h-[200px] flex-col items-center justify-center text-center text-zinc-600"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" class="mb-3 h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              <p class="text-sm">No inspections yet.</p>
+              <p class="text-xs mt-1">Save an inspection to see it here.</p>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -441,47 +392,38 @@ const groupedInspectionDates = computed(() => {
 
   inspections.value.forEach(product => {
     if (!product.inspection_date) return
-
     if (!grouped[product.inspection_date]) {
       grouped[product.inspection_date] = []
     }
-
     grouped[product.inspection_date].push(product)
   })
 
   return Object.keys(grouped)
     .sort((a, b) => new Date(a) - new Date(b))
-    .map(date => ({
-      date,
-      items: grouped[date],
-    }))
+    .map(date => ({ date, items: grouped[date] }))
 })
 
 const selectedProductSavedList = computed(() => {
   if (!selectedProduct.value) return []
-
-  return approvals.value.filter(item => {
-    return item.product_id === selectedProduct.value.id && item.status === 'saved'
-  })
+  return approvals.value.filter(item =>
+    item.product_id === selectedProduct.value.id && item.status === 'saved'
+  )
 })
 
 const selectedProductSubmittedList = computed(() => {
   if (!selectedProduct.value) return []
-
-  return approvals.value.filter(item => {
-    return item.product_id === selectedProduct.value.id && item.status === 'submitted'
-  })
+  return approvals.value.filter(item =>
+    item.product_id === selectedProduct.value.id && item.status === 'submitted'
+  )
 })
 
 const currentEditingApproval = computed(() => {
   if (!editingApprovalId.value) return null
-
   return approvals.value.find(item => item.id === editingApprovalId.value) || null
 })
 
 const oldEditingQty = computed(() => {
   if (!currentEditingApproval.value) return 0
-
   return (
     Number(currentEditingApproval.value.approved_qty || 0) +
     Number(currentEditingApproval.value.return_qty || 0)
@@ -494,11 +436,8 @@ const liveInputQty = computed(() => {
 
 const availableForEditing = computed(() => {
   if (!selectedProduct.value) return 0
-
   const baseRemaining = remainingInspectable(selectedProduct.value)
-
   if (!currentEditingApproval.value) return baseRemaining
-
   return baseRemaining + oldEditingQty.value
 })
 
@@ -512,32 +451,23 @@ const maxReturnInput = computed(() => {
 
 const approvedSegmentPercent = computed(() => {
   if (!selectedProduct.value) return 0
-
   return percent(adminApprovedQty(selectedProduct.value), selectedProduct.value.quantity)
 })
 
 const savedSegmentPercent = computed(() => {
   if (!selectedProduct.value) return 0
-
-  const liveSaved =
-    savedQty(selectedProduct.value) -
-    oldEditingQty.value +
-    liveInputQty.value
-
+  const liveSaved = savedQty(selectedProduct.value) - oldEditingQty.value + liveInputQty.value
   return percent(liveSaved, selectedProduct.value.quantity)
 })
 
 const submittedSegmentPercent = computed(() => {
   if (!selectedProduct.value) return 0
-
   return percent(submittedQty(selectedProduct.value), selectedProduct.value.quantity)
 })
 
 const liveTotalProgressPercent = computed(() => {
   return Math.min(
-    approvedSegmentPercent.value +
-    savedSegmentPercent.value +
-    submittedSegmentPercent.value,
+    approvedSegmentPercent.value + savedSegmentPercent.value + submittedSegmentPercent.value,
     100
   )
 })
@@ -598,9 +528,9 @@ async function fetchDeliveries() {
 }
 
 function productApprovals(product, status) {
-  return approvals.value.filter(item => {
-    return item.product_id === product.id && item.status === status
-  })
+  return approvals.value.filter(item =>
+    item.product_id === product.id && item.status === status
+  )
 }
 
 function approvalTotal(list) {
@@ -623,12 +553,8 @@ function adminApprovedQty(product) {
 
 function remainingInspectable(product) {
   const quantity = Number(product.quantity || 0)
-
   return Math.max(
-    quantity -
-      adminApprovedQty(product) -
-      savedQty(product) -
-      submittedQty(product),
+    quantity - adminApprovedQty(product) - savedQty(product) - submittedQty(product),
     0
   )
 }
@@ -636,7 +562,6 @@ function remainingInspectable(product) {
 function percent(value, quantity) {
   const total = Number(quantity || 0)
   if (total <= 0) return 0
-
   return Math.min(Math.round((Number(value || 0) / total) * 100), 100)
 }
 
@@ -655,8 +580,8 @@ function submittedPercentByProduct(product) {
 function totalProgressPercent(product) {
   return Math.min(
     approvedPercentByProduct(product) +
-      savedPercentByProduct(product) +
-      submittedPercentByProduct(product),
+    savedPercentByProduct(product) +
+    submittedPercentByProduct(product),
     100
   )
 }
@@ -670,13 +595,11 @@ function openPanel(product) {
   panelError.value = ''
   panelMessage.value = ''
 
-  const mine = approvals.value.find(item => {
-    return (
-      item.product_id === product.id &&
-      item.status === 'saved' &&
-      item.requested_by === currentStaffName
-    )
-  })
+  const mine = approvals.value.find(item =>
+    item.product_id === product.id &&
+    item.status === 'saved' &&
+    item.requested_by === currentStaffName
+  )
 
   if (mine) {
     editingApprovalId.value = mine.id
@@ -701,14 +624,11 @@ function closePanel() {
 function limitApproved() {
   let approved = Number(approvedQty.value || 0)
   let returned = Number(returnQty.value || 0)
-
   if (approved < 0) approved = 0
   if (returned < 0) returned = 0
-
   if (approved + returned > availableForEditing.value) {
     approved = availableForEditing.value - returned
   }
-
   approvedQty.value = Math.max(approved, 0)
   returnQty.value = Math.max(returned, 0)
 }
@@ -716,14 +636,11 @@ function limitApproved() {
 function limitReturn() {
   let approved = Number(approvedQty.value || 0)
   let returned = Number(returnQty.value || 0)
-
   if (approved < 0) approved = 0
   if (returned < 0) returned = 0
-
   if (approved + returned > availableForEditing.value) {
     returned = availableForEditing.value - approved
   }
-
   approvedQty.value = Math.max(approved, 0)
   returnQty.value = Math.max(returned, 0)
 }
@@ -790,13 +707,11 @@ async function saveInspection() {
 
   await fetchAll()
 
-  const latestMine = approvals.value.find(item => {
-    return (
-      item.product_id === selectedProduct.value.id &&
-      item.status === 'saved' &&
-      item.requested_by === currentStaffName
-    )
-  })
+  const latestMine = approvals.value.find(item =>
+    item.product_id === selectedProduct.value.id &&
+    item.status === 'saved' &&
+    item.requested_by === currentStaffName
+  )
 
   if (latestMine) {
     editingApprovalId.value = latestMine.id
@@ -813,9 +728,7 @@ async function submitSavedApproval(approval) {
 
   const { error: updateError } = await supabase
     .from('inspection_approvals')
-    .update({
-      status: 'submitted',
-    })
+    .update({ status: 'submitted' })
     .eq('id', approval.id)
 
   if (updateError) {
@@ -823,9 +736,7 @@ async function submitSavedApproval(approval) {
     return
   }
 
-  const total =
-    Number(approval.approved_qty || 0) +
-    Number(approval.return_qty || 0)
+  const total = Number(approval.approved_qty || 0) + Number(approval.return_qty || 0)
 
   const { error: notifError } = await supabase.from('notifications').insert({
     title: 'Inspection Approval Request',
@@ -868,7 +779,6 @@ async function removeSavedInspection(approval) {
   }
 
   panelMessage.value = 'Saved inspection removed.'
-
   approvedQty.value = 0
   returnQty.value = 0
   editingApprovalId.value = null
@@ -878,7 +788,6 @@ async function removeSavedInspection(approval) {
 
 function formatDate(date) {
   if (!date) return 'No date'
-
   return new Date(date).toLocaleDateString(undefined, {
     year: 'numeric',
     month: 'long',
@@ -924,4 +833,4 @@ function formatDate(date) {
 .inspection-input:focus {
   border-color: rgb(239 68 68);
 }
-</style>
+</style>  
