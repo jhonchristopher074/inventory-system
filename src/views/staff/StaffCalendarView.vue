@@ -726,28 +726,12 @@ async function submitSavedApproval(approval) {
     return
   }
 
-  const { error: updateError } = await supabase
-    .from('inspection_approvals')
-    .update({ status: 'submitted' })
-    .eq('id', approval.id)
-
-  if (updateError) {
-    panelError.value = updateError.message
-    return
-  }
-
-  const total = Number(approval.approved_qty || 0) + Number(approval.return_qty || 0)
-
-  const { error: notifError } = await supabase.from('notifications').insert({
-    title: 'Inspection Approval Request',
-    message: `${approval.product_name} has ${total} item(s) waiting for admin approval.`,
-    type: 'inspection_approval',
-    product_id: approval.product_id,
-    is_read: false,
+  const { error } = await supabase.rpc('submit_inspection_approval', {
+    p_approval_id: approval.id,
   })
 
-  if (notifError) {
-    panelError.value = notifError.message
+  if (error) {
+    panelError.value = error.message
     return
   }
 
@@ -833,4 +817,4 @@ function formatDate(date) {
 .inspection-input:focus {
   border-color: rgb(239 68 68);
 }
-</style>  
+</style>

@@ -708,33 +708,15 @@ async function saveSchedule() {
       return
     }
 
-    const { error } = await supabase
-      .from('products')
-      .update({
-        inspection_date: newSchedule.value.date,
-        approved_count: 0,
-        return_count: 0,
-        inspection_result: null,
-      })
-      .eq('id', newSchedule.value.product_id)
+    const { error } = await supabase.rpc('schedule_inspection', {
+      p_product_id: newSchedule.value.product_id,
+      p_date: newSchedule.value.date,
+    })
 
     if (error) {
       modalError.value = error.message
       return
     }
-
-    await supabase
-      .from('inspection_approvals')
-      .delete()
-      .eq('product_id', newSchedule.value.product_id)
-
-    await supabase.from('notifications').insert({
-      title: 'Inspection Scheduled',
-      message: 'A product inspection schedule was created.',
-      type: 'inspection',
-      product_id: newSchedule.value.product_id,
-      is_read: false,
-    })
   }
 
   if (newSchedule.value.type === 'delivery') {

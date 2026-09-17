@@ -294,28 +294,19 @@ async function submitReport() {
 
   const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}')
 
-  const { error } = await supabase.from('notifications').insert({
-    title: `Product Report: ${reportType.value}`,
-    message: `${selectedProduct.value.name} - ${reportDescription.value.trim()}`,
-    type: 'report',
-    product_id: selectedProduct.value.id,
-    is_read: false,
-    link: '/inventory',
+  const { error } = await supabase.rpc('submit_product_report', {
+    p_product_id: selectedProduct.value.id,
+    p_product_name: selectedProduct.value.name,
+    p_report_type: reportType.value,
+    p_description: reportDescription.value.trim(),
+    p_reported_by: currentUser.full_name || currentUser.email || 'Staff',
+    p_image_url: selectedProduct.value.image_url || null,
   })
 
   if (error) {
     modalError.value = error.message
     return
   }
-
-  await supabase.from('documentations').insert({
-    product_id: selectedProduct.value.id,
-    type: 'Product Report',
-    description: `Reported by ${
-      currentUser.full_name || currentUser.email || 'Staff'
-    }. Issue: ${reportType.value}. Details: ${reportDescription.value.trim()}`,
-    image_url: selectedProduct.value.image_url || null,
-  })
 
   modalSuccess.value = 'Product report submitted successfully.'
   reportDescription.value = ''

@@ -332,69 +332,26 @@ async function checkout() {
     return
   }
 
-  const { data: sale, error: saleError } = await supabase
-    .from('sales')
-    .insert({
-      cashier_id: currentCashier.value.id,
-      cashier_name: currentCashier.value.full_name,
-      cashier_email: currentCashier.value.email,
-      total_amount: totalAmount.value,
-    })
-    .select()
-    .single()
+  const { data: sale, error: saleError } = await supabase.rpc('process_sale', {
+    p_cashier_id: currentCashier.value.id,
+    p_cashier_name: currentCashier.value.full_name,
+    p_cashier_email: currentCashier.value.email,
+    p_items: cart.value.map(item => ({
+      product_id: item.id,
+      quantity: item.cartQty,
+    })),
+  })
 
   if (saleError) {
+    // e.g. "Insufficient stock for ...", "Product ... not found or unavailable"
     errorMessage.value = saleError.message
     checkingOut.value = false
     return
   }
 
-  const saleItems = cart.value.map(item => ({
-    sale_id: sale.id,
-    product_id: item.id,
-    product_name: item.name,
-    quantity: item.cartQty,
-    price: item.price,
-    subtotal: item.price * item.cartQty,
-  }))
-
-  const { error: itemsError } = await supabase
-    .from('sale_items')
-    .insert(saleItems)
-
-  if (itemsError) {
-    errorMessage.value = itemsError.message
-    checkingOut.value = false
-    return
-  }
-
-  for (const item of cart.value) {
-    const newQuantity = Number(item.quantity) - Number(item.cartQty)
-
-    const { error: updateError } = await supabase
-      .from('products')
-      .update({ quantity: newQuantity })
-      .eq('id', item.id)
-
-    if (updateError) {
-      errorMessage.value = updateError.message
-      checkingOut.value = false
-      return
-    }
-  }
-
-  await supabase.from('notifications').insert({
-    title: 'New Sale Completed',
-    message: `${currentCashier.value.full_name} completed sale #${sale.id} worth ₱${totalAmount.value.toFixed(2)}.`,
-    type: 'sale',
-    is_read: false,
-  })
-
   receipt.value = {
     ...sale,
-    cashier_name: currentCashier.value.full_name,
-    cashier_email: currentCashier.value.email,
-    items: saleItems,
+    items: sale.items,
   }
 
   successMessage.value = 'Sale completed successfully.'

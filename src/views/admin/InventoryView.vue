@@ -561,26 +561,14 @@ function closeActionModal() {
 async function confirmArchive() {
   if (!draggedProduct.value) return
 
-  const { error } = await supabase
-    .from('products')
-    .update({
-      is_archived: true,
-      is_deleted: false,
-    })
-    .eq('id', draggedProduct.value.id)
+  const { error } = await supabase.rpc('confirm_archive', {
+    p_product_id: draggedProduct.value.id,
+  })
 
   if (error) {
     modalError.value = error.message
     return
   }
-
-  await supabase.from('notifications').insert({
-    title: 'Product Archived',
-    message: `${draggedProduct.value.name} was moved to Archived.`,
-    type: 'archive',
-    product_id: draggedProduct.value.id,
-    is_read: false,
-  })
 
   actionModal.value = false
   draggedProduct.value = null
@@ -610,29 +598,15 @@ async function addStock() {
     return
   }
 
-  const newQty =
-    Number(stockProduct.value.quantity || 0) +
-    Number(stockAmount.value)
-
-  const { error } = await supabase
-    .from('products')
-    .update({
-      quantity: newQty,
-    })
-    .eq('id', stockProduct.value.id)
+  const { error } = await supabase.rpc('add_stock', {
+    p_product_id: stockProduct.value.id,
+    p_amount: Number(stockAmount.value),
+  })
 
   if (error) {
     stockError.value = error.message
     return
   }
-
-  await supabase.from('notifications').insert({
-    title: 'Stock Added',
-    message: `${stockAmount.value} stock added to ${stockProduct.value.name}.`,
-    type: 'restore',
-    product_id: stockProduct.value.id,
-    is_read: false,
-  })
 
   closeStockModal()
   await fetchProducts()
@@ -651,31 +625,18 @@ async function addProduct() {
     return
   }
 
-  const { error } = await supabase
-    .from('products')
-    .insert({
-      name: newProduct.value.name.trim(),
-      category: newProduct.value.category.trim() || 'Uncategorized',
-      quantity: Number(newProduct.value.quantity || 0),
-      price: Number(newProduct.value.price || 0),
-      image_url: newProduct.value.image_url.trim() || null,
-      is_archived: false,
-      is_deleted: false,
-      approved_count: 0,
-      return_count: 0,
-    })
+  const { error } = await supabase.rpc('add_product', {
+    p_name: newProduct.value.name.trim(),
+    p_category: newProduct.value.category.trim(),
+    p_quantity: Number(newProduct.value.quantity || 0),
+    p_price: Number(newProduct.value.price || 0),
+    p_image_url: newProduct.value.image_url.trim(),
+  })
 
   if (error) {
     addError.value = error.message
     return
   }
-
-  await supabase.from('notifications').insert({
-    title: 'Product Added',
-    message: `${newProduct.value.name} was added to inventory.`,
-    type: 'restore',
-    is_read: false,
-  })
 
   newProduct.value = {
     name: '',
@@ -722,25 +683,15 @@ async function handleImageUpload(event) {
 async function setInspectionDate() {
   if (!selectedProduct.value || !inspectionDate.value) return
 
-  const { error } = await supabase
-    .from('products')
-    .update({
-      inspection_date: inspectionDate.value,
-    })
-    .eq('id', selectedProduct.value.id)
+  const { error } = await supabase.rpc('set_inspection_date', {
+    p_product_id: selectedProduct.value.id,
+    p_date: inspectionDate.value,
+  })
 
   if (error) {
     alert(error.message)
     return
   }
-
-  await supabase.from('notifications').insert({
-    title: 'Inspection Date Set',
-    message: `${selectedProduct.value.name} inspection date was set.`,
-    type: 'inspection',
-    product_id: selectedProduct.value.id,
-    is_read: false,
-  })
 
   selectedProduct.value = null
 

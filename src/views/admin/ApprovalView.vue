@@ -121,63 +121,17 @@ async function approveInspection(approval) {
   errorMessage.value = ''
   successMessage.value = ''
 
-  const { data: product, error: productError } = await supabase
-    .from('products')
-    .select('*')
-    .eq('id', approval.product_id)
-    .single()
-
-  if (productError) {
-    errorMessage.value = productError.message
-    return
-  }
-
-  const newApproved =
-    Number(product.approved_count || 0) +
-    Number(approval.approved_qty || 0)
-
-  const newReturn =
-    Number(product.return_count || 0) +
-    Number(approval.return_qty || 0)
-
-  if (newApproved + newReturn > Number(product.quantity || 0)) {
-    errorMessage.value = 'Approved + Return cannot exceed product quantity.'
-    return
-  }
-
-  const { error: productUpdateError } = await supabase
-    .from('products')
-    .update({
-      approved_count: newApproved,
-      return_count: newReturn,
-      inspection_result: newReturn > 0 ? 'return' : 'approved',
-    })
-    .eq('id', approval.product_id)
-
-  if (productUpdateError) {
-    errorMessage.value = productUpdateError.message
-    return
-  }
-
-  const { error: approvalUpdateError } = await supabase
-    .from('inspection_approvals')
-    .update({
-      status: 'approved',
-    })
-    .eq('id', approval.id)
-
-  if (approvalUpdateError) {
-    errorMessage.value = approvalUpdateError.message
-    return
-  }
-
-  await supabase.from('notifications').insert({
-    title: 'Inspection Approved',
-    message: `${approval.product_name} inspection was approved by admin.`,
-    type: 'inspection',
-    product_id: approval.product_id,
-    is_read: false,
+  const { error } = await supabase.rpc('approve_inspection', {
+    p_approval_id: approval.id,
+    p_approved_qty: Number(approval.approved_qty || 0),
+    p_return_qty: Number(approval.return_qty || 0),
   })
+
+  if (error) {
+    // e.g. "Approved + Return cannot exceed product quantity"
+    errorMessage.value = error.message
+    return
+  }
 
   successMessage.value = 'Inspection approved successfully.'
   await fetchApprovals()
@@ -187,25 +141,14 @@ async function rejectInspection(approval) {
   errorMessage.value = ''
   successMessage.value = ''
 
-  const { error } = await supabase
-    .from('inspection_approvals')
-    .update({
-      status: 'rejected',
-    })
-    .eq('id', approval.id)
+  const { error } = await supabase.rpc('reject_inspection', {
+    p_approval_id: approval.id,
+  })
 
   if (error) {
     errorMessage.value = error.message
     return
   }
-
-  await supabase.from('notifications').insert({
-    title: 'Inspection Rejected',
-    message: `${approval.product_name} inspection was rejected by admin.`,
-    type: 'inspection',
-    product_id: approval.product_id,
-    is_read: false,
-  })
 
   successMessage.value = 'Inspection rejected.'
   await fetchApprovals()

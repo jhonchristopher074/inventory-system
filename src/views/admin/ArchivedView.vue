@@ -207,46 +207,14 @@ async function confirmAction() {
 
   modalError.value = ''
 
-  let updateData = {}
-
-  if (actionType.value === 'restore') {
-    updateData = {
-      is_archived: false,
-      is_deleted: false,
-    }
-  }
-
-  if (actionType.value === 'delete') {
-    updateData = {
-      is_archived: true,
-      is_deleted: true,
-    }
-  }
-
-  const { error } = await supabase
-    .from('products')
-    .update(updateData)
-    .eq('id', draggedProduct.value.id)
+  const { error } = await supabase.rpc('archive_action', {
+    p_product_id: draggedProduct.value.id,
+    p_action: actionType.value,
+  })
 
   if (error) {
     modalError.value = error.message
     return
-  }
-
-  if (actionType.value === 'restore') {
-    await createNotification(
-      'Product Restored',
-      `${draggedProduct.value.name} was brought back to Inventory.`,
-      'restore'
-    )
-  }
-
-  if (actionType.value === 'delete') {
-    await createNotification(
-      'Product Deleted',
-      `${draggedProduct.value.name} was hidden from the system.`,
-      'archive'
-    )
   }
 
   actionModal.value = false
@@ -254,22 +222,6 @@ async function confirmAction() {
   draggedProduct.value = null
 
   await fetchArchivedProducts()
-}
-
-async function createNotification(title, message, type) {
-  if (!draggedProduct.value) return
-
-  const { error } = await supabase.from('notifications').insert({
-    title,
-    message,
-    type,
-    product_id: draggedProduct.value.id,
-    is_read: false,
-  })
-
-  if (error) {
-    console.error('NOTIFICATION ERROR:', error)
-  }
 }
 
 onMounted(fetchArchivedProducts)
