@@ -24,6 +24,8 @@ import StaffCalendarView from '../views/staff/StaffCalendarView.vue'
 import StaffDocumentationView from '../views/staff/StaffDocumentationView.vue'
 import StaffProfileView from '../views/staff/StaffProfileView.vue'
 
+import SupplierDropBoxView from '../views/supplier/SupplierDropBoxView.vue'
+
 const routes = [
   { path: '/login', component: LoginView },
 
@@ -47,6 +49,10 @@ const routes = [
   { path: '/staff/calendar', component: StaffCalendarView, meta: { requiresAuth: true, role: 'staff' } },
   { path: '/staff/documentation', component: StaffDocumentationView, meta: { requiresAuth: true, role: 'staff' } },
   { path: '/staff/profile', component: StaffProfileView, meta: { requiresAuth: true, role: 'staff' } },
+
+  { path: '/SupplierDropBoxView', component: SupplierDropBoxView, meta: { requiresAuth: true, role: 'supplier' } },
+
+  
 ]
 
 const router = createRouter({
@@ -79,12 +85,15 @@ router.beforeEach(async (to) => {
     if (role === 'admin') return '/'
     if (role === 'cashier') return '/cashier'
     if (role === 'staff') return '/staff'
+    if (role === 'supplier') return '/SupplierDropBoxView'
+  
   }
 
   if (to.meta.role && to.meta.role !== role) {
     if (role === 'admin') return '/'
     if (role === 'cashier') return '/cashier'
     if (role === 'staff') return '/staff'
+    if (role === 'supplier') return '/SupplierDropBoxView'
   }
 })
 

@@ -34,14 +34,22 @@
 
           <button @click="logout" class="logout-btn">Logout</button>
         </nav>
+     
 
         <!-- STAFF -->
-        <nav v-else class="flex flex-col gap-2">
+        <nav v-else-if = "role === 'staff'" class="flex flex-col gap-2">
           <RouterLink to="/staff" class="nav-link" active-class="active-link">Dashboard</RouterLink>
           <RouterLink to="/staff/inventory" class="nav-link" active-class="active-link">Inventory</RouterLink>
           <RouterLink to="/staff/calendar" class="nav-link" active-class="active-link">Inspection Calendar</RouterLink>
           <RouterLink to="/staff/documentation" class="nav-link" active-class="active-link">Documentation</RouterLink>
           <RouterLink to="/staff/profile" class="nav-link" active-class="active-link">Profile</RouterLink>
+
+          <button @click="logout" class="logout-btn">Logout</button>
+        </nav>
+
+          <!-- SUPPLIER -->
+        <nav v-else" class="flex flex-col gap-2">
+          <RouterLink to="SupplierDropBoxView" class="nav-link" active-class="active-link">Dashboard</RouterLink>
 
           <button @click="logout" class="logout-btn">Logout</button>
         </nav>
@@ -103,6 +111,8 @@ async function getUserRole() {
 }
 
 async function logout() {
+
+
   await supabase.auth.signOut()
   role.value = 'staff'
   router.push('/login')

@@ -137,7 +137,9 @@ async function login() {
     router.push('/')
   } else if (profile.role === 'staff') {
     router.push('/')
-  } else {
+  } else if (profile.role === 'supplier') {
+    router.push('/')
+  }else {
     router.push('/')
   }
 

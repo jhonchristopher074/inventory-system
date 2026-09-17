@@ -54,6 +54,7 @@
             <option value="staff">Staff</option>
             <option value="cashier">Cashier</option>
             <option value="admin">Admin</option>
+             <option value="supplier">Supplier</option>
           </select>
 
           <!-- ERROR -->
@@ -142,6 +143,7 @@
                 <option value="staff">Staff</option>
                 <option value="cashier">Cashier</option>
                 <option value="admin">Admin</option>
+                <option value="supplier">Supplier</option>
               </select>
 
               <!-- ENABLE / DISABLE -->
