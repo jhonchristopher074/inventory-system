@@ -73,13 +73,9 @@ router.beforeEach(async (to) => {
 
   if (!user) return
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
+  const { data: userRole } = await supabase.rpc('get_my_role')
 
-  const role = profile?.role
+  const role = userRole
 
   if (to.path === '/login') {
     if (role === 'admin') return '/'

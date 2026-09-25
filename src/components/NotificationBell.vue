@@ -75,6 +75,7 @@ const router = useRouter()
 const notifications = ref([])
 const showList = ref(false)
 const loading = ref(false)
+const role = ref('')
 
 let channel = null
 
@@ -86,14 +87,22 @@ function toggleList() {
   showList.value = !showList.value
 }
 
+async function fetchRole() {
+  const { data } = await supabase.rpc('get_my_role')
+  role.value = data || ''
+}
+
+// a notification is ours when it targets our role, or nobody in particular
+function isForMe(notif) {
+  return !notif.recipient_role || notif.recipient_role === role.value
+}
+
 async function fetchNotifications() {
   loading.value = true
 
-  const { data, error } = await supabase
-    .from('notifications')
-    .select('*')
-    .order('created_at', { ascending: false })
-    .limit(10)
+  const { data, error } = await supabase.rpc('list_notifications', {
+    p_limit: 10,
+  })
 
   if (!error) {
     notifications.value = data || []
@@ -115,6 +124,10 @@ function setupRealtime() {
         table: 'notifications',
       },
       (payload) => {
+        // realtime delivers every insert, so filter here the same way
+        // list_notifications does on the server
+        if (!isForMe(payload.new)) return
+
         notifications.value.unshift(payload.new)
 
         audio.currentTime = 0
@@ -131,41 +144,80 @@ function cleanupRealtime() {
 }
 
 async function openNotification(notif) {
-  await supabase
-    .from('notifications')
-    .update({ is_read: true })
-    .eq('id', notif.id)
+  await supabase.rpc('mark_notification_read', {
+    p_notification_id: notif.id,
+  })
 
   await fetchNotifications()
   showList.value = false
 
-  if (notif.type === 'low_stock') router.push('/inventory')
-  else if (notif.type === 'inspection') router.push('/calendar')
-  else if (notif.type === 'return') router.push('/calendar')
-  else if (notif.type === 'documentation') router.push('/documentation')
-  else if (notif.type === 'archive') router.push('/archived')
-  else if (notif.type === 'restore') router.push('/inventory')
-  else router.push('/')
+  router.push(destinationFor(notif.type))
 }
 
 async function markAllAsRead() {
-  await supabase
-    .from('notifications')
-    .update({ is_read: true })
-    .eq('is_read', false)
+  await supabase.rpc('mark_all_notifications_read')
 
   await fetchNotifications()
 }
 
-function badgeClass(type) {
-  if (type === 'low_stock') return 'bg-yellow-500/20 text-yellow-400'
-  if (type === 'inspection') return 'bg-blue-500/20 text-blue-400'
-  if (type === 'return') return 'bg-red-500/20 text-red-400'
-  if (type === 'documentation') return 'bg-emerald-500/20 text-emerald-400'
-  if (type === 'archive') return 'bg-zinc-500/20 text-zinc-300'
-  if (type === 'restore') return 'bg-emerald-500/20 text-emerald-400'
+// Each role has its own routes — sending staff to /inventory (admin only)
+// just bounced them back via the router guard.
+const ROUTES = {
+  admin: {
+    low_stock: '/inventory',
+    restore: '/inventory',
+    archive: '/archived',
+    inspection: '/calendar',
+    inspection_approval: '/approval',
+    report: '/documentation',
+    documentation: '/documentation',
+    overdue: '/calendar',
+    return: '/calendar',
+    sale: '/admin/sales',
+    default: '/',
+  },
+  staff: {
+    inspection: '/staff/calendar',
+    overdue: '/staff/calendar',
+    return: '/staff/calendar',
+    documentation: '/staff/documentation',
+    report: '/staff/documentation',
+    low_stock: '/staff/inventory',
+    restore: '/staff/inventory',
+    default: '/staff',
+  },
+  cashier: {
+    sale: '/cashier/sales',
+    default: '/cashier',
+  },
+  supplier: {
+    default: '/SupplierDropBoxView',
+  },
+}
 
-  return 'bg-zinc-700 text-zinc-300'
+function destinationFor(type) {
+  const map = ROUTES[role.value] || ROUTES.staff
+  return map[type] || map.default
+}
+
+// sale, report, overdue and inspection_approval had no colour and fell
+// through to plain grey, even though three of them are things an admin
+// needs to act on
+const BADGES = {
+  low_stock: 'bg-yellow-500/20 text-yellow-400',
+  overdue: 'bg-red-600/25 text-red-300',
+  report: 'bg-red-500/20 text-red-400',
+  return: 'bg-red-500/20 text-red-400',
+  inspection_approval: 'bg-yellow-500/20 text-yellow-400',
+  inspection: 'bg-zinc-700/50 text-zinc-300',
+  sale: 'bg-emerald-500/20 text-emerald-400',
+  documentation: 'bg-emerald-500/20 text-emerald-400',
+  restore: 'bg-emerald-500/20 text-emerald-400',
+  archive: 'bg-zinc-500/20 text-zinc-300',
+}
+
+function badgeClass(type) {
+  return BADGES[type] || 'bg-zinc-700 text-zinc-300'
 }
 
 function formatDate(date) {
@@ -173,8 +225,9 @@ function formatDate(date) {
   return new Date(date).toLocaleString()
 }
 
-onMounted(() => {
-  fetchNotifications()
+onMounted(async () => {
+  await fetchRole()
+  await fetchNotifications()
   setupRealtime()
 })
 

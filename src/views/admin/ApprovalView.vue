@@ -101,11 +101,7 @@ async function fetchApprovals() {
   errorMessage.value = ''
   successMessage.value = ''
 
-  const { data, error } = await supabase
-    .from('inspection_approvals')
-    .select('*')
-    .eq('status', 'submitted')
-    .order('created_at', { ascending: false })
+  const { data, error } = await supabase.rpc('list_submitted_approvals')
 
   if (error) {
     errorMessage.value = error.message

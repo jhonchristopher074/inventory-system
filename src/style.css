@@ -1,7 +1,71 @@
 @import "tailwindcss";
 
+/* ============================================================
+   10 FIVE 7 — Crimson / Carbon design system
+   ------------------------------------------------------------
+   The palette below RETHEMES Tailwind's built-in colour scale,
+   so every existing `bg-zinc-900`, `text-zinc-400`, `bg-red-600`
+   in the app picks up the new look without touching the views.
+   Change a value here and it updates everywhere.
+   ============================================================ */
+
+@theme {
+  /* --- carbon: layered darks instead of flat black --- */
+  --color-black: #0a0a0c;
+  --color-zinc-950: #0d0d10;
+  --color-zinc-900: #151519;   /* cards / panels          */
+  --color-zinc-800: #1e1e24;   /* inputs / secondary fill */
+  --color-zinc-700: #2a2a32;   /* borders / dividers      */
+  --color-zinc-600: #3d3d47;
+  --color-zinc-500: #8b8b97;   /* faint label text        */
+  --color-zinc-400: #a5a5b2;   /* muted body text         */
+  --color-zinc-300: #d2d2db;
+  --color-zinc-200: #e6e6ec;
+
+  /* --- crimson: the brand red --- */
+  --color-red-400: #ff6b7d;    /* accent text             */
+  --color-red-500: #f4344c;    /* headings / highlights   */
+  --color-red-600: #e01b32;    /* primary actions         */
+  --color-red-700: #b8142a;    /* pressed / hover         */
+  --color-red-800: #8c0f20;
+  --color-red-900: #5c0a15;
+
+  /* --- supporting status colours, tuned for dark --- */
+  --color-emerald-400: #34d399;
+  --color-emerald-500: #10b981;
+  --color-emerald-600: #059669;
+  --color-yellow-400: #fbbf24;
+  --color-yellow-500: #f59e0b;
+
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system,
+    "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+/* ------------------------------------------------------------
+   Design tokens used by the component classes below
+   ------------------------------------------------------------ */
 :root {
   font-size: 90%;
+
+  --surface:       #151519;
+  --surface-raised:#1b1b21;
+  --surface-sunken: #0d0d10;
+  --hairline:      rgba(255, 255, 255, 0.07);
+  --hairline-soft: rgba(255, 255, 255, 0.04);
+
+  --brand:         #e01b32;
+  --brand-bright:  #f4344c;
+  --brand-dim:     rgba(224, 27, 50, 0.14);
+
+  --radius-lg: 22px;
+  --radius-md: 16px;
+  --radius-sm: 11px;
+
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.5),
+                 0 8px 24px -12px rgba(0, 0, 0, 0.8);
+  --shadow-glow: 0 6px 20px -6px rgba(224, 27, 50, 0.5);
+
+  --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
 }
 
 html,
@@ -10,15 +74,89 @@ body,
   margin: 0;
   padding: 0;
   min-height: 100%;
-  background: #000;
+  background: var(--color-black);
 }
 
 body {
   overflow-x: hidden;
   overflow-y: auto;
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  /* a faint crimson bloom in the top-left so the page isn't dead flat */
+  background-image:
+    radial-gradient(900px 500px at 8% -8%, rgba(224, 27, 50, 0.10), transparent 60%),
+    radial-gradient(700px 400px at 100% 0%, rgba(224, 27, 50, 0.05), transparent 55%);
+  background-attachment: fixed;
 }
 
-/* LEFT SIDEBAR STICKY */
+* {
+  box-sizing: border-box;
+}
+
+/* ------------------------------------------------------------
+   Scrollbars
+   ------------------------------------------------------------ */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #35353f transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  border: 3px solid transparent;
+  border-radius: 999px;
+  background-clip: content-box;
+  background-color: #35353f;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background-color: var(--brand);
+}
+
+/* ------------------------------------------------------------
+   Focus + motion
+   ------------------------------------------------------------ */
+:focus-visible {
+  outline: 2px solid var(--brand-bright);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
+button,
+a,
+input,
+select,
+textarea {
+  transition: background-color 0.18s var(--ease), border-color 0.18s var(--ease),
+    color 0.18s var(--ease), transform 0.18s var(--ease),
+    box-shadow 0.18s var(--ease), opacity 0.18s var(--ease);
+}
+
+button:not(:disabled):active {
+  transform: translateY(1px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+/* ------------------------------------------------------------
+   Layout helpers (kept from the original stylesheet)
+   ------------------------------------------------------------ */
 .sidebar {
   position: sticky;
   top: 0;
@@ -27,7 +165,6 @@ body {
   overflow-y: auto;
 }
 
-/* ARCHIVE / DELETE BOX STICKY */
 .archive-box,
 .delete-box,
 .sticky-drag-area {
@@ -38,7 +175,481 @@ body {
   flex-shrink: 0;
 }
 
-/* REMOVE UNWANTED HORIZONTAL SCROLL */
-* {
-  box-sizing: border-box;
+/* ------------------------------------------------------------
+   App shell + collapsible sidebar
+   One custom property (--side) drives the collapse, so the grid
+   column animates and the content reflows smoothly.
+   ------------------------------------------------------------ */
+.app-shell {
+  --side: 264px;
+  display: grid;
+  grid-template-columns: var(--side) 1fr;
+  min-height: 100vh;
+  transition: grid-template-columns 0.26s var(--ease);
+}
+
+.app-shell.collapsed {
+  --side: 72px;
+}
+
+.app-side {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  height: 100vh;
+  border-right: 1px solid rgba(255, 255, 255, 0.05);
+  background: rgba(13, 13, 16, 0.75);
+  backdrop-filter: blur(8px);
+  padding: 0.85rem 0.7rem;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+/* when collapsed the rail is short enough not to scroll, so we stop
+   clipping and let the hover labels sit outside it */
+.app-shell.collapsed .app-side {
+  overflow: visible;
+}
+
+.app-main {
+  position: relative;
+  z-index: 1;
+  min-width: 0;
+  padding: 1.75rem;
+}
+
+/* ---- brand + toggle ---- */
+.side-top {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.9rem;
+}
+
+.brand-card {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--hairline);
+  background:
+    linear-gradient(145deg, rgba(224, 27, 50, 0.22), rgba(255, 255, 255, 0.03) 58%),
+    var(--surface);
+  padding: 0.85rem 0.9rem;
+}
+
+.brand-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(120% 90% at 0% 0%, rgba(244, 52, 76, 0.28), transparent 62%);
+  pointer-events: none;
+}
+
+.brand-title {
+  position: relative;
+  font-size: 1.4rem;
+  font-weight: 800;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+  color: #fff;
+}
+
+.brand-title span {
+  color: var(--brand-bright);
+}
+
+.brand-sub {
+  position: relative;
+  margin-top: 0.2rem;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--color-zinc-300);
+}
+
+.brand-note {
+  position: relative;
+  margin-top: 0.4rem;
+  font-size: 0.68rem;
+  white-space: nowrap;
+  color: var(--color-zinc-500);
+}
+
+.side-toggle {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--hairline);
+  background: rgba(255, 255, 255, 0.04);
+  color: #c9c9d3;
+  cursor: pointer;
+}
+
+.side-toggle:hover {
+  border-color: rgba(224, 27, 50, 0.45);
+  background: rgba(224, 27, 50, 0.12);
+  color: #fff;
+}
+
+.side-toggle svg {
+  transition: transform 0.26s var(--ease);
+}
+
+.collapsed .side-toggle svg {
+  transform: rotate(180deg);
+}
+
+.collapsed .brand-card {
+  display: none;
+}
+
+.collapsed .side-top {
+  justify-content: center;
+  margin-bottom: 1rem;
+}
+
+/* ---- nav ---- */
+.nav-section {
+  margin: 1.1rem 0 0.4rem;
+  padding-left: 0.85rem;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: #6c6c79;
+}
+
+/* collapsed: section labels become divider rules */
+.collapsed .nav-section {
+  margin: 0.9rem 0 0.4rem;
+  padding: 0;
+  font-size: 0;
+  line-height: 0;
+}
+
+.collapsed .nav-section::after {
+  content: "";
+  display: block;
+  height: 1px;
+  margin: 0 0.5rem;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.nav-link {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  border-radius: var(--radius-sm);
+  padding: 0.6rem 0.8rem;
+  font-size: 0.88rem;
+  font-weight: 600;
+  white-space: nowrap;
+  color: #b4b4c0;
+  border: 1px solid transparent;
+}
+
+.nav-ico {
+  flex: none;
+  width: 19px;
+  height: 19px;
+}
+
+.nav-link:hover {
+  background: rgba(255, 255, 255, 0.045);
+  color: #fff;
+}
+
+.active-link {
+  background: linear-gradient(90deg, var(--brand-dim), rgba(224, 27, 50, 0.03));
+  border-color: rgba(224, 27, 50, 0.32);
+  color: #fff;
+}
+
+.active-link .nav-ico {
+  color: var(--brand-bright);
+}
+
+/* red rail on the active item */
+.active-link::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 22%;
+  bottom: 22%;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--brand-bright);
+}
+
+/* collapsed: icons only */
+.collapsed .nav-link,
+.collapsed .logout-btn {
+  justify-content: center;
+  padding: 0.6rem 0;
+}
+
+.collapsed .nav-text {
+  display: none;
+}
+
+/* collapsed: label appears beside the icon on hover */
+.collapsed .nav-link:hover::before,
+.collapsed .logout-btn:hover::before {
+  content: attr(data-label);
+  position: absolute;
+  left: calc(100% + 10px);
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 40;
+  width: auto;
+  height: auto;
+  padding: 0.35rem 0.6rem;
+  border-radius: 8px;
+  border: 1px solid var(--hairline);
+  background: var(--surface-raised);
+  color: #fff;
+  font-size: 0.78rem;
+  font-weight: 600;
+  white-space: nowrap;
+  box-shadow: 0 8px 20px -8px #000;
+}
+
+.logout-btn {
+  position: relative;
+  margin-top: 1.3rem;
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 0.7rem;
+  border-radius: var(--radius-sm);
+  /* neutral at rest so the only red in the nav is the active page;
+     the crimson arrives on hover, when you're actually about to click it */
+  border: 1px solid var(--hairline);
+  background: rgba(255, 255, 255, 0.03);
+  padding: 0.6rem 0.8rem;
+  text-align: left;
+  font-size: 0.88rem;
+  font-weight: 700;
+  white-space: nowrap;
+  color: #b4b4c0;
+  cursor: pointer;
+}
+
+.logout-btn:hover {
+  background: var(--brand);
+  border-color: var(--brand);
+  color: #fff;
+  box-shadow: var(--shadow-glow);
+}
+
+/* ------------------------------------------------------------
+   Reusable surfaces + controls
+   ------------------------------------------------------------ */
+.card {
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--hairline);
+  background: var(--surface);
+  box-shadow: var(--shadow-card);
+}
+
+.card-hover:hover {
+  border-color: rgba(224, 27, 50, 0.28);
+  transform: translateY(-2px);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.5),
+              0 14px 32px -16px rgba(224, 27, 50, 0.45);
+}
+
+/* stat tiles on the dashboards get a crimson top edge */
+.stat-tile {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--hairline);
+  background: linear-gradient(180deg, var(--surface-raised), var(--surface));
+  box-shadow: var(--shadow-card);
+}
+
+.stat-tile::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--brand), rgba(224, 27, 50, 0));
+}
+
+.btn-primary {
+  border-radius: var(--radius-sm);
+  background: var(--brand);
+  padding: 0.7rem 1.4rem;
+  font-weight: 700;
+  color: #fff;
+  box-shadow: var(--shadow-glow);
+}
+
+.btn-primary:hover {
+  background: var(--brand-bright);
+}
+
+.btn-ghost {
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--hairline);
+  background: rgba(255, 255, 255, 0.03);
+  padding: 0.7rem 1.4rem;
+  font-weight: 600;
+  color: #d2d2db;
+}
+
+.btn-ghost:hover {
+  border-color: rgba(224, 27, 50, 0.4);
+  color: #fff;
+}
+
+.input {
+  width: 100%;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--hairline);
+  background: var(--surface-sunken);
+  padding: 0.75rem 1rem;
+  color: #fff;
+  outline: none;
+}
+
+.input::placeholder {
+  color: #6c6c79;
+}
+
+.input:focus {
+  border-color: rgba(224, 27, 50, 0.55);
+  box-shadow: 0 0 0 3px rgba(224, 27, 50, 0.16);
+}
+
+.label {
+  margin-bottom: 0.5rem;
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #b4b4c0;
+}
+
+/* section heading accent bar, used by PageHeader */
+.accent-bar {
+  width: 3px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, var(--brand-bright), var(--brand));
+  box-shadow: 0 0 12px rgba(224, 27, 50, 0.55);
+}
+
+/* ------------------------------------------------------------
+   Existing markup polish
+   Buttons/links already using `bg-red-600` become proper primary
+   actions (glow + brighter hover) without editing every view.
+   ------------------------------------------------------------ */
+button.bg-red-600,
+a.bg-red-600 {
+  box-shadow: var(--shadow-glow);
+}
+
+button.bg-red-600:hover,
+a.bg-red-600:hover {
+  background-color: var(--brand-bright);
+}
+
+/* Inputs declared inline across the views pick up the focus ring */
+input:focus,
+select:focus,
+textarea:focus {
+  border-color: rgba(224, 27, 50, 0.55);
+  box-shadow: 0 0 0 3px rgba(224, 27, 50, 0.16);
+}
+
+/* Tables read better with a hairline + hover row */
+tbody tr {
+  transition: background-color 0.15s var(--ease);
+}
+
+tbody tr:hover {
+  background: rgba(255, 255, 255, 0.025);
+}
+
+
+/* ------------------------------------------------------------
+   Dense record lists
+   Used by Inventory, Archived and Staff Inventory — long lists you
+   scan and search, where a row shows far more per screen than a card.
+   (POS deliberately keeps large card targets: it's a till.)
+   ------------------------------------------------------------ */
+.list-head,
+.list-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 110px 90px auto;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.65rem 1.1rem;
+}
+
+.list-head {
+  border-bottom: 1px solid var(--hairline);
+  background: rgba(0, 0, 0, 0.25);
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-zinc-500);
+}
+
+.list-row {
+  border-bottom: 1px solid var(--hairline-soft);
+  transition: background-color 0.15s var(--ease);
+}
+
+.list-row:last-child {
+  border-bottom: 0;
+}
+
+.list-row:hover {
+  background: rgba(224, 27, 50, 0.06);
+}
+
+.list-thumb {
+  flex: none;
+  height: 44px;
+  width: 44px;
+  border-radius: 10px;
+  border: 1px solid var(--hairline);
+  background: var(--surface-sunken);
+  object-fit: cover;
+}
+
+/* narrow screens: drop the price/stock columns into the name block */
+/* staff inventory carries an extra inspection-date column */
+.list-head--staff,
+.list-row--staff {
+  grid-template-columns: minmax(0, 1fr) 110px 90px 120px auto;
+}
+
+/* archived has no price / action button */
+.list-row--archive,
+.card > .list-head:has(~ .list-row--archive) {
+  grid-template-columns: minmax(0, 1fr) 90px auto;
+}
+
+@media (max-width: 760px) {
+  .list-head {
+    display: none;
+  }
+
+  .list-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    row-gap: 0.4rem;
+  }
 }

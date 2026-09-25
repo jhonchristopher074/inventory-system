@@ -620,10 +620,7 @@ function shouldShowInCalendar(product, today) {
 }
 
 async function fetchApprovals() {
-  const { data, error } = await supabase
-    .from('inspection_approvals')
-    .select('*')
-    .in('status', ['saved', 'submitted'])
+  const { data, error } = await supabase.rpc('list_active_approvals')
 
   if (!error) {
     approvals.value = data || []
@@ -638,12 +635,10 @@ async function fetchProducts() {
 
   await fetchApprovals()
 
-  const { data, error } = await supabase
-    .from('products')
-    .select('*')
-    .eq('is_archived', false)
-    .eq('is_deleted', false)
-    .order('inspection_date', { ascending: true })
+  const { data, error } = await supabase.rpc('list_products', {
+    p_filter: 'active',
+    p_order_by: 'inspection_asc',
+  })
 
   if (error) {
     errorMessage.value = error.message
@@ -663,10 +658,7 @@ async function fetchProducts() {
 }
 
 async function fetchDeliveries() {
-  const { data, error } = await supabase
-    .from('deliveries')
-    .select('*')
-    .order('delivery_date', { ascending: true })
+  const { data, error } = await supabase.rpc('list_deliveries')
 
   if (!error) {
     deliveries.value = data || []
@@ -725,11 +717,10 @@ async function saveSchedule() {
       return
     }
 
-    const { error } = await supabase.from('deliveries').insert({
-      title: newSchedule.value.title.trim(),
-      supplier: newSchedule.value.supplier.trim() || null,
-      delivery_date: newSchedule.value.date,
-      status: 'Scheduled',
+    const { error } = await supabase.rpc('create_delivery', {
+      p_title: newSchedule.value.title.trim(),
+      p_supplier: newSchedule.value.supplier.trim() || null,
+      p_date: newSchedule.value.date,
     })
 
     if (error) {
@@ -750,21 +741,11 @@ async function createOverdueNotifications(items) {
     const quantity = Number(item.quantity || 0)
     const totalDone = adminApprovedQty(item) + savedQty(item) + submittedQty(item)
 
-    const { data: existing } = await supabase
-      .from('notifications')
-      .select('id')
-      .eq('product_id', item.id)
-      .eq('type', 'overdue')
-      .limit(1)
-
-    if (!existing || existing.length === 0) {
-      await supabase.from('notifications').insert({
-        title: 'Overdue Inspection',
-        message: `${item.name} inspection is overdue. Inspected ${totalDone} out of ${quantity}.`,
-        type: 'overdue',
-        product_id: item.id,
-      })
-    }
+    await supabase.rpc('create_overdue_notification', {
+      p_product_id: item.id,
+      p_total_done: totalDone,
+      p_quantity: quantity,
+    })
   }
 }
 

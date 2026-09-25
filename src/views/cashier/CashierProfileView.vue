@@ -3,7 +3,7 @@
     <PageHeader title="Cashier Profile" subtitle="Manage cashier account information." />
 
     <!-- TABS -->
-    <div class="mb-5 flex gap-3 rounded-[20px] border border-white/10 bg-zinc-900 p-2">
+    <div class="mb-5 flex gap-3 card p-2">
       <button
         class="rounded-2xl px-5 py-3 font-bold transition"
         :class="activeTab === 'profile'
@@ -28,7 +28,7 @@
     <!-- PROFILE SETTINGS -->
     <div
       v-if="activeTab === 'profile'"
-      class="max-w-[760px] rounded-[24px] border border-white/10 bg-zinc-900 p-6"
+      class="max-w-[760px] card p-6"
     >
       <p v-if="profileError" class="mb-4 rounded-xl bg-red-600/20 p-3 text-red-400">
         {{ profileError }}
@@ -70,8 +70,11 @@
 
         <div class="info-box">
           <p class="label-text">Status</p>
-          <p class="font-bold text-emerald-400">
-            {{ profile.disabled ? 'Disabled' : 'Active' }}
+          <p
+            class="font-bold"
+            :class="profile.is_active === false ? 'text-red-400' : 'text-emerald-400'"
+          >
+            {{ profile.is_active === false ? 'Disabled' : 'Active' }}
           </p>
         </div>
       </div>
@@ -98,7 +101,7 @@
     <!-- SALES HISTORY -->
     <div
       v-if="activeTab === 'sales'"
-      class="rounded-[24px] border border-white/10 bg-zinc-900 p-5"
+      class="card p-5"
     >
       <div class="mb-4 flex items-center justify-between">
         <div>
@@ -264,7 +267,7 @@ const profile = ref({
   full_name: '',
   email: '',
   role: 'cashier',
-  disabled: false,
+  is_active: true,
 })
 
 const initials = computed(() => {
@@ -349,18 +352,7 @@ async function fetchProfile() {
 
   const localUser = getLocalUser()
 
-  let query = supabase.from('profiles').select('*')
-
-  if (localUser.email) {
-    query = query.eq('email', localUser.email)
-  } else if (localUser.id) {
-    query = query.eq('id', localUser.id)
-  } else {
-    profileError.value = 'No logged-in user found. Please check your login localStorage.'
-    return
-  }
-
-  const { data, error } = await query.maybeSingle()
+  const { data, error } = await supabase.rpc('get_my_profile')
 
   if (error) {
     profileError.value = error.message
@@ -375,7 +367,7 @@ async function fetchProfile() {
       full_name: localUser.full_name || '',
       email: localUser.email || '',
       role: localUser.role || 'cashier',
-      disabled: false,
+      is_active: true,
     }
 
     profileError.value = 'Profile not found in profiles table, using local login data.'
@@ -395,21 +387,9 @@ async function fetchSales() {
   const thirtyDaysAgo = new Date()
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
 
-  const { data, error } = await supabase
-    .from('sales')
-    .select(`
-      *,
-      sale_items (
-        id,
-        product_id,
-        product_name,
-        quantity,
-        price,
-        subtotal
-      )
-    `)
-    .gte('created_at', thirtyDaysAgo.toISOString())
-    .order('created_at', { ascending: false })
+  const { data, error } = await supabase.rpc('list_my_sales_since', {
+    p_since: thirtyDaysAgo.toISOString(),
+  })
 
   if (error) {
     salesError.value = error.message
@@ -447,15 +427,14 @@ async function updatePassword() {
     return
   }
 
-  if (!profile.value.id) {
-    alert('No profile ID found.')
+  if (newPassword.value.trim().length < 6) {
+    alert('Password must be at least 6 characters.')
     return
   }
 
-  const { error } = await supabase
-    .from('profiles')
-    .update({ password: newPassword.value })
-    .eq('id', profile.value.id)
+  const { error } = await supabase.auth.updateUser({
+    password: newPassword.value,
+  })
 
   if (error) {
     alert(error.message)

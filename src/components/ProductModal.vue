@@ -97,6 +97,7 @@ function close() {
   emit('close')
 }
 
+// eslint-disable-next-line no-unused-vars
 function formatDate(date) {
   return new Date(date).toLocaleDateString(undefined, {
     year: 'numeric',
@@ -114,32 +115,13 @@ async function saveInspectionDate() {
   errorMessage.value = ''
   successMessage.value = ''
 
-  const { error: updateError } = await supabase
-    .from('products')
-    .update({
-      inspection_date: selectedDate.value,
-      inspection_result: null,
-      approved_count: 0,
-      return_count: 0,
-    })
-    .eq('id', props.product.id)
+  const { error: updateError } = await supabase.rpc('schedule_inspection', {
+    p_product_id: props.product.id,
+    p_date: selectedDate.value,
+  })
 
   if (updateError) {
     errorMessage.value = updateError.message
-    return
-  }
-
-  const { error: notifError } = await supabase
-    .from('notifications')
-    .insert({
-      title: 'Inspection Scheduled',
-      message: `${props.product.name} is scheduled for inspection on ${formatDate(selectedDate.value)}.`,
-      type: 'inspection',
-      product_id: props.product.id,
-    })
-
-  if (notifError) {
-    errorMessage.value = notifError.message
     return
   }
 

@@ -200,14 +200,7 @@ async function fetchSales() {
 
   if (!userId) return
 
-  const { data, error } = await supabase
-    .from('sales')
-    .select(`
-      *,
-      sale_items (*)
-    `)
-    .eq('cashier_id', userId)
-    .order('created_at', { ascending: false })
+  const { data, error } = await supabase.rpc('list_my_sales')
 
   if (error) {
     console.error(error)

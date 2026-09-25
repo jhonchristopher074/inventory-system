@@ -8,7 +8,7 @@
     <div class="grid gap-5 lg:grid-cols-[350px_1fr]">
       <!-- PROFILE CARD -->
       <div
-        class="rounded-[28px] border border-white/10 bg-zinc-900 p-6"
+        class="card p-6"
       >
         <div class="flex flex-col items-center">
           <!-- PROFILE IMAGE -->
@@ -89,7 +89,7 @@
 
       <!-- PROFILE FORM -->
       <div
-        class="rounded-[28px] border border-white/10 bg-zinc-900 p-6"
+        class="card p-6"
       >
         <h2 class="text-3xl font-black text-white">
           Account Information
@@ -169,6 +169,7 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import { supabase } from '../../lib/supabase'
+import { uploadImage, removeUploadedImage } from '../../lib/uploadImage'
 import PageHeader from '../../components/PageHeader.vue'
 
 const profile = ref({
@@ -210,15 +211,7 @@ onMounted(() => {
 })
 
 async function fetchProfile() {
-  const currentUser = JSON.parse(
-    localStorage.getItem('currentUser') || '{}'
-  )
-
-  const { data } = await supabase
-    .from('profiles')
-    .select('*')
-    .eq('id', currentUser.id)
-    .single()
+  const { data } = await supabase.rpc('get_my_profile')
 
   if (data) {
     profile.value = data
@@ -234,10 +227,9 @@ async function fetchStats() {
     currentUser.full_name ||
     currentUser.email
 
-  const { data } = await supabase
-    .from('documentations')
-    .select('*')
-    .eq('created_by', currentStaffName)
+  const { data } = await supabase.rpc('list_documentations_by_author', {
+    p_created_by: currentStaffName,
+  })
 
   const docs = data || []
 
@@ -261,40 +253,18 @@ async function uploadProfileImage() {
   if (!selectedFile.value) return
 
   try {
-    const file = selectedFile.value
+    const imageUrl = await uploadImage(selectedFile.value, {
+      bucket: 'documents',
+      folder: 'avatars',
+    })
 
-    const fileExt = file.name.split('.').pop()
-
-    const fileName = `${Date.now()}-${Math.random()
-      .toString(36)
-      .slice(2)}.${fileExt}`
-
-    const filePath = `avatars/${fileName}`
-
-    const { error: uploadError } =
-      await supabase.storage
-        .from('documents')
-        .upload(filePath, file)
-
-    if (uploadError) {
-      errorMessage.value = uploadError.message
-      return
-    }
-
-    const { data } = supabase.storage
-      .from('documents')
-      .getPublicUrl(filePath)
-
-    const imageUrl = data.publicUrl
-
-    const { error } = await supabase
-      .from('profiles')
-      .update({
-        avatar_url: imageUrl,
-      })
-      .eq('id', profile.value.id)
+    const { error } = await supabase.rpc('update_my_avatar', {
+      p_avatar_url: imageUrl,
+    })
 
     if (error) {
+      // the row didn't save, so don't leave the file orphaned in the bucket
+      await removeUploadedImage(imageUrl, 'documents')
       errorMessage.value = error.message
       return
     }
@@ -314,12 +284,9 @@ async function updateProfile() {
   successMessage.value = ''
   errorMessage.value = ''
 
-  const { error } = await supabase
-    .from('profiles')
-    .update({
-      full_name: profile.value.full_name,
-    })
-    .eq('id', profile.value.id)
+  const { error } = await supabase.rpc('update_my_name', {
+    p_full_name: profile.value.full_name,
+  })
 
   if (error) {
     errorMessage.value = error.message

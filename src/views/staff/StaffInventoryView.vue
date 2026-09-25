@@ -5,7 +5,7 @@
       subtitle="View products and report inventory concerns."
     />
 
-    <div class="mb-5 rounded-[24px] border border-white/10 bg-zinc-900 p-5">
+    <div class="mb-5 card p-5">
       <div class="grid gap-4 md:grid-cols-[1fr_220px]">
         <input
           v-model="search"
@@ -38,86 +38,71 @@
 
     <div
       v-if="!loading && filteredProducts.length === 0"
-      class="rounded-[24px] border border-white/10 bg-zinc-900 p-5 text-zinc-400"
+      class="card p-5 text-zinc-400"
     >
       No products found.
     </div>
 
-    <div class="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
+    <div class="card overflow-hidden">
+      <div class="list-head list-head--staff">
+        <span>Product</span>
+        <span class="text-right">Price</span>
+        <span class="text-right">Stock</span>
+        <span>Inspection</span>
+        <span></span>
+      </div>
+
       <div
         v-for="product in filteredProducts"
         :key="product.id"
-        class="rounded-[24px] border border-white/10 bg-zinc-900 p-4 shadow-xl"
+        class="list-row list-row--staff"
       >
-        <div
-          class="mb-4 flex h-40 items-center justify-center overflow-hidden rounded-2xl bg-black"
-        >
+        <div class="flex min-w-0 items-center gap-3">
           <img
             v-if="product.image_url"
             :src="product.image_url"
-            class="h-full w-full object-cover"
+            :alt="product.name"
+            class="list-thumb"
           />
-
-          <span v-else class="text-sm text-zinc-500">
-            No Image
-          </span>
-        </div>
-
-        <h2 class="text-xl font-bold text-white">
-          {{ product.name }}
-        </h2>
-
-        <p class="mt-1 text-sm text-red-400">
-          {{ product.category || 'Uncategorized' }}
-        </p>
-
-        <div class="mt-4 space-y-2 text-sm text-zinc-300">
-          <p>
-            Quantity:
-            <span
-              class="font-bold"
-              :class="Number(product.quantity || 0) <= 5 ? 'text-red-400' : 'text-white'"
-            >
-              {{ product.quantity }}
-            </span>
-          </p>
-
-          <p>
-            Price:
-            <span class="font-bold text-white">
-              ₱{{ Number(product.price || 0).toLocaleString() }}
-            </span>
-          </p>
-
-          <p>
-            Inspection Date:
-            <span class="font-bold text-white">
-              {{ product.inspection_date ? formatDate(product.inspection_date) : 'None' }}
-            </span>
-          </p>
-        </div>
-
-        <div class="mt-4 flex flex-wrap gap-2">
-          <span
-            v-if="Number(product.quantity || 0) <= 5"
-            class="rounded-full bg-red-600/20 px-3 py-1 text-xs font-bold text-red-400"
-          >
-            Low Stock
-          </span>
-
           <span
             v-else
-            class="rounded-full bg-emerald-600/20 px-3 py-1 text-xs font-bold text-emerald-400"
+            class="list-thumb grid place-items-center text-[0.6rem] text-zinc-500"
           >
-            In Stock
+            No Image
           </span>
+
+          <div class="min-w-0">
+            <p class="truncate font-bold text-white">{{ product.name }}</p>
+            <p class="truncate text-xs text-red-400">
+              {{ product.category || 'Uncategorized' }}
+            </p>
+          </div>
         </div>
 
+        <p class="text-right text-sm font-bold text-white">
+          ₱{{ Number(product.price || 0).toLocaleString() }}
+        </p>
+
+        <p class="text-right text-sm font-bold">
+          <span :class="Number(product.quantity || 0) <= 5 ? 'text-red-400' : 'text-white'">
+            {{ product.quantity }}
+          </span>
+          <span
+            v-if="Number(product.quantity || 0) <= 5"
+            class="ml-1 text-[0.6rem] uppercase tracking-wide text-red-400"
+            >low</span
+          >
+        </p>
+
+        <p class="truncate text-xs text-zinc-400">
+          {{ product.inspection_date ? formatDate(product.inspection_date) : 'None' }}
+        </p>
+
         <button
-          class="mt-5 w-full rounded-2xl bg-red-600 py-3 font-bold text-white transition hover:bg-red-700"
+          class="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-red-700"
           @click="openReportModal(product)"
         >
-          Report Product
+          Report
         </button>
       </div>
     </div>
@@ -128,7 +113,7 @@
       class="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4"
       @click.self="closeReportModal"
     >
-      <div class="w-full max-w-md rounded-[24px] border border-white/10 bg-zinc-900 p-5">
+      <div class="w-full max-w-md card p-5">
         <h2 class="text-2xl font-bold text-white">
           Report Product
         </h2>
@@ -220,12 +205,10 @@ async function fetchProducts() {
   loading.value = true
   errorMessage.value = ''
 
-  const { data, error } = await supabase
-    .from('products')
-    .select('*')
-    .eq('is_archived', false)
-    .eq('is_deleted', false)
-    .order('created_at', { ascending: false })
+  const { data, error } = await supabase.rpc('list_products', {
+    p_filter: 'active',
+    p_order_by: 'created_desc',
+  })
 
   if (error) {
     errorMessage.value = error.message

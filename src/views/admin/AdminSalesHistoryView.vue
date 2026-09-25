@@ -181,16 +181,7 @@ const sales = ref([])
 const receiptSale = ref(null)
 
 async function fetchSales() {
-  const { data, error } = await supabase
-    .from('sales')
-    .select(`
-      *,
-      profiles (
-        full_name
-      ),
-      sale_items (*)
-    `)
-    .order('created_at', { ascending: false })
+  const { data, error } = await supabase.rpc('list_all_sales')
 
   if (error) {
     console.error(error)

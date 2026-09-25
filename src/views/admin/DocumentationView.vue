@@ -185,10 +185,7 @@ async function fetchDocuments() {
   loading.value = true
   errorMessage.value = ''
 
-  const { data, error } = await supabase
-    .from('documentations')
-    .select('*')
-    .order('created_at', { ascending: false })
+  const { data, error } = await supabase.rpc('list_documentations')
 
   if (error) {
     errorMessage.value = error.message

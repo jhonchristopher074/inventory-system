@@ -10,7 +10,7 @@
       <div
         v-for="doc in documents"
         :key="doc.id"
-        class="rounded-[18px] border border-white/10 bg-zinc-900 p-4 transition hover:border-red-500/40"
+        class="card p-4 transition hover:border-red-500/40"
       >
         <!-- IMAGE -->
         <div
@@ -77,7 +77,7 @@
       v-if="showAddModal"
       class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
     >
-      <div class="w-full max-w-lg rounded-[24px] border border-white/10 bg-zinc-900 p-5">
+      <div class="w-full max-w-lg card p-5">
         <h2 class="text-2xl font-black text-white">Add Documentation</h2>
 
         <div class="mt-5 space-y-4">
@@ -191,7 +191,7 @@
       v-if="selectedDocument"
       class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
     >
-      <div class="w-full max-w-xl rounded-[24px] border border-white/10 bg-zinc-900 p-5">
+      <div class="w-full max-w-xl card p-5">
         <!-- HEADER -->
         <div class="mb-4 flex items-start justify-between">
           <div>
@@ -207,7 +207,7 @@
         </div>
 
         <!-- IMAGE -->
-        <div class="mb-4 overflow-hidden rounded-[16px] border border-white/10 bg-black">
+        <div class="mb-4 overflow-hidden card card-hover">
           <img
             v-if="selectedDocument.receipt_image_url || selectedDocument.image_url"
             :src="selectedDocument.receipt_image_url || selectedDocument.image_url"
@@ -278,6 +278,7 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import { supabase } from '../../lib/supabase'
+import { uploadImage as uploadImage_ } from '../../lib/uploadImage'
 import PageHeader from '../../components/PageHeader.vue'
 
 const documents = ref([])
@@ -337,20 +338,18 @@ const selectedProductName = computed(() => {
 })
 
 async function fetchDocuments() {
-  const { data } = await supabase
-    .from('documentations')
-    .select('*')
-    .eq('created_by', currentStaffName)
-    .order('created_at', { ascending: false })
+  const { data } = await supabase.rpc('list_documentations_by_author', {
+    p_created_by: currentStaffName,
+  })
 
   documents.value = data || []
 }
 
 async function fetchProducts() {
-  const { data } = await supabase
-    .from('products')
-    .select('id,name,category')
-    .eq('is_deleted', false)
+  const { data } = await supabase.rpc('list_products', {
+    p_filter: 'not_deleted',
+    p_order_by: 'id_desc',
+  })
 
   products.value = data || []
 }
@@ -382,25 +381,7 @@ function closeAddModal() {
 async function uploadImage(file) {
   if (!file) return null
 
-  const fileExt = file.name.split('.').pop()
-
-  const fileName = `${Date.now()}-${Math.random()
-    .toString(36)
-    .slice(2)}.${fileExt}`
-
-  const filePath = `staff-documents/${fileName}`
-
-  const { error } = await supabase.storage
-    .from('documents')
-    .upload(filePath, file)
-
-  if (error) throw error
-
-  const { data } = supabase.storage
-    .from('documents')
-    .getPublicUrl(filePath)
-
-  return data.publicUrl
+  return uploadImage_(file, { bucket: 'documents', folder: 'staff-documents' })
 }
 
 async function saveDocument() {
@@ -420,18 +401,15 @@ async function saveDocument() {
       p => p.id === newDoc.value.product_id
     )
 
-    const { error } = await supabase
-      .from('documentations')
-      .insert({
-        title: newDoc.value.title,
-        type: newDoc.value.type,
-        description: newDoc.value.description,
-        product_id: newDoc.value.product_id || null,
-        product_name: selectedProduct?.name || null,
-        created_by: currentStaffName,
-        receipt_image_url: imageUrl || null,
-        image_url: imageUrl || null,
-      })
+    const { error } = await supabase.rpc('create_documentation', {
+      p_title: newDoc.value.title,
+      p_type: newDoc.value.type,
+      p_description: newDoc.value.description,
+      p_product_id: newDoc.value.product_id || null,
+      p_product_name: selectedProduct?.name || null,
+      p_created_by: currentStaffName,
+      p_image_url: imageUrl || null,
+    })
 
     if (error) {
       modalError.value = error.message
@@ -471,13 +449,10 @@ async function updateDocumentPhoto() {
   try {
     const imageUrl = await uploadImage(updatePhotoFile.value)
 
-    const { error } = await supabase
-      .from('documentations')
-      .update({
-        receipt_image_url: imageUrl,
-        image_url: imageUrl,
-      })
-      .eq('id', selectedDocument.value.id)
+    const { error } = await supabase.rpc('update_documentation_photo', {
+      p_document_id: selectedDocument.value.id,
+      p_image_url: imageUrl,
+    })
 
     if (error) {
       viewError.value = error.message
@@ -499,10 +474,9 @@ async function updateDocumentPhoto() {
 }
 
 async function deleteDocument(id) {
-  await supabase
-    .from('documentations')
-    .delete()
-    .eq('id', id)
+  await supabase.rpc('delete_documentation', {
+    p_document_id: id,
+  })
 
   selectedDocument.value = null
 

@@ -249,12 +249,10 @@ async function fetchDashboard() {
   loading.value = true
   errorMessage.value = ''
 
-  const { data: productData, error: productError } = await supabase
-    .from('products')
-    .select('*')
-    .eq('is_archived', false)
-    .eq('is_deleted', false)
-    .order('created_at', { ascending: false })
+  const { data: productData, error: productError } = await supabase.rpc('list_products', {
+    p_filter: 'active',
+    p_order_by: 'created_desc',
+  })
 
   if (productError) {
     errorMessage.value = productError.message
@@ -262,11 +260,7 @@ async function fetchDashboard() {
     return
   }
 
-  const { data: approvalData, error: approvalError } = await supabase
-    .from('inspection_approvals')
-    .select('*')
-    .in('status', ['saved', 'submitted'])
-    .order('created_at', { ascending: false })
+  const { data: approvalData, error: approvalError } = await supabase.rpc('list_active_approvals')
 
   if (approvalError) {
     errorMessage.value = approvalError.message

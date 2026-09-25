@@ -486,13 +486,10 @@ async function fetchInspections() {
   loading.value = true
   errorMessage.value = ''
 
-  const { data, error } = await supabase
-    .from('products')
-    .select('*')
-    .eq('is_archived', false)
-    .eq('is_deleted', false)
-    .not('inspection_date', 'is', null)
-    .order('inspection_date', { ascending: true })
+  const { data, error } = await supabase.rpc('list_products', {
+    p_filter: 'inspection',
+    p_order_by: 'inspection_asc',
+  })
 
   if (error) {
     errorMessage.value = error.message
@@ -505,11 +502,7 @@ async function fetchInspections() {
 }
 
 async function fetchApprovals() {
-  const { data, error } = await supabase
-    .from('inspection_approvals')
-    .select('*')
-    .in('status', ['saved', 'submitted'])
-    .order('created_at', { ascending: false })
+  const { data, error } = await supabase.rpc('list_active_approvals')
 
   if (!error) {
     approvals.value = data || []
@@ -517,10 +510,7 @@ async function fetchApprovals() {
 }
 
 async function fetchDeliveries() {
-  const { data, error } = await supabase
-    .from('deliveries')
-    .select('*')
-    .order('delivery_date', { ascending: true })
+  const { data, error } = await supabase.rpc('list_deliveries')
 
   if (!error) {
     deliveries.value = data || []
@@ -668,42 +658,25 @@ async function saveInspection() {
     return
   }
 
-  if (editingApprovalId.value) {
-    const { error } = await supabase
-      .from('inspection_approvals')
-      .update({
-        approved_qty: approved,
-        return_qty: returned,
-        requested_by: currentStaffName,
-        status: 'saved',
-      })
-      .eq('id', editingApprovalId.value)
+  const isEditing = Boolean(editingApprovalId.value)
 
-    if (error) {
-      panelError.value = error.message
-      return
-    }
+  const { error } = await supabase.rpc('save_inspection_draft', {
+    p_approval_id: editingApprovalId.value || null,
+    p_product_id: selectedProduct.value.id,
+    p_product_name: selectedProduct.value.name,
+    p_approved_qty: approved,
+    p_return_qty: returned,
+    p_requested_by: currentStaffName,
+  })
 
-    panelMessage.value = 'Your saved inspection was updated.'
-  } else {
-    const { error } = await supabase
-      .from('inspection_approvals')
-      .insert({
-        product_id: selectedProduct.value.id,
-        product_name: selectedProduct.value.name,
-        approved_qty: approved,
-        return_qty: returned,
-        status: 'saved',
-        requested_by: currentStaffName,
-      })
-
-    if (error) {
-      panelError.value = error.message
-      return
-    }
-
-    panelMessage.value = 'Inspection saved. It is not submitted yet.'
+  if (error) {
+    panelError.value = error.message
+    return
   }
+
+  panelMessage.value = isEditing
+    ? 'Your saved inspection was updated.'
+    : 'Inspection saved. It is not submitted yet.'
 
   await fetchAll()
 
@@ -752,10 +725,9 @@ async function removeSavedInspection(approval) {
   const confirmDelete = confirm('Remove this saved inspection?')
   if (!confirmDelete) return
 
-  const { error } = await supabase
-    .from('inspection_approvals')
-    .delete()
-    .eq('id', approval.id)
+  const { error } = await supabase.rpc('delete_inspection_draft', {
+    p_approval_id: approval.id,
+  })
 
   if (error) {
     panelError.value = error.message

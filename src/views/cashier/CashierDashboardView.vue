@@ -240,14 +240,7 @@ async function fetchSales() {
 
   if (!userId) return
 
-  const { data, error } = await supabase
-    .from('sales')
-    .select(`
-      *,
-      sale_items (*)
-    `)
-    .eq('cashier_id', userId)
-    .order('created_at', { ascending: false })
+  const { data, error } = await supabase.rpc('list_my_sales')
 
   if (error) {
     console.error(error)
@@ -275,11 +268,10 @@ async function fetchSales() {
 }
 
 async function fetchProducts() {
-  const { data, error } = await supabase
-    .from('products')
-    .select('*')
-    .eq('is_archived', false)
-    .eq('is_deleted', false)
+  const { data, error } = await supabase.rpc('list_products', {
+    p_filter: 'active',
+    p_order_by: 'id_desc',
+  })
 
   if (error) {
     console.error(error)

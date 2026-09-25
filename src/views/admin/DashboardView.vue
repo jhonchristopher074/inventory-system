@@ -208,12 +208,10 @@ async function fetchProducts() {
   loading.value = true
   errorMessage.value = ''
 
-  const { data, error } = await supabase
-    .from('products')
-    .select('*')
-    .eq('is_archived', false)
-    .eq('is_deleted', false)
-    .order('id', { ascending: true })
+  const { data, error } = await supabase.rpc('list_products', {
+    p_filter: 'active',
+    p_order_by: 'id_asc',
+  })
 
   if (error) {
     errorMessage.value = error.message

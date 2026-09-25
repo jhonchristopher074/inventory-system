@@ -1,7 +1,7 @@
 <template>
   <div>
     <!-- HEADER -->
-    <div class="mb-5 rounded-[24px] border border-white/10 bg-zinc-900 p-5">
+    <div class="mb-5 card p-5">
       <h1 class="text-3xl font-extrabold text-white">
         Profile & Users
       </h1>
@@ -15,7 +15,7 @@
     <div class="grid items-start gap-5 lg:grid-cols-[320px_1fr]">
 
       <!-- ADD USER -->
-      <div class="rounded-[24px] border border-white/10 bg-zinc-900 p-5">
+      <div class="card p-5">
         <h2 class="mb-5 text-2xl font-extrabold text-white">
           Add User
         </h2>
@@ -84,10 +84,10 @@
       </div>
 
       <!-- USERS -->
-      <div class="rounded-[24px] border border-white/10 bg-zinc-900 p-5">
+      <div class="card p-5">
 
         <!-- TOP -->
-        <div class="mb-5 flex items-center justify-between">
+        <div class="mb-5 flex items-center justify-between gap-4">
           <h2 class="text-2xl font-extrabold text-white">
             User Accounts
           </h2>
@@ -100,17 +100,38 @@
           </button>
         </div>
 
+        <!-- SEARCH -->
+        <div class="mb-5">
+          <input
+            v-model="userSearch"
+            type="text"
+            placeholder="Search by account number, name, or email..."
+            class="input w-full"
+          />
+          <p v-if="userSearch" class="mt-2 text-xs text-zinc-500">
+            {{ filteredUsers.length }} of {{ users.length }} accounts
+          </p>
+        </div>
+
         <!-- USER LIST -->
         <div class="space-y-5">
 
+          <p v-if="!filteredUsers.length" class="py-6 text-center text-zinc-500">
+            No accounts match "{{ userSearch }}".
+          </p>
+
           <div
-            v-for="user in users"
+            v-for="user in filteredUsers"
             :key="user.id"
             class="flex items-center justify-between rounded-[24px] bg-black p-5"
           >
 
             <!-- LEFT -->
             <div>
+              <p class="font-mono text-xs tracking-wider text-zinc-500">
+                #{{ user.account_no }}
+              </p>
+
               <h3 class="text-2xl font-extrabold text-white">
                 {{ user.full_name }}
               </h3>
@@ -164,10 +185,30 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { supabase } from '../../lib/supabase'
 
 const users = ref([])
+const userSearch = ref('')
+
+const filteredUsers = computed(() => {
+  const q = userSearch.value.trim().toLowerCase()
+  if (!q) return users.value
+
+  return users.value.filter((user) => {
+    const accountNo = (user.account_no || '').toLowerCase()
+    const name = (user.full_name || '').toLowerCase()
+    const email = (user.email || '').toLowerCase()
+
+    // "#000000009", "9", and "000000009" all match account_no 000000009
+    return (
+      accountNo.includes(q) ||
+      accountNo.includes(q.replace(/^#/, '')) ||
+      name.includes(q) ||
+      email.includes(q)
+    )
+  })
+})
 
 const loading = ref(false)
 
@@ -182,10 +223,7 @@ const newUser = ref({
 })
 
 async function fetchUsers() {
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('*')
-    .order('created_at', { ascending: false })
+  const { data, error } = await supabase.rpc('admin_list_users')
 
   if (error) {
     console.log(error)
@@ -225,15 +263,12 @@ async function createUser() {
     }
 
     // INSERT PROFILE
-    const { error: profileError } = await supabase
-      .from('profiles')
-      .insert({
-        id: authUser.id,
-        full_name: newUser.value.full_name,
-        email: newUser.value.email,
-        role: newUser.value.role,
-        is_active: true,
-      })
+    const { error: profileError } = await supabase.rpc('admin_create_profile', {
+      p_id: authUser.id,
+      p_full_name: newUser.value.full_name,
+      p_email: newUser.value.email,
+      p_role: newUser.value.role,
+    })
 
     if (profileError) {
       errorMessage.value = profileError.message
@@ -260,21 +295,16 @@ async function createUser() {
 }
 
 async function updateRole(user) {
-  await supabase
-    .from('profiles')
-    .update({
-      role: user.role,
-    })
-    .eq('id', user.id)
+  await supabase.rpc('admin_update_user_role', {
+    p_user_id: user.id,
+    p_role: user.role,
+  })
 }
 
 async function toggleUser(user) {
-  await supabase
-    .from('profiles')
-    .update({
-      is_active: !user.is_active,
-    })
-    .eq('id', user.id)
+  await supabase.rpc('admin_toggle_user_active', {
+    p_user_id: user.id,
+  })
 
   fetchUsers()
 }

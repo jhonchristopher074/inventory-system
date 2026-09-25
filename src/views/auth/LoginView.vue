@@ -89,13 +89,7 @@ async function login() {
     return
   }
 
-  const user = data.user
-
-  const { data: profile, error: profileError } = await supabase
-    .from('profiles')
-    .select('*')
-    .or(`id.eq.${user.id},email.eq.${user.email}`)
-    .maybeSingle()
+  const { data: profile, error: profileError } = await supabase.rpc('get_my_profile')
 
   if (profileError) {
     errorMessage.value = profileError.message

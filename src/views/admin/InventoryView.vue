@@ -53,42 +53,50 @@
         No products found.
       </div>
 
-      <!-- PRODUCT GRID -->
-      <div class="grid grid-cols-[repeat(auto-fill,220px)] gap-5">
+      <!-- PRODUCT LIST -->
+      <div class="card overflow-hidden">
+        <div class="list-head">
+          <span>Product</span>
+          <span class="text-right">Price</span>
+          <span class="text-right">Stock</span>
+          <span></span>
+        </div>
+
         <div
           v-for="product in filteredProducts"
           :key="product.id"
           draggable="true"
-          class="flex h-[380px] cursor-grab flex-col justify-between rounded-[22px] border border-white/10 bg-zinc-900 p-4 shadow-xl transition hover:-translate-y-1 active:cursor-grabbing"
+          class="list-row cursor-grab active:cursor-grabbing"
           @dragstart="startDrag(product)"
           @click="openModal(product)"
         >
-          <img
-            :src="product.image_url || 'https://via.placeholder.com/300x200'"
-            :alt="product.name"
-            class="mb-3 h-[150px] w-full rounded-2xl object-cover"
-          />
-
-          <div class="flex-1">
-            <h3 class="mb-2 min-h-[56px] text-xl font-bold leading-tight text-white">
-              {{ product.name }}
-            </h3>
-
-            <p class="text-sm text-zinc-400">
-              {{ product.category || 'Uncategorized' }}
-            </p>
-
-            <p class="mt-2 text-sm text-zinc-300">
-              Qty: {{ product.quantity }}
-            </p>
-
-            <p class="mt-1 text-sm font-bold text-red-400">
-              ₱{{ Number(product.price || 0).toFixed(2) }}
-            </p>
+          <div class="flex min-w-0 items-center gap-3">
+            <img
+              :src="product.image_url || 'https://via.placeholder.com/80'"
+              :alt="product.name"
+              class="list-thumb"
+            />
+            <div class="min-w-0">
+              <p class="truncate font-bold text-white">{{ product.name }}</p>
+              <p class="truncate text-xs text-zinc-400">
+                {{ product.category || 'Uncategorized' }}
+              </p>
+            </div>
           </div>
 
+          <p class="text-right text-sm font-bold text-red-400">
+            ₱{{ Number(product.price || 0).toFixed(2) }}
+          </p>
+
+          <p
+            class="text-right text-sm font-bold"
+            :class="Number(product.quantity) <= 10 ? 'text-red-400' : 'text-white'"
+          >
+            {{ product.quantity }}
+          </p>
+
           <button
-            class="mt-3 w-full rounded-xl bg-red-600 py-2 text-sm font-bold text-white hover:bg-red-700"
+            class="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-red-700"
             @click.stop="openStockModal(product)"
           >
             Add Stock
@@ -99,7 +107,7 @@
 
     <!-- ARCHIVE BOX -->
     <aside class="archive-box w-[280px]">
-      <div class="rounded-[24px] border border-white/10 bg-zinc-900 p-5 shadow-2xl">
+      <div class="card p-5 shadow-2xl">
         <h2 class="text-2xl font-bold text-white">Archive Box</h2>
         <p class="mb-4 text-sm text-zinc-400">Sticky drag area</p>
 
@@ -125,7 +133,7 @@
       @click.self="selectedProduct = null"
     >
       <div
-        class="relative w-full max-w-[520px] rounded-[28px] border border-white/10 bg-zinc-900 p-6 shadow-2xl"
+        class="relative w-full max-w-[520px] card p-6 shadow-2xl"
       >
         <button
           class="absolute right-5 top-5 rounded-full bg-black px-4 py-2 text-xl text-white hover:bg-red-600"
@@ -445,6 +453,7 @@
 import { computed, onMounted, ref } from 'vue'
 import PageHeader from '../../components/PageHeader.vue'
 import { supabase } from '../../lib/supabase'
+import { uploadImage } from '../../lib/uploadImage'
 
 const products = ref([])
 const selectedCategory = ref('All')
@@ -518,12 +527,10 @@ async function fetchProducts() {
   loading.value = true
   errorMessage.value = ''
 
-  const { data, error } = await supabase
-    .from('products')
-    .select('*')
-    .eq('is_archived', false)
-    .eq('is_deleted', false)
-    .order('id', { ascending: false })
+  const { data, error } = await supabase.rpc('list_products', {
+    p_filter: 'active',
+    p_order_by: 'id_desc',
+  })
 
   if (error) {
     errorMessage.value = error.message
@@ -657,26 +664,15 @@ async function handleImageUpload(event) {
   if (!file) return
 
   uploading.value = true
+  addError.value = ''
 
-  const fileName = `${Date.now()}-${file.name}`
-
-  const { error } = await supabase.storage
-    .from('products')
-    .upload(fileName, file)
-
-  if (error) {
-    alert(error.message)
-    uploading.value = false
-    return
+  try {
+    newProduct.value.image_url = await uploadImage(file, { bucket: 'products' })
+  } catch (err) {
+    addError.value = err.message
+    event.target.value = ''
   }
 
-  const {
-    data: { publicUrl },
-  } = supabase.storage
-    .from('products')
-    .getPublicUrl(fileName)
-
-  newProduct.value.image_url = publicUrl
   uploading.value = false
 }
 
@@ -701,12 +697,8 @@ async function setInspectionDate() {
 async function reportProduct() {
   if (!selectedProduct.value) return
 
-  await supabase.from('notifications').insert({
-    title: 'Product Reported',
-    message: `${selectedProduct.value.name} was reported for checking.`,
-    type: 'return',
-    product_id: selectedProduct.value.id,
-    is_read: false,
+  await supabase.rpc('report_product_for_checking', {
+    p_product_id: selectedProduct.value.id,
   })
 
   alert('Product report sent.')

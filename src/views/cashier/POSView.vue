@@ -1,6 +1,6 @@
 <template>
   <div>
-    <div class="mb-6 rounded-[24px] border border-white/10 bg-zinc-900 p-5">
+    <div class="mb-6 card p-5">
       <h1 class="text-3xl font-bold text-white">Point of Sale</h1>
       <p class="text-zinc-400">Cashier product sales and stock-out system.</p>
     </div>
@@ -20,25 +20,31 @@
           <div
             v-for="product in filteredProducts"
             :key="product.id"
-            class="rounded-[22px] border border-white/10 bg-zinc-900 p-4 shadow-xl"
+            class="card flex flex-col p-4"
           >
             <img
               :src="product.image_url || 'https://via.placeholder.com/300x200'"
-              class="mb-3 h-[140px] w-full rounded-2xl object-cover"
+              class="mb-3 h-[140px] w-full shrink-0 rounded-2xl object-cover"
             />
 
-            <h2 class="text-xl font-bold text-white">{{ product.name }}</h2>
-            <p class="text-sm text-zinc-400">{{ product.category || 'Uncategorized' }}</p>
+            <h2 class="line-clamp-2 text-lg font-bold leading-snug text-white">
+              {{ product.name }}
+            </h2>
+            <p class="truncate text-sm text-zinc-400">
+              {{ product.category || 'Uncategorized' }}
+            </p>
 
-            <div class="mt-3 space-y-1 text-sm">
-              <p class="text-zinc-300">Stock: {{ product.quantity }}</p>
-              <p class="font-bold text-red-400">
+            <!-- mt-auto pins stock, price and the button to the bottom, so they
+                 line up across the row no matter how long the product name is -->
+            <div class="mt-auto pt-3">
+              <p class="text-sm text-zinc-300">Stock: {{ product.quantity }}</p>
+              <p class="text-sm font-bold text-red-400">
                 ₱{{ Number(product.price || 0).toFixed(2) }}
               </p>
             </div>
 
             <button
-              class="mt-4 w-full rounded-xl bg-red-600 py-2 font-bold text-white hover:bg-red-700 disabled:opacity-50"
+              class="mt-3 w-full shrink-0 rounded-xl bg-red-600 py-2 font-bold text-white hover:bg-red-700 disabled:opacity-50"
               :disabled="product.quantity <= 0"
               @click="addToCart(product)"
             >
@@ -48,7 +54,7 @@
         </div>
       </div>
 
-      <div class="sticky top-5 h-fit rounded-[24px] border border-white/10 bg-zinc-900 p-5">
+      <div class="sticky top-5 h-fit card p-5">
         <h2 class="mb-4 text-2xl font-bold text-white">Cart</h2>
 
         <p v-if="cart.length === 0" class="text-zinc-500">No items in cart.</p>
@@ -120,7 +126,7 @@
     </div>
 
     <div v-if="receipt" class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
-      <div class="w-full max-w-md rounded-[24px] border border-white/10 bg-zinc-900 p-5 shadow-2xl">
+      <div class="w-full max-w-md card p-5 shadow-2xl">
         <div id="receiptArea" class="rounded-2xl bg-white p-5 text-black">
           <div class="text-center">
             <h2 class="text-2xl font-extrabold">10 FIVE 7 Hardware</h2>
@@ -229,12 +235,10 @@ async function fetchProducts() {
   loading.value = true
   errorMessage.value = ''
 
-  const { data, error } = await supabase
-    .from('products')
-    .select('*')
-    .eq('is_archived', false)
-    .eq('is_deleted', false)
-    .order('id', { ascending: false })
+  const { data, error } = await supabase.rpc('list_products', {
+    p_filter: 'active',
+    p_order_by: 'id_desc',
+  })
 
   if (error) {
     errorMessage.value = error.message
