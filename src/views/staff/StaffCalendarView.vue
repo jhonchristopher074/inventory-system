@@ -62,9 +62,9 @@
             <div>
               <h3 class="text-xl font-bold text-white">{{ item.name }}</h3>
               <p class="mt-2 text-sm text-red-400">{{ item.category || 'Uncategorized' }}</p>
-              <p class="mt-2 text-sm text-zinc-300">Qty: {{ item.quantity }}</p>
+              <p class="mt-2 text-sm text-zinc-300">Qty: {{ inspectionQty(item) }}</p>
               <p class="mt-2 text-sm text-zinc-300">
-                Admin Approved: {{ adminApprovedQty(item) }} / {{ item.quantity }}
+                Admin Approved: {{ adminApprovedQty(item) }} / {{ inspectionQty(item) }}
               </p>
               <p class="mt-1 text-sm text-lime-400">Saved: {{ savedQty(item) }}</p>
               <p class="mt-1 text-sm text-yellow-400">Submitted: {{ submittedQty(item) }}</p>
@@ -230,7 +230,7 @@
             <div class="grid grid-cols-2 gap-3">
               <div class="rounded-xl bg-black p-3">
                 <p class="text-xs text-zinc-500 mb-1">Quantity</p>
-                <p class="text-xl font-bold text-white">{{ selectedProduct.quantity }}</p>
+                <p class="text-xl font-bold text-white">{{ inspectionQty(selectedProduct) }}</p>
               </div>
               <div class="rounded-xl bg-black p-3">
                 <p class="text-xs text-zinc-500 mb-1">Admin Approved</p>
@@ -519,18 +519,18 @@ const maxReturnInput = computed(() => {
 
 const approvedSegmentPercent = computed(() => {
   if (!selectedProduct.value) return 0
-  return percent(adminApprovedQty(selectedProduct.value), selectedProduct.value.quantity)
+  return percent(adminApprovedQty(selectedProduct.value), inspectionQty(selectedProduct.value))
 })
 
 const savedSegmentPercent = computed(() => {
   if (!selectedProduct.value) return 0
   const liveSaved = savedQty(selectedProduct.value) - oldEditingQty.value + liveInputQty.value
-  return percent(liveSaved, selectedProduct.value.quantity)
+  return percent(liveSaved, inspectionQty(selectedProduct.value))
 })
 
 const submittedSegmentPercent = computed(() => {
   if (!selectedProduct.value) return 0
-  return percent(submittedQty(selectedProduct.value), selectedProduct.value.quantity)
+  return percent(submittedQty(selectedProduct.value), inspectionQty(selectedProduct.value))
 })
 
 const liveTotalProgressPercent = computed(() => {
@@ -592,7 +592,7 @@ function getToday() {
 function shouldShowInCalendar(product, today) {
   if (!product.inspection_date) return false
 
-  const quantity = Number(product.quantity || 0)
+  const quantity = inspectionQty(product)
   const totalDone = adminApprovedQty(product) + savedQty(product) + submittedQty(product)
 
   const isTodayOrFuture = product.inspection_date >= today
@@ -606,7 +606,7 @@ function shouldShowInCalendar(product, today) {
 function isOverdue(product) {
   if (!product.inspection_date) return false
 
-  const quantity = Number(product.quantity || 0)
+  const quantity = inspectionQty(product)
   const totalDone = adminApprovedQty(product) + savedQty(product) + submittedQty(product)
 
   return product.inspection_date < getToday() && totalDone < quantity
@@ -698,8 +698,14 @@ function adminApprovedQty(product) {
   return Number(product.approved_count || 0) + Number(product.return_count || 0)
 }
 
+// Size of the batch being inspected, fixed when the inspection was scheduled.
+// Live stock can't be used: sales and returns change it mid-inspection.
+function inspectionQty(product) {
+  return Number(product?.inspection_qty ?? product?.quantity ?? 0)
+}
+
 function remainingInspectable(product) {
-  const quantity = Number(product.quantity || 0)
+  const quantity = inspectionQty(product)
   return Math.max(
     quantity - adminApprovedQty(product) - savedQty(product) - submittedQty(product),
     0
@@ -713,15 +719,15 @@ function percent(value, quantity) {
 }
 
 function approvedPercentByProduct(product) {
-  return percent(adminApprovedQty(product), product.quantity)
+  return percent(adminApprovedQty(product), inspectionQty(product))
 }
 
 function savedPercentByProduct(product) {
-  return percent(savedQty(product), product.quantity)
+  return percent(savedQty(product), inspectionQty(product))
 }
 
 function submittedPercentByProduct(product) {
-  return percent(submittedQty(product), product.quantity)
+  return percent(submittedQty(product), inspectionQty(product))
 }
 
 function totalProgressPercent(product) {

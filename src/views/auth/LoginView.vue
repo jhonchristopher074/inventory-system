@@ -109,19 +109,24 @@ async function login() {
 
   const { data: profile, error: profileError } = await supabase.rpc('get_my_profile')
 
+  // Every failure below signs out again: before, the error was shown but
+  // the session stayed active, so the pages could still be opened.
   if (profileError) {
+    await supabase.auth.signOut()
     errorMessage.value = profileError.message
     loading.value = false
     return
   }
 
   if (!profile) {
+    await supabase.auth.signOut()
     errorMessage.value = 'Profile record not found in profiles table.'
     loading.value = false
     return
   }
 
-  if (profile.is_active === false) {
+  if (profile.is_active === false || profile.is_hidden === true) {
+    await supabase.auth.signOut()
     errorMessage.value = 'This account is disabled.'
     loading.value = false
     return

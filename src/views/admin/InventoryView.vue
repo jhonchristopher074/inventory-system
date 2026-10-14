@@ -483,12 +483,13 @@
             <div class="grid grid-cols-2 gap-4">
               <div>
                 <label class="label">Price</label>
+                <!-- plain text + decimal keypad: type="number" was rejecting typed input -->
                 <input
-                  v-model.number="editForm.price"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  placeholder="Enter price"
+                  v-model="editForm.price"
+                  type="text"
+                  inputmode="decimal"
+                  autocomplete="off"
+                  placeholder="e.g. 250.00"
                   class="input"
                 />
               </div>
@@ -924,10 +925,12 @@ async function saveEdit() {
   editError.value = ''
 
   const nickname = String(editForm.value.nickname || '').trim()
-  const price = Number(editForm.value.price)
+  // accept "1,250.50" as well as "1250.50"
+  const priceText = String(editForm.value.price ?? '').replace(/,/g, '').trim()
+  const price = Number(priceText)
   const quantity = Number(editForm.value.quantity)
 
-  if (!Number.isFinite(price) || price < 0) {
+  if (priceText === '' || !Number.isFinite(price) || price < 0) {
     editError.value = 'Enter a valid price (0 or more).'
     return
   }

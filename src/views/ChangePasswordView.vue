@@ -27,6 +27,17 @@ const canSubmit = computed(
         confirmPassword.value && !mismatch.value && !loading.value
 )
 
+// Shown on the disabled button, so it's clear why it can't be pressed.
+const blockReason = computed(() => {
+  if (!currentPassword.value) return 'Enter your temporary password'
+  const missing = rules.value.find((r) => !r.ok)
+  if (missing) return `New password needs: ${missing.label.toLowerCase()}`
+  if (sameAsTemp.value) return 'Must be different from the temporary password'
+  if (!confirmPassword.value) return 'Confirm your new password'
+  if (mismatch.value) return 'Passwords do not match'
+  return ''
+})
+
 async function submit() {
   error.value = ''
   success.value = ''
@@ -58,18 +69,26 @@ async function submit() {
     }
 
     if (data?.ok) {
-      // Changing a password can end the old session, so sign in again with the
-      // new password. This also gives a fresh token with the temporary flag cleared.
+      // Changing the password ends the old session on the server, but the
+      // browser still holds it (with the "temporary password" flag). Drop it
+      // here first — otherwise every redirect sees that stale session and
+      // bounces straight back to this page with the form cleared.
       const savedPassword = newPassword.value
       currentPassword.value = newPassword.value = confirmPassword.value = ''
       success.value = 'Password saved! Taking you to your dashboard…'
 
+      await supabase.auth.signOut({ scope: 'local' })
+
+      // Sign in fresh: the new token has the temporary flag cleared.
       const { data: signIn, error: signInErr } = await supabase.auth.signInWithPassword({
         email: userEmail,
         password: savedPassword,
       })
       if (signInErr || !signIn?.user) {
-        return router.replace({ path: '/login' })
+        return router.replace({
+          path: '/login',
+          query: { notice: 'Your password was saved. Please log in with your new password.' },
+        })
       }
 
       const { data: profile } = await supabase.rpc('get_my_profile')
@@ -130,7 +149,7 @@ async function logout() {
         </button>
       </div>
 
-      <ul class="cp-rules" aria-label="Password requirements">
+      <ul class="cp-rules" :class="{ typing: newPassword }" aria-label="Password requirements">
         <li v-for="r in rules" :key="r.label" :class="{ ok: r.ok }">
           <span aria-hidden="true">{{ r.ok ? '✓' : '•' }}</span> {{ r.label }}
         </li>
@@ -155,7 +174,7 @@ async function logout() {
       <p v-if="success" class="cp-alert cp-alert-success" role="status">{{ success }}</p>
 
       <button type="submit" class="cp-submit" :disabled="!canSubmit">
-        {{ loading ? 'Saving…' : 'Save Password' }}
+        {{ loading ? 'Saving…' : (blockReason || 'Save Password') }}
       </button>
       <button type="button" class="cp-link" @click="logout">Log out</button>
     </form>
@@ -178,6 +197,8 @@ h1 { font-size: 1.4rem; margin: 0 0 6px; }
 .cp-toggle:hover { color: #f4f4f5; }
 .cp-rules { list-style: none; padding: 0; margin: 10px 0 0; font-size: .8rem; color: #71717a; display: grid; gap: 3px; }
 .cp-rules li.ok { color: #22c55e; }
+/* once typing has started, unmet rules turn red instead of staying grey */
+.cp-rules.typing li:not(.ok) { color: #f87171; }
 .cp-inline-error { color: #f87171; font-size: .8rem; margin: 6px 0 0; }
 .cp-alert { border-radius: 10px; padding: 10px 12px; font-size: .85rem; margin: 16px 0 0; }
 .cp-alert-error { background: rgba(225, 29, 72, .12); color: #fda4af; border: 1px solid rgba(225, 29, 72, .4); }

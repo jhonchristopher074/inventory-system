@@ -112,7 +112,7 @@
               <div>
                 <p class="text-sm text-zinc-300">{{ item.name }}</p>
                 <p class="text-[11px] text-zinc-400">
-                  Inspected: {{ currentInspected(item) }} / {{ item.quantity }}
+                  Inspected: {{ currentInspected(item) }} / {{ inspectionQty(item) }}
                 </p>
               </div>
 
@@ -131,7 +131,7 @@
               </span>
 
               <span
-                v-else-if="currentInspected(item) >= item.quantity"
+                v-else-if="currentInspected(item) >= inspectionQty(item)"
                 class="rounded-full bg-emerald-600/20 px-2 py-[2px] text-[10px] font-bold text-emerald-400"
               >
                 Done
@@ -176,17 +176,27 @@ const inspectionProducts = computed(() =>
     .sort((a, b) => new Date(a.inspection_date) - new Date(b.inspection_date))
 )
 
+// Today's date on THIS computer's clock (YYYY-MM-DD), same as the Calendar.
+// (toISOString() uses UTC, which is a day behind in the Philippines before 8 AM.)
 function getToday() {
-  return new Date().toISOString().split('T')[0]
+  const d = new Date()
+  const month = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${d.getFullYear()}-${month}-${day}`
 }
 
 function currentInspected(product) {
   return Number(product.approved_count || 0) + Number(product.return_count || 0)
 }
 
+// Size of the batch being inspected, fixed when the inspection was scheduled.
+function inspectionQty(product) {
+  return Number(product?.inspection_qty ?? product?.quantity ?? 0)
+}
+
 function isOverdue(product) {
   const inspected = currentInspected(product)
-  const quantity = Number(product.quantity || 0)
+  const quantity = inspectionQty(product)
 
   return product.inspection_date < getToday() && inspected < quantity
 }
@@ -196,7 +206,7 @@ function shouldShowInCalendarPreview(product) {
 
   const today = getToday()
   const inspected = currentInspected(product)
-  const quantity = Number(product.quantity || 0)
+  const quantity = inspectionQty(product)
 
   const isTodayOrFuture = product.inspection_date >= today
   const isPastButUnfinished = product.inspection_date < today && inspected < quantity

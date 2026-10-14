@@ -58,11 +58,11 @@
                 </p>
 
                 <p class="mt-2 text-sm text-zinc-300">
-                  Qty: {{ item.quantity }}
+                  Qty: {{ inspectionQty(item) }}
                 </p>
 
                 <p class="mt-2 text-sm text-zinc-300">
-                  Admin Approved: {{ adminApprovedQty(item) }} / {{ item.quantity }}
+                  Admin Approved: {{ adminApprovedQty(item) }} / {{ inspectionQty(item) }}
                 </p>
 
                 <p class="mt-1 text-sm text-lime-400">
@@ -342,7 +342,7 @@
         </p>
 
         <p class="text-sm text-zinc-300">
-          <b>Quantity:</b> {{ selectedProduct.quantity }}
+          <b>Quantity:</b> {{ inspectionQty(selectedProduct) }}
         </p>
 
         <p class="text-sm text-zinc-300">
@@ -573,6 +573,12 @@ function adminApprovedQty(product) {
   return Number(product.approved_count || 0) + Number(product.return_count || 0)
 }
 
+// Size of the batch being inspected, fixed when the inspection was scheduled.
+// Live stock can't be used: sales and returns change it mid-inspection.
+function inspectionQty(product) {
+  return Number(product?.inspection_qty ?? product?.quantity ?? 0)
+}
+
 function approvalTotal(product, status) {
   return approvals.value
     .filter(item => item.product_id === product.id && item.status === status)
@@ -590,7 +596,7 @@ function submittedQty(product) {
 }
 
 function remainingItems(product) {
-  const quantity = Number(product.quantity || 0)
+  const quantity = inspectionQty(product)
 
   return Math.max(
     quantity - adminApprovedQty(product) - savedQty(product) - submittedQty(product),
@@ -606,15 +612,15 @@ function percent(value, quantity) {
 }
 
 function approvedPercentByProduct(product) {
-  return percent(adminApprovedQty(product), product.quantity)
+  return percent(adminApprovedQty(product), inspectionQty(product))
 }
 
 function savedPercentByProduct(product) {
-  return percent(savedQty(product), product.quantity)
+  return percent(savedQty(product), inspectionQty(product))
 }
 
 function submittedPercentByProduct(product) {
-  return percent(submittedQty(product), product.quantity)
+  return percent(submittedQty(product), inspectionQty(product))
 }
 
 function totalProgressPercent(product) {
@@ -627,14 +633,14 @@ function totalProgressPercent(product) {
 }
 
 function isOverdue(product) {
-  const quantity = Number(product.quantity || 0)
+  const quantity = inspectionQty(product)
   const totalDone = adminApprovedQty(product) + savedQty(product) + submittedQty(product)
 
   return product.inspection_date < getToday() && totalDone < quantity
 }
 
 function shouldShowInCalendar(product, today) {
-  const quantity = Number(product.quantity || 0)
+  const quantity = inspectionQty(product)
   const totalDone = adminApprovedQty(product) + savedQty(product) + submittedQty(product)
 
   const isTodayOrFuture = product.inspection_date >= today
@@ -782,7 +788,7 @@ async function createOverdueNotifications(items) {
     if (notifiedOverdue.has(item.id)) continue
     notifiedOverdue.add(item.id)
 
-    const quantity = Number(item.quantity || 0)
+    const quantity = inspectionQty(item)
     const totalDone = adminApprovedQty(item) + savedQty(item) + submittedQty(item)
 
     await supabase.rpc('create_overdue_notification', {

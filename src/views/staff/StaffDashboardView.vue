@@ -278,7 +278,8 @@ const totalProducts = computed(() => {
 })
 
 const lowStockProducts = computed(() => {
-  return products.value.filter(item => Number(item.quantity || 0) <= 5)
+  // same level as the admin/cashier dashboards and the low-stock notifications
+  return products.value.filter(item => Number(item.quantity || 0) <= 10)
 })
 
 const scheduledInspections = computed(() => {
@@ -320,7 +321,9 @@ const approvedPercent = computed(() => {
 })
 
 const upcomingInspections = computed(() => {
-  const today = new Date().toISOString().split('T')[0]
+  // local date, not UTC (UTC is a day behind in the Philippines before 8 AM)
+  const d = new Date()
+  const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 
   return scheduledInspections.value
     .filter(item => item.inspection_date >= today)
@@ -338,7 +341,9 @@ function remainingInspection(product) {
       return sum + Number(item.approved_qty || 0) + Number(item.return_qty || 0)
     }, 0)
 
-  return Math.max(Number(product.quantity || 0) - approved - returned - pending, 0)
+  // batch size fixed when the inspection was scheduled (stock changes with sales/returns)
+  const batch = Number(product.inspection_qty ?? product.quantity ?? 0)
+  return Math.max(batch - approved - returned - pending, 0)
 }
 
 function percent(value, total) {

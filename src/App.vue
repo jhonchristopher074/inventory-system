@@ -1,5 +1,6 @@
 <template>
-  <RouterView v-if="$route.path === '/login'" />
+  <!-- full-screen pages: no sidebar (its links don't work there anyway) -->
+  <RouterView v-if="$route.path === '/login' || $route.path === '/change-password'" />
 
   <div v-else class="min-h-screen text-white app-scale">
     <div class="app-shell" :class="{ collapsed }">

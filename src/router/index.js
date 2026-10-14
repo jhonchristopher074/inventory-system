@@ -29,7 +29,7 @@ import StaffProfileView from '../views/staff/StaffProfileView.vue'
 import SupplierDropBoxView from '../views/supplier/SupplierDropBoxView.vue'
 
 const routes = [
-  { path: '/login', component: LoginView },
+  { path: '/login', name: 'login', component: LoginView },
   { path: '/change-password', name: 'change-password', component: ChangePasswordView, meta: { requiresAuth: true } },
 
   { path: '/', component: DashboardView, meta: { requiresAuth: true, role: 'admin' } },
@@ -57,6 +57,16 @@ const routes = [
 
   
 ]
+
+const HOME = {
+  admin: '/',
+  cashier: '/cashier',
+  staff: '/staff',
+  supplier: '/SupplierDropBoxView',
+}
+
+const BLOCKED_MESSAGE =
+  'This account is disabled or not set up yet. Please contact the administrator.'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -92,24 +102,24 @@ router.beforeEach(async (to) => {
 
   if (to.path === '/change-password') return '/'
 
-  const { data: userRole } = await supabase.rpc('get_my_role')
+  const { data: profile, error } = await supabase.rpc('get_my_profile')
 
-  const role = userRole
+  // couldn't check (e.g. network): don't open role pages, but keep the session
+  if (error) return to.meta.role ? false : undefined
 
-  if (to.path === '/login') {
-    if (role === 'admin') return '/'
-    if (role === 'cashier') return '/cashier'
-    if (role === 'staff') return '/staff'
-    if (role === 'supplier') return '/SupplierDropBoxView'
-  
+  // Disabled (or hidden) by the admin, no profile, or no valid role:
+  // end the session. Before, these users were let into every page.
+  const home = profile ? HOME[profile.role] : null
+
+  if (!home || profile.is_active === false || profile.is_hidden === true) {
+    await supabase.auth.signOut()
+    if (to.path === '/login') return
+    return { path: '/login', query: { notice: BLOCKED_MESSAGE } }
   }
 
-  if (to.meta.role && to.meta.role !== role) {
-    if (role === 'admin') return '/'
-    if (role === 'cashier') return '/cashier'
-    if (role === 'staff') return '/staff'
-    if (role === 'supplier') return '/SupplierDropBoxView'
-  }
+  if (to.path === '/login') return home
+
+  if (to.meta.role && to.meta.role !== profile.role) return home
 })
 
 export default router
