@@ -2,6 +2,8 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { supabase } from '../lib/supabase'
 
 import LoginView from '../views/auth/LoginView.vue'
+import ChangePasswordView from '../views/ChangePasswordView.vue'
+import { getPasswordStatus, EXPIRED_MESSAGE } from '../lib/passwordStatus'
 
 import DashboardView from '../views/admin/DashboardView.vue'
 import InventoryView from '../views/admin/InventoryView.vue'
@@ -28,6 +30,7 @@ import SupplierDropBoxView from '../views/supplier/SupplierDropBoxView.vue'
 
 const routes = [
   { path: '/login', component: LoginView },
+  { path: '/change-password', name: 'change-password', component: ChangePasswordView, meta: { requiresAuth: true } },
 
   { path: '/', component: DashboardView, meta: { requiresAuth: true, role: 'admin' } },
   { path: '/inventory', component: InventoryView, meta: { requiresAuth: true, role: 'admin' } },
@@ -72,6 +75,22 @@ router.beforeEach(async (to) => {
   }
 
   if (!user) return
+
+  // Temporary-password rule (applies to every role):
+  // expired -> sign out; still temporary -> only the Change password page is allowed.
+  const passwordStatus = getPasswordStatus(user)
+
+  if (passwordStatus === 'expired') {
+    await supabase.auth.signOut()
+    return { path: '/login', query: { notice: EXPIRED_MESSAGE } }
+  }
+
+  if (passwordStatus === 'must_change') {
+    if (to.path === '/change-password') return
+    return '/change-password'
+  }
+
+  if (to.path === '/change-password') return '/'
 
   const { data: userRole } = await supabase.rpc('get_my_role')
 

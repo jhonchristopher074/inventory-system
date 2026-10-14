@@ -64,15 +64,18 @@
 
 <script setup>
 import { ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { supabase } from '../../lib/supabase'
+import { afterLogin } from '../../lib/passwordStatus'
 
 const router = useRouter()
+const route = useRoute()
 
 const email = ref('')
 const password = ref('')
 const loading = ref(false)
-const errorMessage = ref('')
+// shows e.g. "Your temporary password has expired..." after being sent back here
+const errorMessage = ref(route.query.notice ? String(route.query.notice) : '')
 
 async function login() {
   loading.value = true
@@ -85,6 +88,21 @@ async function login() {
 
   if (error) {
     errorMessage.value = error.message
+    loading.value = false
+    return
+  }
+
+  // Temporary password? Expired -> signed out with a message.
+  // Still valid -> go to the Change password page BEFORE anything else.
+  try {
+    const next = await afterLogin(supabase, data.user)
+    if (next) {
+      loading.value = false
+      router.replace(next)
+      return
+    }
+  } catch (err) {
+    errorMessage.value = err.message
     loading.value = false
     return
   }

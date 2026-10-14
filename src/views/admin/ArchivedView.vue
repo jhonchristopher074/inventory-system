@@ -1,109 +1,206 @@
 <template>
-  <div>
-    <PageHeader
-      title="Staff Inventory"
-      subtitle="View products and report inventory concerns."
-    />
+  <div class="flex flex-col items-start gap-5 md:flex-row">
+    <div class="w-full min-w-0 flex-1">
+      <PageHeader
+        title="Archived Products"
+        subtitle="Products that were moved to the archive."
+      />
 
-    <div class="mb-5 card p-5">
-      <div class="grid gap-4 md:grid-cols-[1fr_220px]">
-        <input
-          v-model="search"
-          type="text"
-          placeholder="Search product..."
-          class="input"
-        />
+      <div class="mb-5 card p-5">
+        <div class="grid gap-4 md:grid-cols-[1fr_220px]">
+          <input
+            v-model="search"
+            type="text"
+            placeholder="Search product..."
+            class="input"
+          />
 
-        <select v-model="selectedCategory" class="input">
-          <option value="All">All Categories</option>
-          <option
-            v-for="category in categories"
-            :key="category"
-            :value="category"
-          >
-            {{ category }}
-          </option>
-        </select>
+          <select v-model="selectedCategory" class="input">
+            <option value="All">All Categories</option>
+            <option
+              v-for="category in categories"
+              :key="category"
+              :value="category"
+            >
+              {{ category }}
+            </option>
+          </select>
+        </div>
       </div>
-    </div>
 
-    <p v-if="loading" class="text-sm text-zinc-400">Loading products...</p>
+      <p v-if="loading" class="text-sm text-zinc-400">Loading products...</p>
 
-    <p
-      v-if="errorMessage"
-      class="mb-4 rounded-xl bg-red-600/20 p-4 text-red-400"
-    >
-      {{ errorMessage }}
-    </p>
-
-    <div
-      v-if="!loading && filteredProducts.length === 0"
-      class="card p-5 text-zinc-400"
-    >
-      No products found.
-    </div>
-
-    <div class="card overflow-hidden">
-      <div class="list-head list-head--staff">
-        <span>Product</span>
-        <span class="text-right">Price</span>
-        <span class="text-right">Stock</span>
-        <span>Inspection</span>
-        <span></span>
-      </div>
+      <p
+        v-if="errorMessage"
+        class="mb-4 rounded-xl bg-red-600/20 p-4 text-red-400"
+      >
+        {{ errorMessage }}
+      </p>
 
       <div
-        v-for="product in filteredProducts"
-        :key="product.id"
-        class="list-row list-row--staff"
+        v-if="!loading && filteredProducts.length === 0"
+        class="mb-4 card p-5 text-zinc-400"
       >
-        <div class="flex min-w-0 items-center gap-3">
-          <img
-            v-if="product.image_url"
-            :src="product.image_url"
-            :alt="product.name"
-            class="list-thumb"
-          />
-          <span
-            v-else
-            class="list-thumb grid place-items-center text-[0.6rem] text-zinc-500"
-          >
-            No Image
-          </span>
+        No archived products.
+      </div>
 
-          <div class="min-w-0">
-            <p class="truncate font-bold text-white">{{ product.name }}</p>
-            <p class="truncate text-xs text-red-400">
-              {{ product.category || 'Uncategorized' }}
-            </p>
+      <div class="card overflow-hidden">
+        <div class="list-head list-head--staff">
+          <span>Product</span>
+          <span class="text-right">Price</span>
+          <span class="text-right">Stock</span>
+          <span>Inspection</span>
+          <span></span>
+        </div>
+
+        <div
+          v-for="product in filteredProducts"
+          :key="product.id"
+          draggable="true"
+          class="list-row list-row--staff cursor-grab active:cursor-grabbing"
+          :class="draggedProduct?.id === product.id && isDragging ? 'opacity-50' : ''"
+          @dragstart="startDrag(product)"
+          @dragend="endDrag"
+        >
+          <div class="flex min-w-0 items-center gap-3">
+            <img
+              v-if="product.image_url"
+              :src="product.image_url"
+              :alt="product.name"
+              class="list-thumb"
+              draggable="false"
+            />
+            <span
+              v-else
+              class="list-thumb grid place-items-center text-[0.6rem] text-zinc-500"
+            >
+              No Image
+            </span>
+
+            <div class="min-w-0">
+              <p class="truncate font-bold text-white">{{ product.name }}</p>
+              <p class="truncate text-xs text-red-400">
+                {{ product.category || 'Uncategorized' }}
+              </p>
+            </div>
+          </div>
+
+          <p class="text-right text-sm font-bold text-white">
+            ₱{{ Number(product.price || 0).toLocaleString() }}
+          </p>
+
+          <p class="text-right text-sm font-bold">
+            <span :class="Number(product.quantity || 0) <= 5 ? 'text-red-400' : 'text-white'">
+              {{ product.quantity }}
+            </span>
+            <span
+              v-if="Number(product.quantity || 0) <= 5"
+              class="ml-1 text-[0.6rem] uppercase tracking-wide text-red-400"
+              >low</span
+            >
+          </p>
+
+          <p class="truncate text-xs text-zinc-400">
+            {{ product.inspection_date ? formatDate(product.inspection_date) : 'None' }}
+          </p>
+
+          <button
+            class="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-red-700"
+            @click="openReportModal(product)"
+          >
+            Report
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ACTION BOX (restore / delete) -->
+    <aside class="archive-box w-full md:w-[280px]">
+      <div class="card p-5 shadow-2xl">
+        <h2 class="text-2xl font-bold text-white">Action Box</h2>
+        <p class="mb-4 text-sm text-zinc-400">Drag a product here</p>
+
+        <!-- RESTORE ZONE -->
+        <div
+          class="mb-4 flex min-h-[150px] items-center justify-center rounded-[20px] border-2 border-dashed border-emerald-500 bg-emerald-500/10 p-4 text-center transition"
+          :class="dragOverZone === 'restore' ? 'scale-[1.02] bg-emerald-500/20' : ''"
+          @dragover.prevent="dragOverZone = 'restore'"
+          @dragleave="dragOverZone = null"
+          @drop.prevent="openActionModal('restore')"
+        >
+          <div class="pointer-events-none">
+            <strong class="mb-1 block text-xl text-white">↩ Restore</strong>
+            <span class="text-sm text-emerald-200">Move back to Inventory</span>
           </div>
         </div>
 
-        <p class="text-right text-sm font-bold text-white">
-          ₱{{ Number(product.price || 0).toLocaleString() }}
-        </p>
-
-        <p class="text-right text-sm font-bold">
-          <span :class="Number(product.quantity || 0) <= 5 ? 'text-red-400' : 'text-white'">
-            {{ product.quantity }}
-          </span>
-          <span
-            v-if="Number(product.quantity || 0) <= 5"
-            class="ml-1 text-[0.6rem] uppercase tracking-wide text-red-400"
-            >low</span
-          >
-        </p>
-
-        <p class="truncate text-xs text-zinc-400">
-          {{ product.inspection_date ? formatDate(product.inspection_date) : 'None' }}
-        </p>
-
-        <button
-          class="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-red-700"
-          @click="openReportModal(product)"
+        <!-- DELETE ZONE -->
+        <div
+          class="flex min-h-[150px] items-center justify-center rounded-[20px] border-2 border-dashed border-red-500 bg-red-500/10 p-4 text-center transition"
+          :class="dragOverZone === 'delete' ? 'scale-[1.02] bg-red-500/20' : ''"
+          @dragover.prevent="dragOverZone = 'delete'"
+          @dragleave="dragOverZone = null"
+          @drop.prevent="openActionModal('delete')"
         >
-          Report
-        </button>
+          <div class="pointer-events-none">
+            <strong class="mb-1 block text-xl text-white">🗑 Delete</strong>
+            <span class="text-sm text-red-200">Remove product</span>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- RESTORE / DELETE CONFIRM MODAL -->
+    <div
+      v-if="actionType"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4"
+      @click.self="closeActionModal"
+    >
+      <div class="max-h-[92vh] w-full max-w-sm overflow-y-auto rounded-2xl border border-white/10 bg-zinc-900 p-5 shadow-2xl">
+        <h2 class="mb-3 text-xl font-bold text-white">
+          {{ actionType === 'restore' ? 'Restore Product' : 'Delete Product' }}
+        </h2>
+
+        <p class="mb-2 text-sm text-zinc-300">
+          <b>Product:</b> {{ draggedProduct?.name }}
+        </p>
+
+        <p v-if="actionType === 'restore'" class="mb-4 text-sm text-zinc-300">
+          Move this item back to <b>Inventory</b>?
+        </p>
+
+        <p v-else class="mb-4 text-sm text-zinc-300">
+          Are you sure you want to <b class="text-red-400">delete</b> this item?
+          It will no longer appear in Inventory or Archived.
+        </p>
+
+        <p
+          v-if="actionError"
+          class="mb-3 rounded-lg bg-red-600/20 p-2 text-xs text-red-400"
+        >
+          {{ actionError }}
+        </p>
+
+        <div class="flex flex-col gap-2">
+          <button
+            class="w-full rounded-lg py-2 text-sm font-semibold text-white disabled:opacity-50"
+            :class="actionType === 'restore'
+              ? 'bg-emerald-600 hover:bg-emerald-700'
+              : 'bg-red-600 hover:bg-red-700'"
+            :disabled="actionSaving"
+            @click="confirmAction"
+          >
+            {{ actionSaving ? 'Please wait...' : actionType === 'restore' ? 'Restore' : 'Delete' }}
+          </button>
+
+          <button
+            class="w-full rounded-lg bg-zinc-800 py-2 text-sm font-semibold text-white hover:bg-zinc-700"
+            :disabled="actionSaving"
+            @click="closeActionModal"
+          >
+            Cancel
+          </button>
+        </div>
       </div>
     </div>
 
@@ -197,6 +294,14 @@ const reportDescription = ref('')
 const modalError = ref('')
 const modalSuccess = ref('')
 
+// ----- Drag & drop (restore / delete) -----
+const draggedProduct = ref(null)
+const isDragging = ref(false)
+const dragOverZone = ref(null) // 'restore' | 'delete' | null
+const actionType = ref(null) // 'restore' | 'delete' | null
+const actionError = ref('')
+const actionSaving = ref(false)
+
 onMounted(() => {
   fetchProducts()
 })
@@ -206,7 +311,7 @@ async function fetchProducts() {
   errorMessage.value = ''
 
   const { data, error } = await supabase.rpc('list_products', {
-    p_filter: 'active',
+    p_filter: 'archived',
     p_order_by: 'created_desc',
   })
 
@@ -214,7 +319,14 @@ async function fetchProducts() {
     errorMessage.value = error.message
     products.value = []
   } else {
-    products.value = data || []
+    // Hide soft-deleted products. If the SQL isn't set up yet,
+    // this returns nothing and all archived products still show.
+    const { data: deletedRows } = await supabase.rpc('list_deleted_product_ids')
+    const deletedIds = new Set((deletedRows || []).map(row => String(row.id)))
+
+    products.value = (data || []).filter(
+      product => !deletedIds.has(String(product.id))
+    )
   }
 
   loading.value = false
@@ -247,6 +359,62 @@ const filteredProducts = computed(() => {
     return matchesSearch && matchesCategory
   })
 })
+
+function startDrag(product) {
+  draggedProduct.value = product
+  isDragging.value = true
+}
+
+function endDrag() {
+  isDragging.value = false
+  dragOverZone.value = null
+}
+
+function openActionModal(type) {
+  dragOverZone.value = null
+
+  if (!draggedProduct.value) return
+
+  actionError.value = ''
+  actionType.value = type
+}
+
+function closeActionModal() {
+  if (actionSaving.value) return
+
+  actionType.value = null
+  actionError.value = ''
+  draggedProduct.value = null
+}
+
+async function confirmAction() {
+  if (!draggedProduct.value || !actionType.value) return
+
+  actionSaving.value = true
+  actionError.value = ''
+
+  const rpcName = actionType.value === 'restore' ? 'restore_product' : 'soft_delete_product'
+
+  const { error } = await supabase.rpc(rpcName, {
+    p_product_id: draggedProduct.value.id,
+  })
+
+  actionSaving.value = false
+
+  if (error) {
+    actionError.value = error.message
+    return
+  }
+
+  // Remove it from the list right away, then refresh from the database
+  const movedId = draggedProduct.value.id
+  products.value = products.value.filter(product => product.id !== movedId)
+
+  actionType.value = null
+  draggedProduct.value = null
+
+  await fetchProducts()
+}
 
 function openReportModal(product) {
   selectedProduct.value = product

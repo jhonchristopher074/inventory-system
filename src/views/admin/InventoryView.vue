@@ -1,6 +1,6 @@
 <template>
-  <div class="flex items-start gap-5">
-    <div class="flex-1">
+  <div class="flex flex-col items-start gap-5 md:flex-row">
+    <div class="w-full min-w-0 flex-1">
       <PageHeader title="Inventory" subtitle="Manage and monitor all hardware products." />
 
       <!-- TOP ACTIONS -->
@@ -68,7 +68,6 @@
           draggable="true"
           class="list-row cursor-grab active:cursor-grabbing"
           @dragstart="startDrag(product)"
-          @click="openModal(product)"
         >
           <div class="flex min-w-0 items-center gap-3">
             <img
@@ -77,11 +76,41 @@
               class="list-thumb"
             />
             <div class="min-w-0">
-              <p class="truncate font-bold text-white">{{ product.name }}</p>
+              <!-- nickname on top (if any), real product name below it -->
+              <p
+                v-if="product.nickname"
+                class="truncate font-bold text-white"
+              >
+                {{ product.nickname }}
+              </p>
+              <p
+                class="truncate"
+                :class="product.nickname ? 'text-sm text-zinc-300' : 'font-bold text-white'"
+              >
+                {{ product.name }}
+              </p>
               <p class="truncate text-xs text-zinc-400">
                 {{ product.category || 'Uncategorized' }}
               </p>
             </div>
+
+            <!-- INSPECTION DATE -->
+            <button
+              class="ml-auto shrink-0 rounded-lg bg-zinc-800 px-2.5 py-1.5 text-xs font-bold text-zinc-200 hover:bg-zinc-700"
+              title="Set inspection date"
+              @click.stop="openModal(product)"
+            >
+              📅 Inspection
+            </button>
+
+            <!-- EDIT (name / price / quantity / picture) -->
+            <button
+              class="shrink-0 rounded-lg bg-zinc-800 px-2.5 py-1.5 text-xs font-bold text-zinc-200 hover:bg-zinc-700"
+              title="Edit name, price, quantity and picture"
+              @click.stop="openEditModal(product)"
+            >
+              ✎ Edit
+            </button>
           </div>
 
           <p class="text-right text-sm font-bold text-red-400">
@@ -106,7 +135,7 @@
     </div>
 
     <!-- ARCHIVE BOX -->
-    <aside class="archive-box w-[280px]">
+    <aside class="archive-box w-full md:w-[280px]">
       <div class="card p-5 shadow-2xl">
         <h2 class="text-2xl font-bold text-white">Archive Box</h2>
         <p class="mb-4 text-sm text-zinc-400">Sticky drag area</p>
@@ -133,7 +162,7 @@
       @click.self="selectedProduct = null"
     >
       <div
-        class="relative w-full max-w-[520px] card p-6 shadow-2xl"
+        class="max-h-[92vh] overflow-y-auto relative w-full max-w-[520px] card p-6 shadow-2xl"
       >
         <button
           class="absolute right-5 top-5 rounded-full bg-black px-4 py-2 text-xl text-white hover:bg-red-600"
@@ -149,7 +178,18 @@
             @click="previewImage = selectedProduct.image_url || 'https://via.placeholder.com/600x400'"
           />
 
-          <h2 class="text-3xl font-extrabold text-white">
+          <h2
+            v-if="selectedProduct.nickname"
+            class="text-3xl font-extrabold text-white"
+          >
+            {{ selectedProduct.nickname }}
+          </h2>
+
+          <h2
+            :class="selectedProduct.nickname
+              ? 'mt-1 text-lg font-semibold text-zinc-300'
+              : 'text-3xl font-extrabold text-white'"
+          >
             {{ selectedProduct.name }}
           </h2>
 
@@ -219,7 +259,7 @@
       class="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4"
       @click.self="closeActionModal"
     >
-      <div class="w-full max-w-sm rounded-2xl border border-white/10 bg-zinc-900 p-5 shadow-2xl">
+      <div class="max-h-[92vh] overflow-y-auto w-full max-w-sm rounded-2xl border border-white/10 bg-zinc-900 p-5 shadow-2xl">
         <h2 class="mb-3 text-xl font-bold text-white">Move Product</h2>
 
         <p class="mb-2 text-sm text-zinc-300">
@@ -261,7 +301,7 @@
       class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
       @click.self="closeAddModal"
     >
-      <div class="w-full max-w-4xl rounded-[28px] border border-white/10 bg-[#18181b] p-6 shadow-2xl">
+      <div class="max-h-[92vh] overflow-y-auto w-full max-w-4xl rounded-[28px] border border-white/10 bg-[#18181b] p-6 shadow-2xl">
         <div class="mb-6 flex items-center justify-between">
           <div>
             <h2 class="text-3xl font-extrabold text-white">Add Product</h2>
@@ -398,13 +438,152 @@
       </div>
     </div>
 
+    <!-- EDIT PRODUCT MODAL -->
+    <div
+      v-if="showEditModal"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+      @click.self="closeEditModal"
+    >
+      <div class="max-h-[92vh] overflow-y-auto w-full max-w-3xl rounded-[28px] border border-white/10 bg-[#18181b] p-6 shadow-2xl">
+        <div class="mb-6 flex items-center justify-between">
+          <div>
+            <h2 class="text-3xl font-extrabold text-white">Edit Product</h2>
+            <p class="text-sm text-zinc-400">Change the nickname, price, quantity and picture.</p>
+          </div>
+
+          <button
+            class="rounded-full bg-zinc-800 px-4 py-2 font-bold text-white hover:bg-zinc-700"
+            @click="closeEditModal"
+          >
+            ✕
+          </button>
+        </div>
+
+        <div class="grid gap-6 md:grid-cols-[1fr_300px]">
+          <div class="space-y-4 rounded-3xl bg-black/40 p-5">
+            <div>
+              <label class="label">Real product name</label>
+              <p class="rounded-2xl border border-white/5 bg-zinc-900 px-4 py-3 text-sm text-zinc-400">
+                {{ editForm.name }}
+              </p>
+            </div>
+
+            <div>
+              <label class="label">Nickname (shown above the real name)</label>
+              <input
+                v-model="editForm.nickname"
+                type="text"
+                maxlength="80"
+                placeholder="e.g. Brass valve 3/4"
+                class="input"
+              />
+              <p class="mt-1 text-xs text-zinc-500">Leave empty to remove the nickname.</p>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <label class="label">Price</label>
+                <input
+                  v-model.number="editForm.price"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  placeholder="Enter price"
+                  class="input"
+                />
+              </div>
+
+              <div>
+                <label class="label">Quantity</label>
+                <input
+                  v-model.number="editForm.quantity"
+                  type="number"
+                  min="0"
+                  step="1"
+                  placeholder="Enter quantity"
+                  class="input"
+                />
+              </div>
+            </div>
+
+            <p
+              v-if="Number(editForm.quantity) !== Number(editForm.originalQuantity)"
+              class="text-xs text-amber-400"
+            >
+              Quantity will change from {{ editForm.originalQuantity }} to {{ editForm.quantity === '' ? '—' : editForm.quantity }}.
+            </p>
+
+            <p class="text-xs text-zinc-500">
+              Category is not changed here. Quantity here sets the exact stock count; use Add Stock to add new deliveries.
+            </p>
+          </div>
+
+          <div class="space-y-3 rounded-3xl bg-black/40 p-5">
+            <h3 class="text-lg font-bold text-white">Picture</h3>
+
+            <div class="overflow-hidden rounded-2xl border border-white/10 bg-zinc-900">
+              <img
+                v-if="editForm.image_url"
+                :src="editForm.image_url"
+                class="h-40 w-full object-cover"
+              />
+              <div v-else class="flex h-40 items-center justify-center text-sm text-zinc-500">
+                No picture
+              </div>
+            </div>
+
+            <label class="flex cursor-pointer items-center justify-center rounded-xl border-2 border-dashed border-red-500/70 bg-red-500/10 py-3 text-sm font-bold text-white hover:bg-red-500/20">
+              {{ editUploading ? 'Uploading...' : '📷 Upload new picture' }}
+              <input
+                type="file"
+                accept="image/*"
+                class="hidden"
+                @change="handleEditImageUpload"
+              />
+            </label>
+
+            <input
+              v-model="editForm.image_url"
+              type="text"
+              placeholder="or paste image URL"
+              class="input"
+            />
+          </div>
+        </div>
+
+        <p
+          v-if="editError"
+          class="mt-4 rounded-xl bg-red-600/20 p-3 text-sm text-red-400"
+        >
+          {{ editError }}
+        </p>
+
+        <div class="mt-6 flex justify-end gap-3">
+          <button
+            class="rounded-2xl bg-zinc-800 px-8 py-3 font-bold text-white hover:bg-zinc-700"
+            @click="closeEditModal"
+          >
+            Cancel
+          </button>
+
+          <button
+            class="rounded-2xl bg-red-600 px-10 py-3 font-bold text-white hover:bg-red-700 disabled:opacity-50"
+            :disabled="editUploading || editSaving"
+            @click="saveEdit"
+          >
+            {{ editSaving ? 'Saving...' : 'Save Changes' }}
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- ADD STOCK MODAL -->
     <div
       v-if="showStockModal"
       class="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4"
       @click.self="closeStockModal"
     >
-      <div class="w-full max-w-sm rounded-2xl border border-white/10 bg-zinc-900 p-5 shadow-2xl">
+      <div class="max-h-[92vh] overflow-y-auto w-full max-w-sm rounded-2xl border border-white/10 bg-zinc-900 p-5 shadow-2xl">
         <h2 class="mb-2 text-2xl font-bold text-white">Add Stock</h2>
 
         <p class="mb-1 text-sm text-zinc-400">Product</p>
@@ -511,10 +690,12 @@ const filteredProducts = computed(() => {
 
     result = result.filter(product => {
       const name = product.name || ''
+      const nickname = product.nickname || ''
       const category = product.category || 'Uncategorized'
 
       return (
         name.toLowerCase().includes(search) ||
+        nickname.toLowerCase().includes(search) ||
         category.toLowerCase().includes(search)
       )
     })
@@ -536,7 +717,18 @@ async function fetchProducts() {
     errorMessage.value = error.message
     products.value = []
   } else {
-    products.value = data || []
+    // Nicknames come from their own small function so list_products stays untouched.
+    // If it isn't set up yet (SQL not run), products simply show without nicknames.
+    const nicknames = {}
+    const { data: nickRows } = await supabase.rpc('list_product_nicknames')
+    ;(nickRows || []).forEach(row => {
+      nicknames[String(row.id)] = row.nickname
+    })
+
+    products.value = (data || []).map(product => ({
+      ...product,
+      nickname: nicknames[String(product.id)] || '',
+    }))
   }
 
   loading.value = false
@@ -674,6 +866,110 @@ async function handleImageUpload(event) {
   }
 
   uploading.value = false
+}
+
+// ----- Edit product (nickname, price, quantity, picture) -----
+const showEditModal = ref(false)
+const editForm = ref({
+  id: null,
+  name: '',
+  nickname: '',
+  price: '',
+  quantity: '',
+  originalQuantity: 0,
+  image_url: '',
+})
+const editError = ref('')
+const editSaving = ref(false)
+const editUploading = ref(false)
+
+function openEditModal(product) {
+  editForm.value = {
+    id: product.id,
+    name: product.name || '',
+    nickname: product.nickname || '',
+    price: Number(product.price || 0),
+    quantity: Number(product.quantity || 0),
+    originalQuantity: Number(product.quantity || 0),
+    image_url: product.image_url || '',
+  }
+  editError.value = ''
+  showEditModal.value = true
+}
+
+function closeEditModal() {
+  showEditModal.value = false
+  editError.value = ''
+}
+
+async function handleEditImageUpload(event) {
+  const file = event.target.files[0]
+
+  if (!file) return
+
+  editUploading.value = true
+  editError.value = ''
+
+  try {
+    editForm.value.image_url = await uploadImage(file, { bucket: 'products' })
+  } catch (err) {
+    editError.value = err.message
+  }
+
+  event.target.value = ''
+  editUploading.value = false
+}
+
+async function saveEdit() {
+  editError.value = ''
+
+  const nickname = String(editForm.value.nickname || '').trim()
+  const price = Number(editForm.value.price)
+  const quantity = Number(editForm.value.quantity)
+
+  if (!Number.isFinite(price) || price < 0) {
+    editError.value = 'Enter a valid price (0 or more).'
+    return
+  }
+
+  if (editForm.value.quantity === '' || !Number.isInteger(quantity) || quantity < 0) {
+    editError.value = 'Enter a valid quantity (a whole number, 0 or more).'
+    return
+  }
+
+  editSaving.value = true
+
+  const { error } = await supabase.rpc('update_product', {
+    p_product_id: String(editForm.value.id),
+    p_nickname: nickname,
+    p_price: price,
+    p_image_url: String(editForm.value.image_url || '').trim(),
+  })
+
+  if (error) {
+    editSaving.value = false
+    editError.value = error.message
+    return
+  }
+
+  // Only touch the quantity if it was actually changed
+  if (quantity !== Number(editForm.value.originalQuantity)) {
+    const { error: qtyError } = await supabase.rpc('set_product_quantity', {
+      p_product_id: Number(editForm.value.id),
+      p_quantity: quantity,
+    })
+
+    if (qtyError) {
+      editSaving.value = false
+      editError.value = `Other changes were saved, but quantity was not: ${qtyError.message}`
+      await fetchProducts()
+      return
+    }
+  }
+
+  editSaving.value = false
+  showEditModal.value = false
+  await fetchProducts()
 }
 
 async function setInspectionDate() {

@@ -57,6 +57,7 @@
             v-for="item in group.items"
             :key="item.id"
             class="flex min-h-[390px] flex-col justify-between rounded-[22px] border border-white/10 bg-black p-4 shadow-xl"
+            :class="isOverdue(item) ? 'border-red-500/70 bg-red-950/30 shadow-red-500/20' : ''"
           >
             <div>
               <h3 class="text-xl font-bold text-white">{{ item.name }}</h3>
@@ -85,6 +86,13 @@
                   <span class="text-yellow-400">Yellow: Submitted</span>
                 </div>
               </div>
+
+              <span
+                v-if="isOverdue(item)"
+                class="mt-3 inline-block rounded-full bg-red-600/20 px-3 py-1 text-xs font-bold text-red-400"
+              >
+                Overdue / Unfinished
+              </span>
 
               <div class="mt-3 flex flex-wrap gap-2">
                 <span class="rounded-full bg-emerald-600/20 px-3 py-1 text-xs font-bold text-emerald-400">
@@ -120,12 +128,72 @@
         <div
           v-for="delivery in deliveries"
           :key="delivery.id"
-          class="rounded-[22px] border border-white/10 bg-zinc-900 p-5 shadow-xl"
+          class="flex flex-col justify-between rounded-[22px] border border-white/10 bg-zinc-900 p-5 shadow-xl"
+          :class="isDeliveryOverdue(delivery) ? 'border-red-500/70 bg-red-950/30 shadow-red-500/20' : ''"
         >
-          <h2 class="text-xl font-bold text-white">{{ delivery.title }}</h2>
-          <p class="mt-3 text-sm text-zinc-400">Supplier: {{ delivery.supplier || 'No supplier' }}</p>
-          <p class="mt-2 text-sm font-bold text-red-400">{{ formatDate(delivery.delivery_date) }}</p>
-          <p class="mt-2 text-sm text-emerald-400">{{ delivery.status || 'Scheduled' }}</p>
+          <div>
+            <h2 class="text-xl font-bold text-white">{{ delivery.title }}</h2>
+            <p class="mt-3 text-sm text-zinc-400">Supplier: {{ delivery.supplier || 'No supplier' }}</p>
+            <p class="mt-2 text-sm font-bold text-red-400">{{ formatDate(delivery.delivery_date) }}</p>
+
+            <div class="mt-2 flex flex-wrap items-center gap-2">
+              <span class="text-sm text-emerald-400">{{ delivery.status || 'Scheduled' }}</span>
+              <span
+                v-if="isDeliveryOverdue(delivery)"
+                class="rounded-full bg-red-600/20 px-3 py-1 text-xs font-bold text-red-400"
+              >
+                Overdue
+              </span>
+            </div>
+          </div>
+
+          <button
+            class="mt-4 w-full rounded-xl bg-emerald-600 py-2 text-sm font-bold text-white transition hover:bg-emerald-700"
+            @click="openDeliveryDone(delivery)"
+          >
+            ✓ Mark as Delivered
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- CONFIRM DELIVERY DONE -->
+    <div
+      v-if="deliveryToFinish"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4"
+      @click.self="closeDeliveryDone"
+    >
+      <div class="w-full max-w-sm rounded-2xl border border-white/10 bg-zinc-900 p-5 shadow-2xl">
+        <h2 class="mb-3 text-xl font-bold text-white">Mark as Delivered</h2>
+
+        <p class="text-sm text-zinc-300"><b>Delivery:</b> {{ deliveryToFinish.title }}</p>
+        <p class="text-sm text-zinc-300"><b>Supplier:</b> {{ deliveryToFinish.supplier || 'No supplier' }}</p>
+        <p class="mb-4 text-sm text-zinc-300"><b>Date:</b> {{ formatDate(deliveryToFinish.delivery_date) }}</p>
+
+        <p class="mb-4 text-sm text-zinc-400">
+          Confirm this delivery has arrived? It will be removed from the calendar.
+        </p>
+
+        <p v-if="deliveryError" class="mb-3 rounded-lg bg-red-600/20 p-2 text-xs text-red-400">
+          {{ deliveryError }}
+        </p>
+
+        <div class="flex flex-col gap-2">
+          <button
+            class="w-full rounded-lg bg-emerald-600 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
+            :disabled="deliverySaving"
+            @click="confirmDeliveryDone"
+          >
+            {{ deliverySaving ? 'Saving...' : 'Yes, Delivered' }}
+          </button>
+
+          <button
+            class="w-full rounded-lg bg-zinc-800 py-2 text-sm font-semibold text-white hover:bg-zinc-700"
+            :disabled="deliverySaving"
+            @click="closeDeliveryDone"
+          >
+            Cancel
+          </button>
         </div>
       </div>
     </div>
@@ -477,8 +545,9 @@ onMounted(async () => {
 })
 
 async function fetchAll() {
-  await fetchInspections()
+  // approvals first: the visibility filter needs saved/submitted totals
   await fetchApprovals()
+  await fetchInspections()
   await fetchDeliveries()
 }
 
@@ -495,7 +564,10 @@ async function fetchInspections() {
     errorMessage.value = error.message
     inspections.value = []
   } else {
-    inspections.value = data || []
+    // Same rule as the Admin calendar: hide products whose inspection date has
+    // passed AND are already fully inspected. Approvals must be loaded first.
+    const today = getToday()
+    inspections.value = (data || []).filter(product => shouldShowInCalendar(product, today))
   }
 
   loading.value = false
@@ -509,12 +581,97 @@ async function fetchApprovals() {
   }
 }
 
+// Today's date on this computer's clock (YYYY-MM-DD).
+function getToday() {
+  const d = new Date()
+  const month = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${d.getFullYear()}-${month}-${day}`
+}
+
+function shouldShowInCalendar(product, today) {
+  if (!product.inspection_date) return false
+
+  const quantity = Number(product.quantity || 0)
+  const totalDone = adminApprovedQty(product) + savedQty(product) + submittedQty(product)
+
+  const isTodayOrFuture = product.inspection_date >= today
+  const isPastButUnfinished = product.inspection_date < today && totalDone < quantity
+
+  return isTodayOrFuture || isPastButUnfinished
+}
+
+// Same rule as the Admin calendar: inspection date has passed
+// and not every item has been approved, saved or submitted yet.
+function isOverdue(product) {
+  if (!product.inspection_date) return false
+
+  const quantity = Number(product.quantity || 0)
+  const totalDone = adminApprovedQty(product) + savedQty(product) + submittedQty(product)
+
+  return product.inspection_date < getToday() && totalDone < quantity
+}
+
 async function fetchDeliveries() {
   const { data, error } = await supabase.rpc('list_deliveries')
 
   if (!error) {
-    deliveries.value = data || []
+    // Finished deliveries disappear from the calendar
+    deliveries.value = (data || []).filter(delivery => !isDelivered(delivery))
   }
+}
+
+// ----- Delivery done -----
+const deliveryToFinish = ref(null)
+const deliveryError = ref('')
+const deliverySaving = ref(false)
+
+function isDelivered(delivery) {
+  return ['delivered', 'done', 'completed'].includes(
+    String(delivery.status || '').trim().toLowerCase()
+  )
+}
+
+function isDeliveryOverdue(delivery) {
+  if (!delivery.delivery_date) return false
+  return String(delivery.delivery_date).slice(0, 10) < getToday()
+}
+
+function openDeliveryDone(delivery) {
+  deliveryToFinish.value = delivery
+  deliveryError.value = ''
+}
+
+function closeDeliveryDone() {
+  if (deliverySaving.value) return
+  deliveryToFinish.value = null
+  deliveryError.value = ''
+}
+
+async function confirmDeliveryDone() {
+  if (!deliveryToFinish.value) return
+
+  deliverySaving.value = true
+  deliveryError.value = ''
+
+  const { error } = await supabase.rpc('mark_delivery_done', {
+    p_delivery_id: deliveryToFinish.value.id,
+    p_done_by: currentStaffName,
+  })
+
+  deliverySaving.value = false
+
+  if (error) {
+    deliveryError.value = error.message
+    return
+  }
+
+  // Remove it right away, then refresh from the database
+  const doneId = deliveryToFinish.value.id
+  deliveries.value = deliveries.value.filter(delivery => delivery.id !== doneId)
+  deliveryToFinish.value = null
+
+  await fetchDeliveries()
 }
 
 function productApprovals(product, status) {
@@ -744,7 +901,9 @@ async function removeSavedInspection(approval) {
 
 function formatDate(date) {
   if (!date) return 'No date'
-  return new Date(date).toLocaleDateString(undefined, {
+  // Read "2026-10-13" as a local date, not UTC midnight (can show the day before).
+  const [y, m, d] = String(date).slice(0, 10).split('-').map(Number)
+  return new Date(y, m - 1, d).toLocaleDateString(undefined, {
     year: 'numeric',
     month: 'long',
     day: 'numeric',

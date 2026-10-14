@@ -5,11 +5,11 @@
       subtitle="View receipts, inspection reports, and product reports."
     />
 
-    <div class="mb-6 flex flex-wrap gap-3">
+    <div class="-mx-1 mb-5 flex gap-2 overflow-x-auto px-1 pb-1 sm:mb-6 sm:flex-wrap sm:gap-3 sm:overflow-visible">
       <button
         v-for="type in documentTypes"
         :key="type"
-        class="rounded-2xl px-5 py-3 font-bold transition"
+        class="shrink-0 whitespace-nowrap rounded-2xl px-4 py-2.5 text-sm font-bold transition sm:px-5 sm:py-3 sm:text-base"
         :class="selectedType === type
           ? 'bg-red-600 text-white'
           : 'bg-zinc-900 text-zinc-300 hover:bg-zinc-800 hover:text-white'"
@@ -37,18 +37,19 @@
       No documents found.
     </div>
 
-    <div class="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+    <div class="grid gap-3 sm:gap-5 md:grid-cols-2 xl:grid-cols-3">
       <div
-        v-for="document in filteredDocuments"
+        v-for="document in visibleDocuments"
         :key="document.id"
-        class="rounded-[24px] border border-white/10 bg-zinc-900 p-5 shadow-xl"
+        class="rounded-2xl border border-white/10 bg-zinc-900 p-3 shadow-xl sm:rounded-[24px] sm:p-5"
       >
         <div
-          class="mb-4 flex h-40 items-center justify-center overflow-hidden rounded-2xl bg-black"
+          class="mb-3 flex h-32 items-center justify-center overflow-hidden rounded-xl bg-black sm:mb-4 sm:h-40 sm:rounded-2xl"
         >
           <img
             v-if="document.receipt_image_url || document.image_url"
             :src="document.receipt_image_url || document.image_url"
+            loading="lazy"
             class="h-full w-full object-cover"
           />
 
@@ -70,7 +71,7 @@
           </span>
         </div>
 
-        <h2 class="text-xl font-bold text-white">
+        <h2 class="text-base font-bold text-white sm:text-xl">
           {{ document.title || document.type || 'Untitled Document' }}
         </h2>
 
@@ -79,7 +80,7 @@
         </p>
 
         <button
-          class="mt-5 w-full rounded-2xl bg-red-600 py-3 font-bold text-white transition hover:bg-red-700"
+          class="mt-3 w-full rounded-xl bg-red-600 py-2.5 text-sm font-bold text-white transition hover:bg-red-700 sm:mt-5 sm:rounded-2xl sm:py-3 sm:text-base"
           @click="openDocument(document)"
         >
           View Details
@@ -87,16 +88,32 @@
       </div>
     </div>
 
+    <!-- LAZY LOADING: when this line comes near the screen, the next 15 items are shown -->
+    <div
+      v-if="hasMore"
+      ref="sentinel"
+      class="py-8 text-center text-sm text-zinc-500"
+    >
+      Loading more...
+    </div>
+
+    <p
+      v-else-if="filteredDocuments.length > PAGE_SIZE"
+      class="py-6 text-center text-xs text-zinc-600"
+    >
+      All {{ filteredDocuments.length }} documents shown.
+    </p>
+
     <!-- VIEW MODAL -->
     <div
       v-if="selectedDocument"
       class="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4"
       @click.self="closeDocument"
     >
-      <div class="w-full max-w-2xl rounded-[24px] border border-white/10 bg-zinc-900 p-5">
+      <div class="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-white/10 bg-zinc-900 p-4 sm:rounded-[24px] sm:p-5">
         <div class="mb-4 flex items-start justify-between gap-4">
           <div>
-            <h2 class="text-2xl font-bold text-white">
+            <h2 class="text-lg font-bold text-white sm:text-2xl">
               {{ selectedDocument.title || selectedDocument.type || 'Document Details' }}
             </h2>
 
@@ -114,12 +131,12 @@
         </div>
 
         <div
-          class="mb-4 flex max-h-[360px] items-center justify-center overflow-hidden rounded-2xl bg-black"
+          class="mb-4 flex max-h-[260px] sm:max-h-[360px] items-center justify-center overflow-hidden rounded-2xl bg-black"
         >
           <img
             v-if="selectedDocument.receipt_image_url || selectedDocument.image_url"
             :src="selectedDocument.receipt_image_url || selectedDocument.image_url"
-            class="max-h-[360px] w-full object-contain"
+            class="max-h-[260px] w-full object-contain sm:max-h-[360px]"
           />
 
           <span v-else class="p-10 text-sm text-zinc-500">
@@ -160,7 +177,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { supabase } from '../../lib/supabase'
 import PageHeader from '../../components/PageHeader.vue'
 
@@ -177,8 +194,44 @@ const documentTypes = [
   'Product Report',
 ]
 
+// ----- Lazy loading: show 15 at a time -----
+const PAGE_SIZE = 15
+const visibleCount = ref(PAGE_SIZE)
+const sentinel = ref(null)
+let observer = null
+
 onMounted(() => {
   fetchDocuments()
+
+  observer = new IntersectionObserver(
+    (entries) => {
+      if (entries[0]?.isIntersecting && hasMore.value) {
+        visibleCount.value += PAGE_SIZE
+      }
+    },
+    // start loading a bit BEFORE the user reaches the very end
+    { rootMargin: '400px 0px' }
+  )
+})
+
+onBeforeUnmount(() => observer?.disconnect())
+
+// Watch the "Loading more..." line. After each batch, look again so a tall screen
+// keeps loading until it is filled or everything is shown.
+watch(
+  [sentinel, visibleCount],
+  async () => {
+    await nextTick()
+    if (!observer) return
+    observer.disconnect()
+    if (sentinel.value) observer.observe(sentinel.value)
+  },
+  { flush: 'post' }
+)
+
+// Changing the tab starts again from the first 15.
+watch(selectedType, () => {
+  visibleCount.value = PAGE_SIZE
 })
 
 async function fetchDocuments() {
@@ -192,6 +245,7 @@ async function fetchDocuments() {
     documents.value = []
   } else {
     documents.value = data || []
+    visibleCount.value = PAGE_SIZE
   }
 
   loading.value = false
@@ -206,6 +260,12 @@ const filteredDocuments = computed(() => {
     return document.type === selectedType.value
   })
 })
+
+const visibleDocuments = computed(() =>
+  filteredDocuments.value.slice(0, visibleCount.value)
+)
+
+const hasMore = computed(() => visibleCount.value < filteredDocuments.value.length)
 
 function openDocument(document) {
   selectedDocument.value = document

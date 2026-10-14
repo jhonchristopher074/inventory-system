@@ -2,18 +2,54 @@
   <div>
     <!-- HEADER -->
     <div class="mb-6 rounded-[24px] border border-white/10 bg-zinc-900 p-5">
+      <button
+        v-if="selectedCashier"
+        class="mb-3 rounded-xl bg-zinc-800 px-4 py-2 text-sm font-bold text-white hover:bg-zinc-700"
+        @click="selectedCashier = null"
+      >
+        ← All sales
+      </button>
+
       <h1 class="text-3xl font-bold text-white">
-        Admin Sales History
+        {{ selectedCashier ? selectedCashier.name : 'Admin Sales History' }}
       </h1>
 
       <p class="text-zinc-400">
-        Monitor all cashier transactions and receipts.
+        {{
+          selectedCashier
+            ? 'Sales history of this cashier.'
+            : 'Monitor all cashier transactions and receipts. Click a cashier name to see their sales.'
+        }}
       </p>
+    </div>
+
+    <!-- CASHIER SUMMARY -->
+    <div v-if="selectedCashier" class="mb-6 grid gap-4 sm:grid-cols-3">
+      <div class="rounded-[24px] border border-white/10 bg-zinc-900 p-5">
+        <p class="text-sm text-zinc-400">Total sales</p>
+        <p class="mt-1 text-2xl font-extrabold text-red-400">
+          ₱{{ cashierTotal.toFixed(2) }}
+        </p>
+      </div>
+
+      <div class="rounded-[24px] border border-white/10 bg-zinc-900 p-5">
+        <p class="text-sm text-zinc-400">Transactions</p>
+        <p class="mt-1 text-2xl font-extrabold text-white">
+          {{ visibleSales.length }}
+        </p>
+      </div>
+
+      <div class="rounded-[24px] border border-white/10 bg-zinc-900 p-5">
+        <p class="text-sm text-zinc-400">Items sold</p>
+        <p class="mt-1 text-2xl font-extrabold text-white">
+          {{ cashierItems }}
+        </p>
+      </div>
     </div>
 
     <!-- TABLE -->
     <div class="overflow-hidden rounded-[24px] border border-white/10 bg-zinc-900">
-      <table class="w-full border-collapse text-left">
+      <table class="resp-table w-full border-collapse text-left">
         <thead class="bg-black text-sm text-zinc-400">
           <tr>
             <th class="px-5 py-4">Sale ID</th>
@@ -27,31 +63,36 @@
 
         <tbody>
           <tr
-            v-for="sale in sales"
+            v-for="sale in visibleSales"
             :key="sale.id"
             class="border-t border-white/10 transition hover:border-l-4 hover:border-l-blue-500 hover:bg-zinc-800/70"
           >
-            <td class="px-5 py-4 font-bold text-white">
+            <td data-label="Sale ID" class="px-5 py-4 font-bold text-white">
               #{{ sale.id }}
             </td>
 
-            <td class="px-5 py-4 text-zinc-300">
-              {{ sale.profiles?.full_name || 'Unknown Cashier' }}
+            <td data-label="Cashier" class="px-5 py-4">
+              <button
+                class="font-semibold text-zinc-200 hover:text-red-400 hover:underline"
+                @click="selectedCashier = { key: cashierKey(sale), name: cashierName(sale) }"
+              >
+                {{ cashierName(sale) }}
+              </button>
             </td>
 
-            <td class="px-5 py-4 text-zinc-300">
+            <td data-label="Date" class="px-5 py-4 text-zinc-300">
               {{ formatDate(sale.created_at) }}
             </td>
 
-            <td class="px-5 py-4 text-zinc-300">
+            <td data-label="Items" class="px-5 py-4 text-zinc-300">
               {{ sale.sale_items?.length || 0 }} item(s)
             </td>
 
-            <td class="px-5 py-4 font-bold text-red-400">
+            <td data-label="Total" class="px-5 py-4 font-bold text-red-400">
               ₱{{ Number(sale.total_amount).toFixed(2) }}
             </td>
 
-            <td class="px-5 py-4">
+            <td data-label="Receipt" class="px-5 py-4">
               <span
                 class="cursor-pointer font-bold text-blue-400 hover:underline"
                 @click="openReceipt(sale)"
@@ -64,7 +105,7 @@
       </table>
 
       <p
-        v-if="sales.length === 0"
+        v-if="visibleSales.length === 0"
         class="p-6 text-center text-zinc-500"
       >
         No sales records found.
@@ -174,11 +215,45 @@
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { supabase } from '../../lib/supabase'
 
 const sales = ref([])
 const receiptSale = ref(null)
+const selectedCashier = ref(null) // { key, name } or null = show everyone
+
+function cashierName(sale) {
+  return sale.profiles?.full_name || 'Unknown Cashier'
+}
+
+// Prefer the cashier's id so two cashiers with the same name are never mixed up.
+function cashierKey(sale) {
+  return (
+    sale.cashier_id ||
+    sale.user_id ||
+    sale.created_by ||
+    sale.profiles?.id ||
+    cashierName(sale)
+  )
+}
+
+const visibleSales = computed(() =>
+  selectedCashier.value
+    ? sales.value.filter((s) => cashierKey(s) === selectedCashier.value.key)
+    : sales.value
+)
+
+const cashierTotal = computed(() =>
+  visibleSales.value.reduce((sum, s) => sum + Number(s.total_amount || 0), 0)
+)
+
+const cashierItems = computed(() =>
+  visibleSales.value.reduce(
+    (sum, s) =>
+      sum + (s.sale_items || []).reduce((n, i) => n + Number(i.quantity || 0), 0),
+    0
+  )
+)
 
 async function fetchSales() {
   const { data, error } = await supabase.rpc('list_all_sales')

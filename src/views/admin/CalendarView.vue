@@ -151,6 +151,7 @@
           v-for="delivery in deliveries"
           :key="delivery.id"
           class="rounded-[22px] border border-white/10 bg-zinc-900 p-5 shadow-xl"
+          :class="isDeliveryOverdue(delivery) ? 'border-red-500/70 bg-red-950/30 shadow-red-500/20' : ''"
         >
           <h2 class="text-xl font-bold text-white">{{ delivery.title }}</h2>
 
@@ -162,9 +163,15 @@
             {{ formatDate(delivery.delivery_date) }}
           </p>
 
-          <p class="mt-2 text-sm text-emerald-400">
-            {{ delivery.status || 'Scheduled' }}
-          </p>
+          <div class="mt-2 flex flex-wrap items-center gap-2">
+            <span class="text-sm text-emerald-400">{{ delivery.status || 'Scheduled' }}</span>
+            <span
+              v-if="isDeliveryOverdue(delivery)"
+              class="rounded-full bg-red-600/20 px-3 py-1 text-xs font-bold text-red-400"
+            >
+              Overdue
+            </span>
+          </div>
         </div>
       </div>
     </div>
@@ -441,7 +448,7 @@
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { supabase } from '../../lib/supabase'
 import PageHeader from '../../components/PageHeader.vue'
 
@@ -520,11 +527,23 @@ const selectedProductSubmittedList = computed(() => {
   })
 })
 
+// Name of the product that was actually picked from the list.
+const pickedProductName = ref('')
+
 function selectProduct(product) {
   newSchedule.value.product_id = product.id
+  pickedProductName.value = product.name
   productSearch.value = product.name
   showProductDropdown.value = false
 }
+
+// If the admin edits the search text after picking, the old pick no longer counts,
+// so a schedule can't be saved for a different product than the one shown.
+watch(productSearch, (text) => {
+  if (text !== pickedProductName.value) {
+    newSchedule.value.product_id = ''
+  }
+})
 
 function handleClickOutside(e) {
   const dropdown = document.querySelector('.search-select-btn')
@@ -541,8 +560,13 @@ function handleClickOutside(e) {
   }
 }
 
+// Today's date on THIS computer's clock (YYYY-MM-DD).
+// (toISOString() uses UTC, which is a day behind in the Philippines before 8 AM.)
 function getToday() {
-  return new Date().toISOString().split('T')[0]
+  const d = new Date()
+  const month = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${d.getFullYear()}-${month}-${day}`
 }
 
 function adminApprovedQty(product) {
@@ -619,6 +643,18 @@ function shouldShowInCalendar(product, today) {
   return isTodayOrFuture || isPastButUnfinished
 }
 
+// ----- Deliveries -----
+function isDelivered(delivery) {
+  return ['delivered', 'done', 'completed'].includes(
+    String(delivery.status || '').trim().toLowerCase()
+  )
+}
+
+function isDeliveryOverdue(delivery) {
+  if (!delivery.delivery_date) return false
+  return String(delivery.delivery_date).slice(0, 10) < getToday()
+}
+
 async function fetchApprovals() {
   const { data, error } = await supabase.rpc('list_active_approvals')
 
@@ -661,7 +697,8 @@ async function fetchDeliveries() {
   const { data, error } = await supabase.rpc('list_deliveries')
 
   if (!error) {
-    deliveries.value = data || []
+    // Finished deliveries disappear from the calendar
+    deliveries.value = (data || []).filter(delivery => !isDelivered(delivery))
   }
 }
 
@@ -674,6 +711,7 @@ function openAddModal() {
     date: '',
   }
 
+  pickedProductName.value = ''
   productSearch.value = ''
   showProductDropdown.value = false
   showAddModal.value = true
@@ -734,9 +772,15 @@ async function saveSchedule() {
   await fetchDeliveries()
 }
 
+// Remember which overdue products already triggered a notification during this visit,
+// so reloading the list after every save doesn't fire the same notification again.
+const notifiedOverdue = new Set()
+
 async function createOverdueNotifications(items) {
   for (const item of items) {
     if (!isOverdue(item)) continue
+    if (notifiedOverdue.has(item.id)) continue
+    notifiedOverdue.add(item.id)
 
     const quantity = Number(item.quantity || 0)
     const totalDone = adminApprovedQty(item) + savedQty(item) + submittedQty(item)
@@ -752,7 +796,10 @@ async function createOverdueNotifications(items) {
 function formatDate(date) {
   if (!date) return 'No date'
 
-  return new Date(date).toLocaleDateString(undefined, {
+  // "2026-10-13" must be read as a local date, not UTC midnight (can show the day before).
+  const [y, m, d] = String(date).slice(0, 10).split('-').map(Number)
+
+  return new Date(y, m - 1, d).toLocaleDateString(undefined, {
     year: 'numeric',
     month: 'long',
     day: 'numeric',
