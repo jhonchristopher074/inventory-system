@@ -67,6 +67,7 @@ import { ref } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { supabase } from '../../lib/supabase'
 import { afterLogin } from '../../lib/passwordStatus'
+import { markActivity } from '../../lib/idleLogout'
 
 const router = useRouter()
 const route = useRoute()
@@ -91,6 +92,9 @@ async function login() {
     loading.value = false
     return
   }
+
+  // fresh login: restart the auto-logout clock
+  markActivity()
 
   // Temporary password? Expired -> signed out with a message.
   // Still valid -> go to the Change password page BEFORE anything else.

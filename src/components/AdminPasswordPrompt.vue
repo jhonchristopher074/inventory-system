@@ -2,20 +2,26 @@
 // "Type your password to confirm" popup for sensitive admin actions.
 import { nextTick, onMounted, ref, watch } from 'vue'
 
+// With textLabel set, it also asks for a value (e.g. a new name) and emits
+// confirm(password, value).
 const props = defineProps({
   title: { type: String, required: true },
   message: { type: String, default: '' },
   confirmLabel: { type: String, default: 'Confirm' },
   error: { type: String, default: '' },
   busy: { type: Boolean, default: false },
+  textLabel: { type: String, default: '' },
+  textValue: { type: String, default: '' },
 })
 const emit = defineEmits(['confirm', 'cancel'])
 
 const password = ref('')
 const show = ref(false)
 const input = ref(null)
+const text = ref(props.textValue)
+const textInput = ref(null)
 
-onMounted(() => nextTick(() => input.value?.focus()))
+onMounted(() => nextTick(() => (props.textLabel ? textInput : input).value?.focus()))
 
 // After a wrong password, clear the box and put the cursor back in it.
 watch(() => props.error, (value) => {
@@ -27,7 +33,8 @@ watch(() => props.error, (value) => {
 
 function submit() {
   if (!password.value || props.busy) return
-  emit('confirm', password.value)
+  if (props.textLabel && !text.value.trim()) return
+  emit('confirm', password.value, text.value.trim())
 }
 </script>
 
@@ -38,6 +45,14 @@ function submit() {
     <form class="ap-card" @submit.prevent="submit">
       <h2 id="ap-title">{{ title }}</h2>
       <p v-if="message" class="ap-message">{{ message }}</p>
+
+      <template v-if="textLabel">
+        <label class="ap-label" for="ap-text">{{ textLabel }}</label>
+        <div class="ap-field">
+          <input id="ap-text" ref="textInput" v-model="text" type="text"
+                 maxlength="80" autocomplete="off" />
+        </div>
+      </template>
 
       <label class="ap-label" for="ap-password">Your password</label>
       <div class="ap-field">
@@ -53,7 +68,8 @@ function submit() {
 
       <div class="ap-actions">
         <button type="button" class="ap-cancel" :disabled="busy" @click="emit('cancel')">Cancel</button>
-        <button type="submit" class="ap-confirm" :disabled="!password || busy">
+        <button type="submit" class="ap-confirm"
+                :disabled="!password || busy || (textLabel && !text.trim())">
           {{ busy ? 'Checking…' : confirmLabel }}
         </button>
       </div>

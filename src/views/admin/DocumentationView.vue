@@ -2,7 +2,7 @@
   <div>
     <PageHeader
       title="Documentation"
-      subtitle="View receipts, inspection reports, and product reports."
+      subtitle="View receipts, inspection reports, product reports and staff documentation."
     />
 
     <div class="-mx-1 mb-5 flex gap-2 overflow-x-auto px-1 pb-1 sm:mb-6 sm:flex-wrap sm:gap-3 sm:overflow-visible">
@@ -187,11 +187,15 @@ const errorMessage = ref('')
 const selectedType = ref('All')
 const selectedDocument = ref(null)
 
+// The last two are the types staff can create (Staff > Documentation);
+// without tabs they could only be found under "All".
 const documentTypes = [
   'All',
   'Order Receipt',
   'Inspection Document',
   'Product Report',
+  'Staff Documentation',
+  'Inspection Note',
 ]
 
 // ----- Lazy loading: show 15 at a time -----
@@ -286,6 +290,10 @@ function badgeClass(type) {
 
   if (type === 'Product Report') {
     return 'bg-red-600/20 text-red-400'
+  }
+
+  if (type === 'Staff Documentation' || type === 'Inspection Note') {
+    return 'bg-amber-500/20 text-amber-300'
   }
 
   return 'bg-zinc-700 text-zinc-300'

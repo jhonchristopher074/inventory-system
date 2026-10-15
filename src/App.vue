@@ -92,6 +92,7 @@ import { useRoute, useRouter, RouterLink } from 'vue-router'
 import { supabase } from './lib/supabase'
 import NotificationBell from './components/NotificationBell.vue'
 import NavIcon from './components/NavIcon.vue'
+import { watchIdle, IDLE_MESSAGE } from './lib/idleLogout'
 
 const router = useRouter()
 const route = useRoute()
@@ -108,6 +109,9 @@ const NARROW = 1024
 const collapsed = ref(false)
 // only auto-collapse until the user makes their own choice on this screen size
 let userChoseState = false
+
+// stops the auto-logout watcher (started in onMounted)
+let stopIdleWatch = null
 
 function toggleSidebar() {
   collapsed.value = !collapsed.value
@@ -143,11 +147,32 @@ onMounted(() => {
 
   window.addEventListener('resize', applyWidth)
   getUserRole()
+  stopIdleWatch = watchIdle(idleLogout)
 })
 
 onBeforeUnmount(() => {
   window.removeEventListener('resize', applyWidth)
+  stopIdleWatch?.()
 })
+
+/* ------------------------------------------------------------------
+   Auto-logout after a while without activity (see lib/idleLogout.js)
+------------------------------------------------------------------ */
+async function idleLogout() {
+  if (route.path === '/login') return
+
+  const {
+    data: { session },
+  } = await supabase.auth.getSession()
+
+  if (!session) return
+
+  // 'local': only this browser. A plain signOut() would also log the same
+  // account out on every other device.
+  await supabase.auth.signOut({ scope: 'local' })
+  role.value = 'staff'
+  router.replace({ path: '/login', query: { notice: IDLE_MESSAGE } })
+}
 
 /* ------------------------------------------------------------------
    Navigation, per role

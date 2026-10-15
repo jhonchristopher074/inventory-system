@@ -256,12 +256,12 @@
         </div>
 
         <!-- ACTIONS -->
-        <div class="grid grid-cols-2 gap-3">
+        <div v-if="!confirmingDelete" class="grid grid-cols-2 gap-3">
           <button
-            class="rounded-xl bg-red-600 py-3 text-sm font-bold text-white transition hover:bg-red-700"
-            @click="deleteDocument(selectedDocument.id)"
+            class="rounded-xl border border-red-500/60 py-3 text-sm font-bold text-red-400 transition hover:bg-red-600 hover:text-white"
+            @click="confirmingDelete = true"
           >
-            Delete
+            Delete Document
           </button>
           <button
             class="rounded-xl bg-zinc-800 py-3 text-sm font-bold text-white transition hover:bg-zinc-700"
@@ -269,6 +269,29 @@
           >
             Close
           </button>
+        </div>
+
+        <!-- asks here, instead of the browser's "localhost says" popup -->
+        <div v-else class="rounded-[16px] border border-red-500/40 bg-red-950/40 p-4">
+          <p class="text-sm font-bold text-white">Delete this document?</p>
+          <p class="mt-1 text-xs text-zinc-400">This cannot be undone.</p>
+
+          <div class="mt-4 grid grid-cols-2 gap-3">
+            <button
+              class="rounded-xl bg-red-600 py-3 text-sm font-bold text-white transition hover:bg-red-700 disabled:opacity-50"
+              :disabled="deleting"
+              @click="deleteDocument(selectedDocument.id)"
+            >
+              {{ deleting ? 'Deleting...' : 'Yes, delete' }}
+            </button>
+            <button
+              class="rounded-xl bg-zinc-800 py-3 text-sm font-bold text-white transition hover:bg-zinc-700 disabled:opacity-50"
+              :disabled="deleting"
+              @click="confirmingDelete = false"
+            >
+              Cancel
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -298,6 +321,8 @@ const selectedDocument = ref(null)
 const updatePhotoFile = ref(null)
 const updatingPhoto = ref(false)
 const viewError = ref('')
+const confirmingDelete = ref(false)
+const deleting = ref(false)
 
 const productSearch = ref('')
 
@@ -428,6 +453,8 @@ async function saveDocument() {
 
 function openDocument(doc) {
   selectedDocument.value = doc
+  confirmingDelete.value = false
+  viewError.value = ''
 }
 
 function handleUpdatePhoto(event) {
@@ -473,12 +500,25 @@ async function updateDocumentPhoto() {
   updatingPhoto.value = false
 }
 
+// Only reached through "Yes, delete" in the document window.
 async function deleteDocument(id) {
-  await supabase.rpc('delete_documentation', {
+  viewError.value = ''
+  deleting.value = true
+
+  const { error } = await supabase.rpc('delete_documentation', {
     p_document_id: id,
   })
 
+  deleting.value = false
+
+  if (error) {
+    viewError.value = error.message
+    confirmingDelete.value = false
+    return
+  }
+
   selectedDocument.value = null
+  confirmingDelete.value = false
 
   await fetchDocuments()
 }

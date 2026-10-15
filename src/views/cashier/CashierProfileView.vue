@@ -1,6 +1,6 @@
 <template>
   <div>
-    <PageHeader title="Cashier Profile" subtitle="Manage cashier account information." />
+    <PageHeader title="Cashier Profile" subtitle="Your account details, password and sales." />
 
     <!-- TABS -->
     <div class="mb-5 flex gap-3 card p-2">
@@ -25,78 +25,8 @@
       </button>
     </div>
 
-    <!-- PROFILE SETTINGS -->
-    <div
-      v-if="activeTab === 'profile'"
-      class="max-w-[760px] card p-6"
-    >
-      <p v-if="profileError" class="mb-4 rounded-xl bg-red-600/20 p-3 text-red-400">
-        {{ profileError }}
-      </p>
-
-      <div class="mb-6 flex items-center gap-4">
-        <div class="flex h-20 w-20 items-center justify-center rounded-full bg-red-600 text-3xl font-extrabold text-white">
-          {{ initials }}
-        </div>
-
-        <div>
-          <h2 class="text-2xl font-extrabold text-white">
-            {{ profile.full_name || 'No name found' }}
-          </h2>
-          <p class="text-sm text-zinc-400">
-            {{ profile.email || 'No email found' }}
-          </p>
-          <span class="mt-2 inline-block rounded-full bg-red-600/20 px-3 py-1 text-xs font-bold text-red-400">
-            {{ profile.role || 'cashier' }}
-          </span>
-        </div>
-      </div>
-
-      <div class="grid gap-4 md:grid-cols-2">
-        <div class="info-box">
-          <p class="label-text">Full Name</p>
-          <p class="value-text">{{ profile.full_name || 'No name found' }}</p>
-        </div>
-
-        <div class="info-box">
-          <p class="label-text">Email</p>
-          <p class="value-text">{{ profile.email || 'No email found' }}</p>
-        </div>
-
-        <div class="info-box">
-          <p class="label-text">Role</p>
-          <p class="value-text capitalize">{{ profile.role || 'cashier' }}</p>
-        </div>
-
-        <div class="info-box">
-          <p class="label-text">Status</p>
-          <p
-            class="font-bold"
-            :class="profile.is_active === false ? 'text-red-400' : 'text-emerald-400'"
-          >
-            {{ profile.is_active === false ? 'Disabled' : 'Active' }}
-          </p>
-        </div>
-      </div>
-
-      <div class="mt-6 rounded-2xl bg-black p-5">
-        <h3 class="mb-4 text-xl font-bold text-white">Change Password</h3>
-
-        <input
-          v-model="newPassword"
-          type="password"
-          placeholder="New Password"
-          class="input"
-        />
-
-        <button
-          class="mt-4 rounded-xl bg-red-600 px-6 py-3 font-bold text-white hover:bg-red-700"
-          @click="updatePassword"
-        >
-          Update Password
-        </button>
-      </div>
-    </div>
+    <!-- PROFILE SETTINGS: same profile as staff (photo, read-only details, password) -->
+    <MyProfile v-if="activeTab === 'profile'" role-label="CASHIER ACCOUNT" />
 
     <!-- SALES HISTORY -->
     <div
@@ -107,7 +37,7 @@
         <div>
           <h2 class="text-2xl font-bold text-white">Daily Sales History</h2>
           <p class="text-sm text-zinc-400">
-            Shows only {{ profile.full_name || 'this cashier' }}'s total sales per day for the last 30 days.
+            Your total sales per day for the last 30 days.
           </p>
         </div>
 
@@ -244,16 +174,15 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, ref } from 'vue'
 import PageHeader from '../../components/PageHeader.vue'
+import MyProfile from '../../components/MyProfile.vue'
 import { supabase } from '../../lib/supabase'
 
 const activeTab = ref('profile')
 const sales = ref([])
 const loading = ref(false)
 const salesError = ref('')
-const profileError = ref('')
-const newPassword = ref('')
 const openedDay = ref(null)
 
 const openedOrder = ref(null)
@@ -261,23 +190,6 @@ const openedOrder = ref(null)
 function toggleOrder(orderId) {
   openedOrder.value = openedOrder.value === orderId ? null : orderId
 }
-
-const profile = ref({
-  id: '',
-  full_name: '',
-  email: '',
-  role: 'cashier',
-  is_active: true,
-})
-
-const initials = computed(() => {
-  return (profile.value.full_name || profile.value.email || 'User')
-    .split(' ')
-    .map(word => word[0])
-    .join('')
-    .slice(0, 2)
-    .toUpperCase()
-})
 
 const groupedSales = computed(() => {
   const groups = {}
@@ -316,64 +228,6 @@ const groupedSales = computed(() => {
   return Object.values(groups)
 })
 
-
-function getLocalUser() {
-  const keys = [
-    'currentUser',
-    'loggedInUser',
-    'user',
-    'profile',
-    'authUser',
-  ]
-
-  for (const key of keys) {
-    const raw = localStorage.getItem(key)
-
-    if (!raw) continue
-
-    try {
-      const parsed = JSON.parse(raw)
-      if (parsed?.email || parsed?.id) return parsed
-    } catch {
-      // ignore
-    }
-  }
-
-  return {
-    id: localStorage.getItem('user_id') || localStorage.getItem('profile_id') || '',
-    full_name: localStorage.getItem('full_name') || localStorage.getItem('name') || '',
-    email: localStorage.getItem('email') || localStorage.getItem('user_email') || '',
-    role: localStorage.getItem('role') || 'cashier',
-  }
-}
-
-async function fetchProfile() {
-  profileError.value = ''
-
-  const localUser = getLocalUser()
-
-  const { data, error } = await supabase.rpc('get_my_profile')
-
-  if (error) {
-    profileError.value = error.message
-    return
-  }
-
-  if (data) {
-    profile.value = data
-  } else {
-    profile.value = {
-      id: localUser.id || '',
-      full_name: localUser.full_name || '',
-      email: localUser.email || '',
-      role: localUser.role || 'cashier',
-      is_active: true,
-    }
-
-    profileError.value = 'Profile not found in profiles table, using local login data.'
-  }
-}
-
 async function openSalesTab() {
   activeTab.value = 'sales'
   await fetchSales()
@@ -398,51 +252,14 @@ async function fetchSales() {
     return
   }
 
-  const email = String(profile.value.email || '').toLowerCase()
-  const name = String(profile.value.full_name || '').toLowerCase()
-  const id = String(profile.value.id || '')
-
-  sales.value = (data || []).filter(sale => {
-    const saleCashierId = String(sale.cashier_id || '')
-    const saleCashierEmail = String(sale.cashier_email || '').toLowerCase()
-    const saleCashierName = String(sale.cashier_name || '').toLowerCase()
-
-    return (
-      (id && saleCashierId === id) ||
-      (email && saleCashierEmail === email) ||
-      (name && saleCashierName === name)
-    )
-  })
+  // the server already returns only this cashier's own sales
+  sales.value = data || []
 
   loading.value = false
 }
 
 function toggleDay(date) {
   openedDay.value = openedDay.value === date ? null : date
-}
-
-async function updatePassword() {
-  if (!newPassword.value.trim()) {
-    alert('Please enter a new password.')
-    return
-  }
-
-  if (newPassword.value.trim().length < 6) {
-    alert('Password must be at least 6 characters.')
-    return
-  }
-
-  const { error } = await supabase.auth.updateUser({
-    password: newPassword.value,
-  })
-
-  if (error) {
-    alert(error.message)
-    return
-  }
-
-  newPassword.value = ''
-  alert('Password updated.')
 }
 
 function formatDate(date) {
@@ -463,41 +280,4 @@ function formatTime(date) {
     minute: '2-digit',
   })
 }
-
-onMounted(async () => {
-  await fetchProfile()
-})
 </script>
-
-<style scoped>
-.info-box {
-  border-radius: 1rem;
-  background: #000;
-  padding: 1rem;
-}
-
-.label-text {
-  margin-bottom: 0.35rem;
-  font-size: 0.85rem;
-  color: rgb(161 161 170);
-}
-
-.value-text {
-  font-weight: 800;
-  color: white;
-}
-
-.input {
-  width: 100%;
-  border-radius: 1rem;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgb(39 39 42);
-  padding: 0.9rem 1rem;
-  color: white;
-  outline: none;
-}
-
-.input:focus {
-  border-color: rgb(239 68 68);
-}
-</style>

@@ -13,6 +13,14 @@
         />
 
         <button
+          class="rounded-2xl border border-white/10 bg-zinc-900 px-5 py-3 font-bold text-zinc-200 hover:bg-zinc-800"
+          title="Every stock change, for all products"
+          @click="openHistory(null)"
+        >
+          Stock History
+        </button>
+
+        <button
           class="rounded-2xl bg-red-600 px-5 py-3 font-bold text-white hover:bg-red-700"
           @click="showAddModal = true"
         >
@@ -111,6 +119,15 @@
             >
               ✎ Edit
             </button>
+
+            <!-- STOCK HISTORY of this product -->
+            <button
+              class="shrink-0 rounded-lg bg-zinc-800 px-2.5 py-1.5 text-xs font-bold text-zinc-200 hover:bg-zinc-700"
+              title="Every stock change for this product"
+              @click.stop="openHistory(product)"
+            >
+              History
+            </button>
           </div>
 
           <p class="text-right text-sm font-bold text-red-400">
@@ -154,6 +171,12 @@
         </div>
       </div>
     </aside>
+
+    <StockHistoryModal
+      v-if="showHistory"
+      :product="historyProduct"
+      @close="showHistory = false"
+    />
 
     <!-- PRODUCT DETAILS MODAL -->
     <div
@@ -632,6 +655,7 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import PageHeader from '../../components/PageHeader.vue'
+import StockHistoryModal from '../../components/StockHistoryModal.vue'
 import { supabase } from '../../lib/supabase'
 import { uploadImage } from '../../lib/uploadImage'
 
@@ -867,6 +891,15 @@ async function handleImageUpload(event) {
   }
 
   uploading.value = false
+}
+
+// ----- Stock history -----
+const showHistory = ref(false)
+const historyProduct = ref(null) // null = all products
+
+function openHistory(product) {
+  historyProduct.value = product
+  showHistory.value = true
 }
 
 // ----- Edit product (nickname, price, quantity, picture) -----

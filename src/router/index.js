@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 import LoginView from '../views/auth/LoginView.vue'
 import ChangePasswordView from '../views/ChangePasswordView.vue'
 import { getPasswordStatus, EXPIRED_MESSAGE } from '../lib/passwordStatus'
+import { isIdleExpired, markActivity, IDLE_MESSAGE } from '../lib/idleLogout'
 
 import DashboardView from '../views/admin/DashboardView.vue'
 import InventoryView from '../views/admin/InventoryView.vue'
@@ -85,6 +86,16 @@ router.beforeEach(async (to) => {
   }
 
   if (!user) return
+
+  // Still signed in, but nobody used the app for too long (this also
+  // catches a browser that was closed without logging out): end it.
+  if (isIdleExpired()) {
+    await supabase.auth.signOut({ scope: 'local' })
+    if (to.path === '/login') return
+    return { path: '/login', query: { notice: IDLE_MESSAGE } }
+  }
+
+  markActivity()
 
   // Temporary-password rule (applies to every role):
   // expired -> sign out; still temporary -> only the Change password page is allowed.

@@ -89,6 +89,48 @@
       </div>
     </div>
 
+    <!-- Approved, but copying to the Approved Receipt bucket failed,
+         so n8n never received them. Only shown when there are any. -->
+    <div v-if="unsentUploads.length > 0" class="mb-8">
+      <h2 class="mb-1 text-lg font-bold text-white">Approved but not sent</h2>
+      <p class="mb-3 text-sm text-zinc-400">
+        These were approved, but sending them to "{{ APPROVED_BUCKET }}" failed, so the
+        receipt scanner (n8n) never received them.
+      </p>
+
+      <div class="space-y-3">
+        <div
+          v-for="upload in unsentUploads"
+          :key="upload.id"
+          class="flex flex-wrap items-center justify-between gap-4 rounded-[24px] border border-amber-500/30 bg-zinc-900 p-5"
+        >
+          <div class="min-w-0">
+            <a
+              :href="upload.file_url"
+              target="_blank"
+              rel="noopener"
+              class="block truncate font-bold text-white hover:text-red-400"
+            >
+              {{ upload.file_name }}
+            </a>
+
+            <p class="mt-1 text-sm text-zinc-400">
+              From: {{ upload.supplier_name || upload.supplier_email || 'Supplier' }}
+              · Approved: {{ formatDate(upload.reviewed_at) }}
+            </p>
+          </div>
+
+          <button
+            class="shrink-0 rounded-2xl bg-amber-500 px-5 py-3 font-bold text-black hover:bg-amber-400 disabled:opacity-50"
+            :disabled="isBusy(upload.id)"
+            @click="resendSupplierUpload(upload)"
+          >
+            {{ isBusy(upload.id) ? 'Sending...' : 'Send again' }}
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- ============================================================
          INSPECTION APPROVALS
     ============================================================ -->
@@ -247,6 +289,9 @@ async function rejectInspection(approval) {
    Reject: just marks it rejected. SupplierDropBoxView.vue is listening
    for this via realtime and alerts the supplier itself — nothing else
    needs to happen here for that part.
+
+   If the copy fails, the upload is still approved; it's listed under
+   "Approved but not sent" until "Send again" gets it through.
 ------------------------------------------------------------------ */
 const BUCKET = 'supplierReceipt'
 
@@ -255,6 +300,7 @@ const BUCKET = 'supplierReceipt'
 const APPROVED_BUCKET = 'Approved Receipt'
 
 const supplierUploads = ref([])
+const unsentUploads = ref([]) // approved, but never reached the Approved Receipt bucket
 const supplierLoading = ref(false)
 const supplierError = ref('')
 const supplierSuccess = ref('')
@@ -288,16 +334,21 @@ async function fetchSupplierUploads() {
   supplierLoading.value = false
 }
 
-// Saves the file to this device before it's deleted from storage —
-// once deleted there's no other way to get it back.
-async function downloadToDevice(fileUrl, fileName) {
+// Reads a file from storage into memory.
+async function fetchFile(fileUrl) {
   const response = await fetch(fileUrl)
 
   if (!response.ok) {
-    throw new Error('Could not download the file for saving.')
+    throw new Error('Could not download the file.')
   }
 
-  const blob = await response.blob()
+  return response.blob()
+}
+
+// Saves the file to this device before it's deleted from storage —
+// once deleted there's no other way to get it back.
+async function downloadToDevice(fileUrl, fileName) {
+  const blob = await fetchFile(fileUrl)
   const objectUrl = URL.createObjectURL(blob)
 
   const link = document.createElement('a')
@@ -333,50 +384,120 @@ async function approveSupplierUpload(upload) {
 
     if (error) throw new Error(error.message)
 
-    // 3. copy into the "Approved Receipt" bucket.
-    //    This upload is what triggers the n8n workflow.
-    const approvedPath = `${approved.id}-${safeFileName(approved.file_name)}`
-
-    const { error: uploadError } = await supabase.storage
-      .from(APPROVED_BUCKET)
-      .upload(approvedPath, blob, {
-        contentType: blob.type || undefined,
-        upsert: false,
-      })
-
-    if (uploadError) {
-      // Approved, but the copy failed: keep the original file so nothing is lost.
-      console.error('Approved, but could not copy to the Approved Receipt bucket:', uploadError)
-      supplierUploads.value = supplierUploads.value.filter((item) => item.id !== upload.id)
-      supplierError.value =
-        `"${upload.file_name}" was approved and saved to your device, but copying it to the ` +
-        `"${APPROVED_BUCKET}" bucket failed (${uploadError.message}). The original file was kept ` +
-        `in storage and n8n was NOT triggered.`
-      return
-    }
-
-    // 4. remove the original from storage now that it's saved locally, approved and copied
-    const { data: removed, error: removeError } = await supabase.storage
-      .from(BUCKET)
-      .remove([approved.file_path])
-
-    // .remove() can resolve with no error but an empty `removed` array —
-    // that also means nothing was actually deleted (e.g. a storage RLS
-    // policy silently blocked it), so both cases are checked here rather
-    // than just the error.
-    const deleteFailed = removeError || !removed || removed.length === 0
-
-    if (deleteFailed) {
-      console.error('Approved, but failed to delete file from storage:', removeError)
-    }
-
-    supplierSuccess.value = deleteFailed
-      ? `Approved "${upload.file_name}", saved it to your device and sent it to ${APPROVED_BUCKET}, but the original is still in storage — check the bucket's delete policy.`
-      : `Approved "${upload.file_name}", saved it to your device, sent it to ${APPROVED_BUCKET} and removed the original.`
-
     supplierUploads.value = supplierUploads.value.filter((item) => item.id !== upload.id)
+
+    // 3. send it on to n8n, then remove the original
+    try {
+      const { deleteFailed } = await forwardReceipt(approved, blob)
+
+      supplierSuccess.value = deleteFailed
+        ? `Approved "${upload.file_name}", saved it to your device and sent it to ${APPROVED_BUCKET}, but the original is still in storage — check the bucket's delete policy.`
+        : `Approved "${upload.file_name}", saved it to your device, sent it to ${APPROVED_BUCKET} and removed the original.`
+    } catch (sendError) {
+      // Approved, but not sent: the original stays in storage and the
+      // upload is listed under "Approved but not sent" for another try.
+      console.error('Approved, but could not send to the Approved Receipt bucket:', sendError)
+      supplierError.value = sendError.alreadySent
+        ? `"${upload.file_name}" was approved and sent to "${APPROVED_BUCKET}", but the app ` +
+          `couldn't record that it was sent (${sendError.message}). If it's listed under ` +
+          `"Approved but not sent", press "Send again": that only records it, it won't be sent twice.`
+        : `"${upload.file_name}" was approved and saved to your device, but sending it to ` +
+          `"${APPROVED_BUCKET}" failed (${sendError.message}). It's listed under ` +
+          `"Approved but not sent" — press "Send again" to retry.`
+      await fetchUnsentUploads()
+    }
   } catch (err) {
     supplierError.value = err.message || 'Something went wrong approving this upload.'
+  } finally {
+    busyIds.value.delete(upload.id)
+  }
+}
+
+// Copies an approved receipt into the "Approved Receipt" bucket (that copy
+// is what triggers n8n), records it as sent, then removes the original.
+// Throws when it couldn't be sent and recorded; the original is kept then,
+// so "Send again" can still read it.
+async function forwardReceipt(upload, blob) {
+  const approvedPath = `${upload.id}-${safeFileName(upload.file_name)}`
+
+  const { error: uploadError } = await supabase.storage
+    .from(APPROVED_BUCKET)
+    .upload(approvedPath, blob, {
+      contentType: blob.type || undefined,
+      upsert: false,
+    })
+
+  // "Already exists" means an earlier try did copy it and only recording it
+  // failed. It already reached n8n, so count it as sent instead of sending
+  // it twice (which would add its stock twice).
+  if (uploadError && !isAlreadyExists(uploadError)) {
+    throw uploadError
+  }
+
+  const { error: markError } = await supabase.rpc('admin_mark_supplier_upload_forwarded', {
+    p_upload_id: upload.id,
+  })
+
+  if (markError) {
+    const notRecorded = new Error(markError.message)
+    notRecorded.alreadySent = true
+    throw notRecorded
+  }
+
+  const { data: removed, error: removeError } = await supabase.storage
+    .from(BUCKET)
+    .remove([upload.file_path])
+
+  // .remove() can resolve with no error but an empty `removed` array —
+  // that also means nothing was actually deleted (e.g. a storage RLS
+  // policy silently blocked it), so both cases are checked here rather
+  // than just the error.
+  const deleteFailed = Boolean(removeError || !removed || removed.length === 0)
+
+  if (deleteFailed) {
+    console.error('Sent, but failed to delete the original from storage:', removeError)
+  }
+
+  return { deleteFailed }
+}
+
+function isAlreadyExists(error) {
+  return (
+    String(error?.statusCode) === '409' ||
+    error?.status === 409 ||
+    /already exists|duplicate/i.test(error?.message || '')
+  )
+}
+
+async function fetchUnsentUploads() {
+  const { data, error } = await supabase.rpc('admin_list_unsent_supplier_uploads')
+
+  if (error) {
+    // e.g. the 2026-10-15 SQL file hasn't been run yet: just hide the list
+    console.error(error)
+    unsentUploads.value = []
+    return
+  }
+
+  unsentUploads.value = data || []
+}
+
+async function resendSupplierUpload(upload) {
+  supplierError.value = ''
+  supplierSuccess.value = ''
+  busyIds.value.add(upload.id)
+
+  try {
+    const blob = await fetchFile(upload.file_url)
+    const { deleteFailed } = await forwardReceipt(upload, blob)
+
+    unsentUploads.value = unsentUploads.value.filter((item) => item.id !== upload.id)
+
+    supplierSuccess.value = deleteFailed
+      ? `Sent "${upload.file_name}" to ${APPROVED_BUCKET}, but the original is still in storage — check the bucket's delete policy.`
+      : `Sent "${upload.file_name}" to ${APPROVED_BUCKET} and removed the original.`
+  } catch (err) {
+    supplierError.value = `Sending "${upload.file_name}" failed again: ${err.message || err}`
   } finally {
     busyIds.value.delete(upload.id)
   }
@@ -452,6 +573,7 @@ function formatDate(date) {
 onMounted(() => {
   fetchApprovals()
   fetchSupplierUploads()
+  fetchUnsentUploads()
   setupSupplierRealtime()
 })
 

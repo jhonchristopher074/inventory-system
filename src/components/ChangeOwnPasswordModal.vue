@@ -1,5 +1,6 @@
 <script setup>
-// Owner resets his OWN password. Same look as the other "type your password" popups.
+// The logged-in user changes their OWN password (admin and cashier Profile).
+// Same look as the other "type your password" popups.
 //   Step 1: enter your current password (checked right away)
 //   Step 2: choose the new password
 import { computed, nextTick, onMounted, ref } from 'vue'
@@ -146,7 +147,7 @@ async function saveNew() {
         </button>
       </div>
 
-      <ul class="ap-rules">
+      <ul class="ap-rules" :class="{ typing: newPassword }">
         <li v-for="r in rules" :key="r.label" :class="r.ok ? 'ok' : ''">
           {{ r.ok ? '✓' : '○' }} {{ r.label }}
         </li>
@@ -196,6 +197,8 @@ h2 { margin: 0 0 6px; font-size: 1.2rem; }
 .ap-toggle { background: transparent; border: 0; color: #a1a1aa; padding: 0 12px; cursor: pointer; font-size: .8rem; }
 .ap-rules { list-style: none; margin: 8px 0 0; padding: 0; font-size: .8rem; color: #71717a; display: grid; gap: 2px; }
 .ap-rules .ok { color: #34d399; }
+/* once typing has started, unmet rules turn red instead of staying grey */
+.ap-rules.typing li:not(.ok) { color: #fda4af; }
 .ap-error { margin: 10px 0 0; font-size: .85rem; color: #fda4af; background: rgba(225,29,72,.12); border: 1px solid rgba(225,29,72,.4); border-radius: 10px; padding: 8px 10px; }
 .ap-actions { display: flex; gap: 10px; margin-top: 18px; }
 .ap-actions button { flex: 1; padding: 11px; border: 0; border-radius: 10px; font-weight: 700; cursor: pointer; }

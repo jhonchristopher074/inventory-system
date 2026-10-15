@@ -184,6 +184,7 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import { supabase } from '../../lib/supabase'
+import { printElement } from '../../lib/printReceipt'
 
 const products = ref([])
 const cart = ref([])
@@ -355,6 +356,8 @@ async function checkout() {
 
   receipt.value = {
     ...sale,
+    // the sale result has no time of its own ("Invalid Date" on the receipt)
+    created_at: sale.created_at || new Date().toISOString(),
     items: sale.items,
   }
 
@@ -370,41 +373,7 @@ function formatDate(date) {
 }
 
 function printReceipt() {
-  const receiptContent = document.getElementById('receiptArea').innerHTML
-  const printWindow = window.open('', '', 'width=400,height=600')
-
-  printWindow.document.write(`
-    <html>
-      <head>
-        <title>Receipt</title>
-        <style>
-          body { font-family: Arial, sans-serif; padding: 20px; }
-          .text-center { text-align: center; }
-          .font-bold { font-weight: bold; }
-          .font-extrabold { font-weight: 800; }
-          .text-2xl { font-size: 24px; }
-          .text-lg { font-size: 18px; }
-          .text-sm { font-size: 14px; }
-          .text-xs { font-size: 12px; }
-          .flex { display: flex; }
-          .justify-between { justify-content: space-between; }
-          .gap-3 { gap: 12px; }
-          .my-4 { margin-top: 16px; margin-bottom: 16px; }
-          .mt-2 { margin-top: 8px; }
-          .mt-5 { margin-top: 20px; }
-          .space-y-3 > * + * { margin-top: 12px; }
-          .border-t { border-top: 1px dashed #000; }
-          @media print { body { margin: 0; } }
-        </style>
-      </head>
-      <body>${receiptContent}</body>
-    </html>
-  `)
-
-  printWindow.document.close()
-  printWindow.focus()
-  printWindow.print()
-  printWindow.close()
+  printElement('receiptArea')
 }
 
 onMounted(async () => {

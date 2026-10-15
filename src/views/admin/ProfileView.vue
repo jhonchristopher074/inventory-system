@@ -183,6 +183,11 @@
           :style="{ top: `${menu.top}px`, right: `${menu.right}px` }"
           role="menu"
         >
+          <!-- users can't rename themselves; only the owner can, here -->
+          <button class="menu-item" role="menuitem" @click="runMenu('rename')">
+            Rename
+          </button>
+
           <template v-if="menu.user.role === 'admin'">
             <button class="menu-item" role="menuitem" @click="runMenu('own-password')">
               Change my password
@@ -217,6 +222,8 @@
       :title="prompt.title"
       :message="prompt.message"
       :confirm-label="prompt.confirmLabel"
+      :text-label="prompt.textLabel"
+      :text-value="prompt.textValue"
       :error="promptError"
       :busy="promptBusy"
       @confirm="confirmPrompt"
@@ -334,7 +341,7 @@ function toggleMenu(user, event) {
   }
 
   const rect = event.currentTarget.getBoundingClientRect()
-  const menuHeight = user.role === 'admin' ? 48 : 96
+  const menuHeight = user.role === 'admin' ? 84 : 132
   const openUp = rect.bottom + menuHeight + 8 > window.innerHeight
 
   menu.value = {
@@ -354,6 +361,7 @@ function runMenu(action) {
   if (!user) return
 
   if (action === 'own-password') showOwnPassword.value = true
+  else if (action === 'rename') onRename(user)
   else if (action === 'reset') onReset(user)
   else if (action === 'toggle') onToggle(user)
 }
@@ -363,7 +371,7 @@ function onKeydown(event) {
 }
 
 // Password confirmation popup state
-const prompt = ref(null)        // { title, message, confirmLabel, run, onCancel }
+const prompt = ref(null)        // { title, message, confirmLabel, textLabel?, textValue?, run, onCancel }
 const promptError = ref('')
 const promptBusy = ref(false)
 
@@ -388,12 +396,12 @@ function ask(config) {
   prompt.value = config
 }
 
-async function confirmPrompt(adminPassword) {
+async function confirmPrompt(adminPassword, text) {
   if (!prompt.value || promptBusy.value) return
   promptBusy.value = true
   promptError.value = ''
   try {
-    await prompt.value.run(adminPassword)
+    await prompt.value.run(adminPassword, text)
     prompt.value = null
   } catch (err) {
     promptError.value = err.message
@@ -428,6 +436,25 @@ function onRoleChange(user, event) {
     },
     // closed without confirming: put the dropdown back
     onCancel: () => { select.value = oldRole },
+  })
+}
+
+// Only the owner can change names (staff and cashiers can't rename themselves).
+function onRename(user) {
+  ask({
+    title: 'Rename account',
+    message: `New name for ${user.email}. Enter your password to confirm.`,
+    confirmLabel: 'Rename',
+    textLabel: 'Full name',
+    textValue: user.full_name || '',
+    run: async (adminPassword, newName) => {
+      await adminAction(supabase, 'rename', {
+        user_id: user.id,
+        full_name: newName,
+        admin_password: adminPassword,
+      })
+      await fetchUsers()
+    },
   })
 }
 

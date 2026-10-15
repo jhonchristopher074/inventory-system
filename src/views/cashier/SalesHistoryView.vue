@@ -123,7 +123,7 @@
       <div class="w-full max-w-md rounded-[24px] border border-white/10 bg-zinc-900 p-5">
         <div id="receiptArea" class="rounded-2xl bg-white p-5 text-black">
           <div class="text-center">
-            <h2 class="text-2xl font-extrabold">Hardware</h2>
+            <h2 class="text-2xl font-extrabold">10 FIVE 7 Hardware</h2>
             <p class="text-sm">Inventory Management System</p>
             <p class="mt-2 text-xs">Official Sales Receipt</p>
           </div>
@@ -186,6 +186,7 @@
 <script setup>
 import { onMounted, ref } from 'vue'
 import { supabase } from '../../lib/supabase'
+import { printElement } from '../../lib/printReceipt'
 
 const sales = ref([])
 const selectedSale = ref(null)
@@ -223,43 +224,7 @@ function formatDate(date) {
 }
 
 function printReceipt() {
-  const receiptContent = document.getElementById('receiptArea').innerHTML
-  const printWindow = window.open('', '', 'width=400,height=600')
-
-  printWindow.document.write(`
-    <html>
-      <head>
-        <title>Receipt</title>
-        <style>
-          body {
-            font-family: Arial, sans-serif;
-            padding: 20px;
-          }
-
-          .text-center { text-align: center; }
-          .font-bold { font-weight: bold; }
-          .font-extrabold { font-weight: 800; }
-          .text-2xl { font-size: 24px; }
-          .text-lg { font-size: 18px; }
-          .text-sm { font-size: 14px; }
-          .text-xs { font-size: 12px; }
-          .flex { display: flex; }
-          .justify-between { justify-content: space-between; }
-          .my-4 { margin-top: 16px; margin-bottom: 16px; }
-          .mt-2 { margin-top: 8px; }
-          .mt-5 { margin-top: 20px; }
-          .space-y-3 > * + * { margin-top: 12px; }
-          .border-t { border-top: 1px dashed #000; }
-        </style>
-      </head>
-      <body>${receiptContent}</body>
-    </html>
-  `)
-
-  printWindow.document.close()
-  printWindow.focus()
-  printWindow.print()
-  printWindow.close()
+  printElement('receiptArea')
 }
 
 onMounted(fetchSales)

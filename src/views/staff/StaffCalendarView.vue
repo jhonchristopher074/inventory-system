@@ -540,7 +540,13 @@ const liveTotalProgressPercent = computed(() => {
   )
 })
 
+// Logged-in user's id: inspections are "mine" by id, so renaming yourself
+// or sharing a name with someone else no longer mixes them up.
+const myUserId = ref(null)
+
 onMounted(async () => {
+  const { data: { session } } = await supabase.auth.getSession()
+  myUserId.value = session?.user?.id || null
   await fetchAll()
 })
 
@@ -739,7 +745,9 @@ function totalProgressPercent(product) {
   )
 }
 
+// Saved before ids were recorded (requested_by_id empty)? Then by name, as before.
 function isMyApproval(approval) {
+  if (approval.requested_by_id) return approval.requested_by_id === myUserId.value
   return approval.requested_by === currentStaffName
 }
 
@@ -751,7 +759,7 @@ function openPanel(product) {
   const mine = approvals.value.find(item =>
     item.product_id === product.id &&
     item.status === 'saved' &&
-    item.requested_by === currentStaffName
+    isMyApproval(item)
   )
 
   if (mine) {
@@ -846,7 +854,7 @@ async function saveInspection() {
   const latestMine = approvals.value.find(item =>
     item.product_id === selectedProduct.value.id &&
     item.status === 'saved' &&
-    item.requested_by === currentStaffName
+    isMyApproval(item)
   )
 
   if (latestMine) {

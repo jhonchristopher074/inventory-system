@@ -1,6 +1,9 @@
 // POST /functions/v1/admin-action
-// Body: { action: "set_role" | "toggle_active" | "reset_password",
-//         user_id: string, role?: string, admin_password: string }
+// Body: { action: "set_role" | "toggle_active" | "reset_password" | "rename",
+//         user_id: string, role?: string, full_name?: string, admin_password: string }
+//
+// "rename" is the only way to change a name: users can't rename themselves.
+// It may also be used on the admin's own account.
 //
 // The ONE admin must re-type their own password for every action here.
 // Checked on the server — the browser cannot skip it.
@@ -11,7 +14,7 @@ import {
 
 // The admin role can never be handed out: there is only one admin.
 const ASSIGNABLE_ROLES = ["cashier", "staff", "supplier"];
-const ACTIONS = ["set_role", "toggle_active", "reset_password"];
+const ACTIONS = ["set_role", "toggle_active", "reset_password", "rename"];
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -21,19 +24,25 @@ Deno.serve(async (req) => {
   if (!caller) return json({ error: "Not authenticated" }, 401);
   if (!(await isAdmin(caller))) return json({ error: "Only the administrator can do this" }, 403);
 
-  let body: { action?: string; user_id?: string; role?: string; admin_password?: string };
+  let body: { action?: string; user_id?: string; role?: string; full_name?: string; admin_password?: string };
   try { body = await req.json(); } catch { return json({ error: "Invalid request body" }, 400); }
 
   const action = body.action ?? "";
   const userId = body.user_id ?? "";
   const adminPassword = body.admin_password ?? "";
+  const fullName = (body.full_name ?? "").trim().replace(/\s+/g, " ");
 
   if (!ACTIONS.includes(action)) return json({ error: "Unknown action" }, 400);
   if (!/^[0-9a-f-]{36}$/i.test(userId)) return json({ error: "Invalid user" }, 400);
   if (!adminPassword) return json({ error: "Enter your password to confirm" }, 400);
-  if (userId === caller.id) return json({ error: "You can't do this to your own account" }, 400);
+  if (userId === caller.id && action !== "rename") {
+    return json({ error: "You can't do this to your own account" }, 400);
+  }
   if (action === "set_role" && !ASSIGNABLE_ROLES.includes(body.role ?? "")) {
     return json({ error: "Invalid role" }, 400);
+  }
+  if (action === "rename" && (!fullName || fullName.length > 80)) {
+    return json({ error: "Enter a name (up to 80 characters)" }, 400);
   }
 
   // Re-check the admin's password (goes through Supabase Auth, so its
@@ -51,6 +60,22 @@ Deno.serve(async (req) => {
     .eq("id", userId)
     .maybeSingle();
   if (!target) return json({ error: "User not found" }, 404);
+
+  if (action === "rename") {
+    const { error } = await admin.from(ROLE_TABLE).update({ full_name: fullName }).eq("id", userId);
+    if (error) return json({ error: "Could not rename the account" }, 500);
+
+    // keep the login's own copy of the name in step
+    const { data: existing } = await admin.auth.admin.getUserById(userId);
+    if (existing?.user) {
+      await admin.auth.admin.updateUserById(userId, {
+        user_metadata: { ...existing.user.user_metadata, full_name: fullName },
+      });
+    }
+
+    return json({ ok: true, full_name: fullName });
+  }
+
   if (target.role === "admin") return json({ error: "The admin account can't be changed" }, 403);
 
   if (action === "set_role") {

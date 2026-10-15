@@ -126,13 +126,29 @@
   /* ------------------------------------------------------------------
     Submit — used by this screen
   ------------------------------------------------------------------ */
+  // SHA-256 of the file's contents: the same file always gives the same
+  // value, whatever it's called. The database refuses a receipt whose
+  // fingerprint is already pending or approved, so the same receipt can't
+  // reach the receipt scanner twice (which would add its stock twice).
+  async function fileFingerprint(file) {
+    if (!globalThis.crypto?.subtle) return null // very old browser: skip the check
+
+    const digest = await crypto.subtle.digest('SHA-256', await file.arrayBuffer())
+
+    return [...new Uint8Array(digest)]
+      .map((byte) => byte.toString(16).padStart(2, '0'))
+      .join('')
+  }
+
   async function submitSupplierUpload(file) {
+    const fingerprint = await fileFingerprint(file)
     const { path, publicUrl } = await uploadToStorage(file)
 
     const { data, error } = await supabase.rpc('supplier_submit_upload', {
       p_file_name: file.name,
       p_file_path: path,
       p_file_url: publicUrl,
+      p_file_hash: fingerprint,
     })
 
     if (error) {
