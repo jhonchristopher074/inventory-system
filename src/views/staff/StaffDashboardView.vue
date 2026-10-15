@@ -25,7 +25,7 @@
       <div class="dashboard-card">
         <p class="card-label">Low Stock</p>
         <h2 class="card-value text-red-400">{{ lowStockProducts.length }}</h2>
-        <p class="card-sub">Products with 5 or fewer stocks</p>
+        <p class="card-sub">Products with 10 or fewer stocks</p>
       </div>
 
       <div class="dashboard-card">

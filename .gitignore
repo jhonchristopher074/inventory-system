@@ -37,3 +37,6 @@ __screenshots__/
 
 # Vite
 *.timestamp-*-*.mjs
+
+# Supabase CLI cache (local to this computer)
+supabase/.temp/

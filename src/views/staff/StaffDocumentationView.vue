@@ -170,7 +170,8 @@
           <!-- BUTTONS -->
           <div class="grid grid-cols-2 gap-3">
             <button
-              class="rounded-xl bg-red-600 py-3 text-sm font-bold text-white transition hover:bg-red-700"
+              class="rounded-xl bg-red-600 py-3 text-sm font-bold text-white transition hover:bg-red-700 disabled:opacity-50"
+              :disabled="uploading"
               @click="saveDocument"
             >
               {{ uploading ? 'Saving...' : 'Save' }}
@@ -245,7 +246,8 @@
             @change="handleUpdatePhoto"
           />
           <button
-            class="w-full rounded-xl bg-red-600 py-2.5 text-sm font-bold text-white transition hover:bg-red-700"
+            class="w-full rounded-xl bg-red-600 py-2.5 text-sm font-bold text-white transition hover:bg-red-700 disabled:opacity-50"
+            :disabled="updatingPhoto"
             @click="updateDocumentPhoto"
           >
             {{ updatingPhoto ? 'Uploading...' : 'Save Photo' }}
@@ -410,6 +412,7 @@ async function uploadImage(file) {
 }
 
 async function saveDocument() {
+  if (uploading.value) return // a second click while saving made a duplicate
   modalError.value = ''
 
   if (!newDoc.value.title.trim()) {
@@ -462,6 +465,7 @@ function handleUpdatePhoto(event) {
 }
 
 async function updateDocumentPhoto() {
+  if (updatingPhoto.value) return
   viewError.value = ''
 
   if (!selectedDocument.value) return

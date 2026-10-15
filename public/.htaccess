@@ -1,0 +1,14 @@
+# For Apache hosting (e.g. InfinityFree). Copied into dist/ by every build.
+#
+# The app uses addresses like /inventory or /cashier/pos that exist only
+# inside the app, not as files on the server. Without this, refreshing such
+# a page (or opening a link to it) gives "404 Not Found". Every address that
+# isn't a real file is sent to index.html, and the app shows the right page.
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+  RewriteRule ^index\.html$ - [L]
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteRule . /index.html [L]
+</IfModule>

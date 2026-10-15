@@ -130,7 +130,7 @@ function applyWidth() {
 }
 
 onMounted(() => {
-  let saved = null
+  let saved
 
   try {
     saved = localStorage.getItem(STORAGE_KEY)

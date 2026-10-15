@@ -78,10 +78,13 @@
           @dragstart="startDrag(product)"
         >
           <div class="flex min-w-0 items-center gap-3">
+            <!-- not draggable itself: dragging the photo dragged an image
+                 file, which some browsers open when it's dropped -->
             <img
               :src="product.image_url || 'https://via.placeholder.com/80'"
               :alt="product.name"
               class="list-thumb"
+              draggable="false"
             />
             <div class="min-w-0">
               <!-- nickname on top (if any), real product name below it -->
@@ -162,7 +165,7 @@
           :class="isDragOver ? 'scale-[1.02] bg-red-500/20' : ''"
           @dragover.prevent="isDragOver = true"
           @dragleave="isDragOver = false"
-          @drop="openArchiveModal"
+          @drop.prevent="openArchiveModal"
         >
           <div>
             <strong class="mb-1 block text-xl text-white">Drag & Drop</strong>
@@ -1029,9 +1032,15 @@ async function setInspectionDate() {
 async function reportProduct() {
   if (!selectedProduct.value) return
 
-  await supabase.rpc('report_product_for_checking', {
+  const { error } = await supabase.rpc('report_product_for_checking', {
     p_product_id: selectedProduct.value.id,
   })
+
+  // it used to say "sent" even when it failed
+  if (error) {
+    alert(error.message)
+    return
+  }
 
   alert('Product report sent.')
 }

@@ -84,11 +84,11 @@
         </p>
 
         <p class="text-right text-sm font-bold">
-          <span :class="Number(product.quantity || 0) <= 5 ? 'text-red-400' : 'text-white'">
+          <span :class="Number(product.quantity || 0) <= 10 ? 'text-red-400' : 'text-white'">
             {{ product.quantity }}
           </span>
           <span
-            v-if="Number(product.quantity || 0) <= 5"
+            v-if="Number(product.quantity || 0) <= 10"
             class="ml-1 text-[0.6rem] uppercase tracking-wide text-red-400"
             >low</span
           >

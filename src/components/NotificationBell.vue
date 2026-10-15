@@ -10,7 +10,7 @@
         v-if="unreadCount > 0"
         class="absolute -right-1 -top-1 rounded-full bg-red-600 px-[6px] py-[1px] text-[9px] font-bold text-white"
       >
-        {{ unreadCount }}
+        {{ unreadCount > 99 ? '99+' : unreadCount }}
       </span>
     </button>
 
@@ -79,9 +79,18 @@ const role = ref('')
 
 let channel = null
 
+// The real number of unread notifications. Counting the loaded list instead
+// (only the 10 newest) stuck the badge at 10.
+const unreadTotal = ref(null)
+
 const unreadCount = computed(() =>
-  notifications.value.filter((notif) => !notif.is_read).length
+  unreadTotal.value ?? notifications.value.filter((notif) => !notif.is_read).length
 )
+
+async function fetchUnreadCount() {
+  const { data, error } = await supabase.rpc('unread_notification_count')
+  unreadTotal.value = error ? null : Number(data || 0)
+}
 
 function toggleList() {
   showList.value = !showList.value
@@ -108,6 +117,8 @@ async function fetchNotifications() {
     notifications.value = data || []
   }
 
+  await fetchUnreadCount()
+
   loading.value = false
 }
 
@@ -129,6 +140,7 @@ function setupRealtime() {
         if (!isForMe(payload.new)) return
 
         notifications.value.unshift(payload.new)
+        if (unreadTotal.value !== null) unreadTotal.value += 1
 
         audio.currentTime = 0
         audio.play().catch(() => {})
@@ -169,6 +181,7 @@ const ROUTES = {
     archive: '/archived',
     inspection: '/calendar',
     inspection_approval: '/approval',
+    supplier_upload: '/approval',
     report: '/documentation',
     documentation: '/documentation',
     overdue: '/calendar',
@@ -209,6 +222,7 @@ const BADGES = {
   report: 'bg-red-500/20 text-red-400',
   return: 'bg-red-500/20 text-red-400',
   inspection_approval: 'bg-yellow-500/20 text-yellow-400',
+  supplier_upload: 'bg-sky-500/20 text-sky-300',
   inspection: 'bg-zinc-700/50 text-zinc-300',
   sale: 'bg-emerald-500/20 text-emerald-400',
   documentation: 'bg-emerald-500/20 text-emerald-400',

@@ -88,6 +88,7 @@
                 v-model.number="item.cartQty"
                 type="number"
                 min="1"
+                step="1"
                 :max="item.quantity"
                 class="w-16 rounded-lg bg-zinc-800 py-1 text-center text-white"
                 @change="validateQty(item)"
@@ -320,6 +321,8 @@ function decreaseQty(productId) {
 }
 
 function validateQty(item) {
+  // whole items only: 1.5 used to reach checkout and fail there
+  item.cartQty = Math.floor(Number(item.cartQty) || 0)
   if (item.cartQty < 1) item.cartQty = 1
 
   if (item.cartQty > item.quantity) {
