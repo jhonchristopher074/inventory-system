@@ -1,0 +1,48 @@
+# Builds the app and uploads it to InfinityFree (htdocs) on every push to main.
+#
+# Needs three repository secrets (GitHub > Settings > Secrets and variables
+# > Actions), copied from InfinityFree > Control Panel > FTP Details:
+#   FTP_SERVER    the FTP hostname, e.g. ftpupload.net
+#   FTP_USERNAME  e.g. if0_12345678
+#   FTP_PASSWORD  the hosting account password
+#
+# If InfinityFree refuses a connection now and then, open the failed run in
+# the Actions tab and press "Re-run jobs".
+name: Deploy to InfinityFree
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: # adds a "Run workflow" button in the Actions tab
+
+# one upload at a time, so two quick pushes can't upload over each other
+concurrency:
+  group: deploy-infinityfree
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run build
+
+      # Uploads only files that changed, and removes files from earlier
+      # uploads that no longer exist (old assets/index-*.js etc.).
+      - name: Upload to InfinityFree
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          local-dir: ./dist/
+          server-dir: /htdocs/
