@@ -3,6 +3,8 @@ import { supabase } from '../lib/supabase'
 
 import LoginView from '../views/auth/LoginView.vue'
 import ChangePasswordView from '../views/ChangePasswordView.vue'
+import ResetPasswordView from '../views/auth/ResetPasswordView.vue'
+import { isPasswordRecovery } from '../lib/passwordRecovery'
 import { getPasswordStatus, EXPIRED_MESSAGE } from '../lib/passwordStatus'
 import { isIdleExpired, markActivity, IDLE_MESSAGE } from '../lib/idleLogout'
 
@@ -32,6 +34,8 @@ import SupplierDropBoxView from '../views/supplier/SupplierDropBoxView.vue'
 const routes = [
   { path: '/login', name: 'login', component: LoginView },
   { path: '/change-password', name: 'change-password', component: ChangePasswordView, meta: { requiresAuth: true } },
+  // opened from a "Forgot password?" email; the page itself checks the link
+  { path: '/reset-password', name: 'reset-password', component: ResetPasswordView },
 
   { path: '/', component: DashboardView, meta: { requiresAuth: true, role: 'admin' } },
   { path: '/inventory', component: InventoryView, meta: { requiresAuth: true, role: 'admin' } },
@@ -86,6 +90,10 @@ router.beforeEach(async (to) => {
   }
 
   if (!user) return
+
+  // Opening a password-reset link is a fresh sign-in, not an old session
+  // left open: restart the auto-logout clock instead of ending it.
+  if (to.path === '/reset-password' && isPasswordRecovery()) markActivity()
 
   // Still signed in, but nobody used the app for too long (this also
   // catches a browser that was closed without logging out): end it.

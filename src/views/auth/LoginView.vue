@@ -7,10 +7,54 @@
       </div>
 
       <p class="mt-2 text-zinc-400">
-        Login to Inventory Management System
+        {{ mode === 'forgot' ? 'Reset your password' : 'Login to Inventory Management System' }}
       </p>
 
-      <form @submit.prevent="login" class="mt-8 space-y-4">
+      <!-- FORGOT PASSWORD: its own screen, asks only for the email -->
+      <form v-if="mode === 'forgot'" @submit.prevent="forgotPassword" class="mt-8 space-y-4">
+        <p class="text-sm text-zinc-400">
+          Enter the email of your account. We'll send you a link to choose a new password.
+        </p>
+
+        <div>
+          <label class="text-sm text-zinc-400">Email</label>
+
+          <input
+            ref="resetEmailInput"
+            v-model="resetEmail"
+            type="email"
+            required
+            autocomplete="email"
+            class="mt-2 w-full rounded-2xl border border-white/10 bg-black px-4 py-3 outline-none focus:border-red-500"
+            placeholder="Enter email"
+          />
+        </div>
+
+        <p
+          v-if="errorMessage"
+          class="rounded-xl bg-red-500/10 p-3 text-sm text-red-400"
+        >
+          {{ errorMessage }}
+        </p>
+
+        <button
+          type="submit"
+          :disabled="sendingReset"
+          class="w-full rounded-2xl bg-red-600 py-3 font-bold transition hover:bg-red-700 disabled:opacity-50"
+        >
+          {{ sendingReset ? 'Sending...' : (resetSent ? 'Send again' : 'Send reset link') }}
+        </button>
+
+        <button
+          type="button"
+          class="mt-3 w-full text-sm font-semibold text-zinc-400 hover:text-red-400"
+          @click="showLogin"
+        >
+          ← Back to login
+        </button>
+      </form>
+
+      <form v-else @submit.prevent="login" class="mt-8 space-y-4">
         <div>
           <label class="text-sm text-zinc-400">Email</label>
 
@@ -53,17 +97,52 @@
         <button
           type="button"
           class="mt-3 w-full text-sm font-semibold text-zinc-400 hover:text-red-400"
-          @click="forgotPassword"
+          @click="showForgot"
         >
           Forgot password?
         </button>
       </form>
     </div>
+
+    <!-- TOAST: good news pops up at the bottom and hides itself -->
+    <div class="pointer-events-none fixed inset-x-0 bottom-6 z-50 flex justify-center px-4">
+      <Transition name="toast">
+        <div
+          v-if="infoMessage"
+          role="status"
+          class="pointer-events-auto flex w-full max-w-md items-start gap-3 rounded-2xl border border-emerald-500/30 bg-zinc-900 p-4 text-sm text-emerald-300 shadow-2xl"
+        >
+          <span class="font-bold text-emerald-400" aria-hidden="true">✓</span>
+          <p class="flex-1">{{ infoMessage }}</p>
+          <button
+            type="button"
+            class="text-zinc-500 hover:text-white"
+            aria-label="Close message"
+            @click="infoMessage = ''"
+          >
+            ✕
+          </button>
+        </div>
+      </Transition>
+    </div>
   </div>
 </template>
 
+<style scoped>
+.toast-enter-active,
+.toast-leave-active {
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+.toast-enter-from,
+.toast-leave-to {
+  opacity: 0;
+  transform: translateY(12px);
+}
+</style>
+
 <script setup>
-import { ref } from 'vue'
+import { nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { supabase } from '../../lib/supabase'
 import { afterLogin } from '../../lib/passwordStatus'
@@ -77,10 +156,49 @@ const password = ref('')
 const loading = ref(false)
 // shows e.g. "Your temporary password has expired..." after being sent back here
 const errorMessage = ref(route.query.notice ? String(route.query.notice) : '')
+// good news, e.g. "Your password was changed..." after a password reset
+const infoMessage = ref(route.query.info ? String(route.query.info) : '')
+const sendingReset = ref(false)
+const resetSent = ref(false) // the reset button then says "Send again"
+
+// The good-news toast hides itself after a few seconds.
+let toastTimer = null
+
+watch(
+  infoMessage,
+  (message) => {
+    clearTimeout(toastTimer)
+    if (message) toastTimer = setTimeout(() => (infoMessage.value = ''), 6000)
+  },
+  { immediate: true }
+)
+
+onBeforeUnmount(() => clearTimeout(toastTimer))
+
+// 'login' or 'forgot' (the "Forgot password?" screen)
+const mode = ref('login')
+const resetEmail = ref('')
+const resetEmailInput = ref(null)
+
+function showForgot() {
+  mode.value = 'forgot'
+  resetEmail.value = email.value.trim() // keep what was already typed
+  resetSent.value = false
+  errorMessage.value = ''
+  nextTick(() => resetEmailInput.value?.focus())
+}
+
+// The toast (if any) stays until it hides itself.
+function showLogin() {
+  mode.value = 'login'
+  if (resetEmail.value.trim()) email.value = resetEmail.value.trim()
+  errorMessage.value = ''
+}
 
 async function login() {
   loading.value = true
   errorMessage.value = ''
+  infoMessage.value = ''
 
   const { data, error } = await supabase.auth.signInWithPassword({
     email: email.value.trim(),
@@ -169,21 +287,36 @@ async function login() {
 
 async function forgotPassword() {
   errorMessage.value = ''
+  infoMessage.value = ''
 
-  if (!email.value.trim()) {
-    errorMessage.value = 'Enter your email first.'
+  const address = resetEmail.value.trim()
+
+  if (!address) {
+    errorMessage.value = 'Enter your email.'
     return
   }
 
-  const { error } = await supabase.auth.resetPasswordForEmail(
-    email.value.trim()
-  )
+  sendingReset.value = true
+
+  // The email's link opens /reset-password on this same site. That address
+  // must be listed under Supabase > Authentication > URL Configuration.
+  const { error } = await supabase.auth.resetPasswordForEmail(address, {
+    redirectTo: `${window.location.origin}/reset-password`,
+  })
+
+  sendingReset.value = false
 
   if (error) {
     errorMessage.value = error.message
     return
   }
 
-  alert('Password reset email sent.')
+  resetSent.value = true
+
+  // Same message whether or not the account exists, so this can't be used
+  // to find out which emails have accounts.
+  infoMessage.value =
+    `If ${address} has an account, a link to reset the password was sent to it. ` +
+    'Check the inbox (and the spam folder).'
 }
 </script>

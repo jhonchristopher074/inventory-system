@@ -588,10 +588,13 @@ tbody tr:hover {
    scan and search, where a row shows far more per screen than a card.
    (POS deliberately keeps large card targets: it's a till.)
    ------------------------------------------------------------ */
+/* The header and every row are separate grids, so all columns need fixed
+   widths: with "auto", the last column was as wide as the button in a row
+   but empty in the header, which pushed PRICE/STOCK out of line. */
 .list-head,
 .list-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 110px 90px auto;
+  grid-template-columns: minmax(0, 1fr) 110px 90px 96px;
   align-items: center;
   gap: 1rem;
   padding: 0.65rem 1.1rem;
@@ -634,7 +637,7 @@ tbody tr:hover {
 /* staff inventory carries an extra inspection-date column */
 .list-head--staff,
 .list-row--staff {
-  grid-template-columns: minmax(0, 1fr) 110px 90px 120px auto;
+  grid-template-columns: minmax(0, 1fr) 110px 90px 120px 84px;
 }
 
 /* archived has no price / action button */
