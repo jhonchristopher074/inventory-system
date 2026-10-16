@@ -54,7 +54,7 @@
         </div>
 
         <div
-          v-for="product in filteredProducts"
+          v-for="product in visibleProducts"
           :key="product.id"
           draggable="true"
           class="list-row list-row--staff cursor-grab active:cursor-grabbing"
@@ -69,6 +69,7 @@
               :alt="product.name"
               class="list-thumb"
               draggable="false"
+              loading="lazy"
             />
             <span
               v-else
@@ -104,18 +105,48 @@
             {{ product.inspection_date ? formatDate(product.inspection_date) : 'None' }}
           </p>
 
-          <button
-            class="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-red-700"
-            @click="openReportModal(product)"
-          >
-            Report
-          </button>
+          <div class="row-actions">
+            <button
+              class="desktop-only rounded-lg bg-red-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-red-700"
+              @click="openReportModal(product)"
+            >
+              Report
+            </button>
+
+            <!-- phones: Restore / Report / Delete (drag & drop doesn't work
+                 on touch screens) -->
+            <button
+              class="phone-only rounded-lg bg-red-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-red-700"
+              @click="manageProduct = product"
+            >
+              Manage
+            </button>
+          </div>
         </div>
+      </div>
+
+      <!-- the next products load as this comes into view -->
+      <div v-if="remaining > 0" ref="listEnd" class="py-5 text-center">
+        <button
+          class="rounded-xl bg-zinc-800 px-5 py-2 text-sm font-bold text-white hover:bg-zinc-700"
+          @click="showMore"
+        >
+          Show more ({{ remaining }} left)
+        </button>
       </div>
     </div>
 
-    <!-- ACTION BOX (restore / delete) -->
-    <aside class="archive-box w-full md:w-[280px]">
+    <ActionSheet
+      v-if="manageProduct"
+      :title="manageProduct.name"
+      :subtitle="`Archived · Stock: ${manageProduct.quantity}`"
+      :actions="manageActions"
+      @select="onManageAction"
+      @close="manageProduct = null"
+    />
+
+    <!-- ACTION BOX (restore / delete by drag & drop; computers only) -->
+    <aside class="archive-box desktop-only w-full md:w-[280px]">
       <div class="card p-5 shadow-2xl">
         <h2 class="text-2xl font-bold text-white">Action Box</h2>
         <p class="mb-4 text-sm text-zinc-400">Drag a product here</p>
@@ -277,9 +308,11 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { supabase } from '../../lib/supabase'
+import { useShowMore } from '../../lib/useShowMore'
 import PageHeader from '../../components/PageHeader.vue'
+import ActionSheet from '../../components/ActionSheet.vue'
 
 const products = ref([])
 const loading = ref(false)
@@ -359,6 +392,43 @@ const filteredProducts = computed(() => {
     return matchesSearch && matchesCategory
   })
 })
+
+// Long lists: 40 rows at a time, more as you scroll (keeps phones fast).
+const {
+  visible: visibleProducts,
+  remaining,
+  sentinel: listEnd,
+  showMore,
+  reset: resetList,
+} = useShowMore(filteredProducts)
+
+// a new search or category starts again at the top
+watch([search, selectedCategory], resetList)
+
+// ----- Phones: the "Manage" menu of a product -----
+// Drag & drop to the Action Box doesn't work on touch screens.
+const manageProduct = ref(null)
+
+const manageActions = [
+  { key: 'restore', label: '↩ Restore to Inventory', tone: 'success' },
+  { key: 'report', label: 'Report a problem' },
+  { key: 'delete', label: '🗑 Delete product', hint: 'It will no longer appear in Inventory or Archived', tone: 'danger' },
+]
+
+function onManageAction(key) {
+  const product = manageProduct.value
+  manageProduct.value = null
+  if (!product) return
+
+  if (key === 'report') {
+    openReportModal(product)
+    return
+  }
+
+  // same confirmation as dropping it on Restore / Delete
+  draggedProduct.value = product
+  openActionModal(key)
+}
 
 function startDrag(product) {
   draggedProduct.value = product

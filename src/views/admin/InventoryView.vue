@@ -4,16 +4,17 @@
       <PageHeader title="Inventory" subtitle="Manage and monitor all hardware products." />
 
       <!-- TOP ACTIONS -->
-      <div class="mb-4 flex gap-3">
+      <!-- phones: search on its own line, the two buttons below it -->
+      <div class="mb-4 flex flex-wrap gap-3">
         <input
           v-model="searchQuery"
           type="text"
           placeholder="Search product or category..."
-          class="flex-1 rounded-2xl border border-white/10 bg-zinc-900 px-4 py-3 text-sm text-white outline-none placeholder:text-zinc-500 focus:border-red-500"
+          class="min-w-0 basis-full rounded-2xl border border-white/10 bg-zinc-900 px-4 py-3 text-sm text-white outline-none placeholder:text-zinc-500 focus:border-red-500 sm:basis-0 sm:flex-1"
         />
 
         <button
-          class="rounded-2xl border border-white/10 bg-zinc-900 px-5 py-3 font-bold text-zinc-200 hover:bg-zinc-800"
+          class="flex-1 rounded-2xl border border-white/10 bg-zinc-900 px-5 py-3 font-bold text-zinc-200 hover:bg-zinc-800 sm:flex-none"
           title="Every stock change, for all products"
           @click="openHistory(null)"
         >
@@ -21,7 +22,7 @@
         </button>
 
         <button
-          class="rounded-2xl bg-red-600 px-5 py-3 font-bold text-white hover:bg-red-700"
+          class="flex-1 rounded-2xl bg-red-600 px-5 py-3 font-bold text-white hover:bg-red-700 sm:flex-none"
           @click="showAddModal = true"
         >
           + Add Product
@@ -71,7 +72,7 @@
         </div>
 
         <div
-          v-for="product in filteredProducts"
+          v-for="product in visibleProducts"
           :key="product.id"
           draggable="true"
           class="list-row cursor-grab active:cursor-grabbing"
@@ -85,6 +86,7 @@
               :alt="product.name"
               class="list-thumb"
               draggable="false"
+              loading="lazy"
             />
             <div class="min-w-0">
               <!-- nickname on top (if any), real product name below it -->
@@ -105,32 +107,35 @@
               </p>
             </div>
 
-            <!-- INSPECTION DATE -->
-            <button
-              class="ml-auto shrink-0 rounded-lg bg-zinc-800 px-2.5 py-1.5 text-xs font-bold text-zinc-200 hover:bg-zinc-700"
-              title="Set inspection date"
-              @click.stop="openModal(product)"
-            >
-              📅 Inspection
-            </button>
+            <!-- on phones these are in the "More" menu instead -->
+            <div class="desktop-only ml-auto flex shrink-0 items-center gap-2">
+              <!-- INSPECTION DATE -->
+              <button
+                class="shrink-0 rounded-lg bg-zinc-800 px-2.5 py-1.5 text-xs font-bold text-zinc-200 hover:bg-zinc-700"
+                title="Set inspection date"
+                @click.stop="openModal(product)"
+              >
+                📅 Inspection
+              </button>
 
-            <!-- EDIT (name / price / quantity / picture) -->
-            <button
-              class="shrink-0 rounded-lg bg-zinc-800 px-2.5 py-1.5 text-xs font-bold text-zinc-200 hover:bg-zinc-700"
-              title="Edit name, price, quantity and picture"
-              @click.stop="openEditModal(product)"
-            >
-              ✎ Edit
-            </button>
+              <!-- EDIT (name / price / quantity / picture) -->
+              <button
+                class="shrink-0 rounded-lg bg-zinc-800 px-2.5 py-1.5 text-xs font-bold text-zinc-200 hover:bg-zinc-700"
+                title="Edit name, price, quantity and picture"
+                @click.stop="openEditModal(product)"
+              >
+                ✎ Edit
+              </button>
 
-            <!-- STOCK HISTORY of this product -->
-            <button
-              class="shrink-0 rounded-lg bg-zinc-800 px-2.5 py-1.5 text-xs font-bold text-zinc-200 hover:bg-zinc-700"
-              title="Every stock change for this product"
-              @click.stop="openHistory(product)"
-            >
-              History
-            </button>
+              <!-- STOCK HISTORY of this product -->
+              <button
+                class="shrink-0 rounded-lg bg-zinc-800 px-2.5 py-1.5 text-xs font-bold text-zinc-200 hover:bg-zinc-700"
+                title="Every stock change for this product"
+                @click.stop="openHistory(product)"
+              >
+                History
+              </button>
+            </div>
           </div>
 
           <p class="text-right text-sm font-bold text-red-400">
@@ -144,18 +149,39 @@
             {{ product.quantity }}
           </p>
 
-          <button
-            class="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-red-700"
-            @click.stop="openStockModal(product)"
-          >
-            Add Stock
-          </button>
+          <div class="row-actions">
+            <button
+              class="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-red-700"
+              @click.stop="openStockModal(product)"
+            >
+              Add Stock
+            </button>
+
+            <!-- phones: everything else, including Archive (drag & drop
+                 doesn't work on touch screens) -->
+            <button
+              class="phone-only rounded-lg bg-zinc-800 px-3 py-1.5 text-xs font-bold text-white hover:bg-zinc-700"
+              @click.stop="manageProduct = product"
+            >
+              More
+            </button>
+          </div>
         </div>
+      </div>
+
+      <!-- the next products load as this comes into view -->
+      <div v-if="remaining > 0" ref="listEnd" class="py-5 text-center">
+        <button
+          class="rounded-xl bg-zinc-800 px-5 py-2 text-sm font-bold text-white hover:bg-zinc-700"
+          @click="showMore"
+        >
+          Show more ({{ remaining }} left)
+        </button>
       </div>
     </div>
 
-    <!-- ARCHIVE BOX -->
-    <aside class="archive-box w-full md:w-[280px]">
+    <!-- ARCHIVE BOX (drag & drop; computers only) -->
+    <aside class="archive-box desktop-only w-full md:w-[280px]">
       <div class="card p-5 shadow-2xl">
         <h2 class="text-2xl font-bold text-white">Archive Box</h2>
         <p class="mb-4 text-sm text-zinc-400">Sticky drag area</p>
@@ -179,6 +205,15 @@
       v-if="showHistory"
       :product="historyProduct"
       @close="showHistory = false"
+    />
+
+    <ActionSheet
+      v-if="manageProduct"
+      :title="manageProduct.nickname || manageProduct.name"
+      :subtitle="`Stock: ${manageProduct.quantity} · ₱${Number(manageProduct.price || 0).toFixed(2)}`"
+      :actions="manageActions"
+      @select="onManageAction"
+      @close="manageProduct = null"
     />
 
     <!-- PRODUCT DETAILS MODAL -->
@@ -656,10 +691,12 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import PageHeader from '../../components/PageHeader.vue'
 import StockHistoryModal from '../../components/StockHistoryModal.vue'
+import ActionSheet from '../../components/ActionSheet.vue'
 import { supabase } from '../../lib/supabase'
+import { useShowMore } from '../../lib/useShowMore'
 import { uploadImage } from '../../lib/uploadImage'
 
 const products = ref([])
@@ -731,6 +768,45 @@ const filteredProducts = computed(() => {
 
   return result
 })
+
+// Long lists: 40 rows at a time, more as you scroll (keeps phones fast).
+const {
+  visible: visibleProducts,
+  remaining,
+  sentinel: listEnd,
+  showMore,
+  reset: resetList,
+} = useShowMore(filteredProducts)
+
+// a new search or category starts again at the top
+watch([searchQuery, selectedCategory], resetList)
+
+// ----- Phones: the "More" menu of a product -----
+// Drag & drop to the Archive Box doesn't work on touch screens, so on
+// phones every action (including Archive) is in this menu.
+const manageProduct = ref(null)
+
+const manageActions = [
+  { key: 'edit', label: '✎ Edit product', hint: 'Nickname, price, quantity and picture' },
+  { key: 'inspection', label: '📅 Inspection date / report' },
+  { key: 'history', label: 'Stock history' },
+  { key: 'archive', label: 'Move to Archived', tone: 'danger' },
+]
+
+function onManageAction(key) {
+  const product = manageProduct.value
+  manageProduct.value = null
+  if (!product) return
+
+  if (key === 'edit') openEditModal(product)
+  else if (key === 'inspection') openModal(product)
+  else if (key === 'history') openHistory(product)
+  else if (key === 'archive') {
+    // same confirmation as dropping it on the Archive Box
+    draggedProduct.value = product
+    openArchiveModal()
+  }
+}
 
 async function fetchProducts() {
   loading.value = true

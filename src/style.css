@@ -68,6 +68,19 @@
   --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
 }
 
+/* Phones: headings at desktop size crowded the narrow screen. Tailwind's
+   text-* classes read these variables, so this shrinks every large heading
+   at once; normal text (text-sm / text-base) stays the same size. */
+@media (max-width: 760px) {
+  :root {
+    --text-5xl: 2.25rem;  /* was 3rem */
+    --text-3xl: 1.5rem;   /* was 1.875rem: page titles */
+    --text-2xl: 1.3rem;   /* was 1.5rem:   section titles, "Cart" */
+    --text-xl: 1.125rem;  /* was 1.25rem */
+    --text-lg: 1.05rem;   /* was 1.125rem: product names */
+  }
+}
+
 html,
 body,
 #app {
@@ -402,26 +415,30 @@ button:not(:disabled):active {
   display: none;
 }
 
-/* collapsed: label appears beside the icon on hover */
-.collapsed .nav-link:hover::before,
-.collapsed .logout-btn:hover::before {
-  content: attr(data-label);
-  position: absolute;
-  left: calc(100% + 10px);
-  top: 50%;
-  transform: translateY(-50%);
-  z-index: 40;
-  width: auto;
-  height: auto;
-  padding: 0.35rem 0.6rem;
-  border-radius: 8px;
-  border: 1px solid var(--hairline);
-  background: var(--surface-raised);
-  color: #fff;
-  font-size: 0.78rem;
-  font-weight: 600;
-  white-space: nowrap;
-  box-shadow: 0 8px 20px -8px #000;
+/* collapsed: label appears beside the icon on hover.
+   Mouse only: a phone treats a tap as a hover that never ends, so the label
+   stayed stuck on top of the page after tapping an icon. */
+@media (hover: hover) and (pointer: fine) {
+  .collapsed .nav-link:hover::before,
+  .collapsed .logout-btn:hover::before {
+    content: attr(data-label);
+    position: absolute;
+    left: calc(100% + 10px);
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 40;
+    width: auto;
+    height: auto;
+    padding: 0.35rem 0.6rem;
+    border-radius: 8px;
+    border: 1px solid var(--hairline);
+    background: var(--surface-raised);
+    color: #fff;
+    font-size: 0.78rem;
+    font-weight: 600;
+    white-space: nowrap;
+    box-shadow: 0 8px 20px -8px #000;
+  }
 }
 
 .logout-btn {
@@ -633,6 +650,27 @@ tbody tr:hover {
   object-fit: cover;
 }
 
+/* the buttons at the end of a product row (one or more) */
+.row-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+/* Show only on a computer / only on a phone. Same 760px breakpoint as the
+   phone layout below (Tailwind's md: is 768px, which would leave a gap). */
+@media (max-width: 760px) {
+  .desktop-only {
+    display: none !important;
+  }
+}
+
+@media (min-width: 761px) {
+  .phone-only {
+    display: none !important;
+  }
+}
+
 /* narrow screens: drop the price/stock columns into the name block */
 /* staff inventory carries an extra inspection-date column */
 .list-head--staff,
@@ -661,8 +699,14 @@ tbody tr:hover {
   }
 
   .list-row > :first-child,
-  .list-row > button:last-child {
+  .list-row > button:last-child,
+  .list-row > .row-actions {
     grid-column: 1 / -1;
+  }
+
+  /* row buttons share the full width */
+  .list-row > .row-actions > button {
+    flex: 1;
   }
 
   /* the name block may wrap so its buttons drop under the name */

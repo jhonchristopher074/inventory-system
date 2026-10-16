@@ -70,13 +70,25 @@
         <div>
           <label class="text-sm text-zinc-400">Password</label>
 
-          <input
-            v-model="password"
-            type="password"
-            required
-            class="mt-2 w-full rounded-2xl border border-white/10 bg-black px-4 py-3 outline-none focus:border-red-500"
-            placeholder="Enter password"
-          />
+          <div class="relative mt-2">
+            <input
+              v-model="password"
+              :type="showPassword ? 'text' : 'password'"
+              required
+              autocomplete="current-password"
+              class="w-full rounded-2xl border border-white/10 bg-black py-3 pl-4 pr-20 outline-none focus:border-red-500"
+              placeholder="Enter password"
+            />
+
+            <button
+              type="button"
+              class="absolute inset-y-0 right-0 px-4 text-sm font-semibold text-zinc-400 hover:text-white"
+              :aria-label="showPassword ? 'Hide password' : 'Show password'"
+              @click="showPassword = !showPassword"
+            >
+              {{ showPassword ? 'Hide' : 'Show' }}
+            </button>
+          </div>
         </div>
 
         <p
@@ -153,6 +165,7 @@ const route = useRoute()
 
 const email = ref('')
 const password = ref('')
+const showPassword = ref(false)
 const loading = ref(false)
 // shows e.g. "Your temporary password has expired..." after being sent back here
 const errorMessage = ref(route.query.notice ? String(route.query.notice) : '')

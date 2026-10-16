@@ -56,7 +56,7 @@
 
   <script setup>
   import { onMounted, onUnmounted, ref } from 'vue'
-  import { supabase } from '../../lib/supabase'
+  import { supabase, uniqueChannelName } from '../../lib/supabase'
 
   /* ------------------------------------------------------------------
     Config
@@ -246,7 +246,7 @@
     myId = user.id
 
     uploadsChannel = supabase
-      .channel('supplier-uploads-mine')
+      .channel(uniqueChannelName('supplier-uploads-mine'))
       .on(
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'supplier_uploads' },
@@ -285,15 +285,31 @@
     padding: 30px;
   }
 
+  @media (max-width: 760px) {
+    .upload-container {
+      min-height: auto;
+      padding: 16px 0;
+    }
+
+    .upload-content,
+    .file-content {
+      padding: 28px 16px;
+    }
+  }
+
   .drop-box-wrap {
+    width: 100%;
+    max-width: 520px;
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: 14px;
   }
 
+  /* 520px wide, but never wider than the screen (phones) */
   .drop-box {
-    width: 520px;
+    width: 100%;
+    max-width: 520px;
     min-height: 300px;
     display: flex;
     justify-content: center;
@@ -421,7 +437,8 @@
   }
 
   .decision-banner {
-    width: 520px;
+    width: 100%;
+    max-width: 520px;
     display: flex;
     align-items: center;
     justify-content: space-between;

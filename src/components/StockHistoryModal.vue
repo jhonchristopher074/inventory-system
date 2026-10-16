@@ -60,7 +60,8 @@ onMounted(fetchMovements)
       @click.self="emit('close')"
       @keydown.esc="emit('close')"
     >
-      <div class="flex max-h-[90vh] w-full max-w-4xl flex-col rounded-[28px] border border-white/10 bg-[#18181b] p-6 shadow-2xl">
+      <!-- min-w-0: the box may shrink to a phone screen; the table scrolls -->
+      <div class="flex max-h-[90vh] w-full min-w-0 max-w-4xl flex-col rounded-[28px] border border-white/10 bg-[#18181b] p-4 shadow-2xl sm:p-6">
         <div class="mb-4 flex items-start justify-between gap-4">
           <div class="min-w-0">
             <h2 class="text-2xl font-extrabold text-white">Stock History</h2>

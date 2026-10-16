@@ -53,7 +53,7 @@
       </div>
 
       <div
-        v-for="product in filteredProducts"
+        v-for="product in visibleProducts"
         :key="product.id"
         class="list-row list-row--staff"
       >
@@ -63,6 +63,7 @@
             :src="product.image_url"
             :alt="product.name"
             class="list-thumb"
+            loading="lazy"
           />
           <span
             v-else
@@ -105,6 +106,16 @@
           Report
         </button>
       </div>
+    </div>
+
+    <!-- the next products load as this comes into view -->
+    <div v-if="remaining > 0" ref="listEnd" class="py-5 text-center">
+      <button
+        class="rounded-xl bg-zinc-800 px-5 py-2 text-sm font-bold text-white hover:bg-zinc-700"
+        @click="showMore"
+      >
+        Show more ({{ remaining }} left)
+      </button>
     </div>
 
     <!-- REPORT MODAL -->
@@ -180,8 +191,9 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { supabase } from '../../lib/supabase'
+import { useShowMore } from '../../lib/useShowMore'
 import PageHeader from '../../components/PageHeader.vue'
 
 const products = ref([])
@@ -247,6 +259,18 @@ const filteredProducts = computed(() => {
     return matchesSearch && matchesCategory
   })
 })
+
+// Long lists: 40 rows at a time, more as you scroll (keeps phones fast).
+const {
+  visible: visibleProducts,
+  remaining,
+  sentinel: listEnd,
+  showMore,
+  reset: resetList,
+} = useShowMore(filteredProducts)
+
+// a new search or category starts again at the top
+watch([search, selectedCategory], resetList)
 
 function openReportModal(product) {
   selectedProduct.value = product

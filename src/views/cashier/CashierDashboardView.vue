@@ -11,9 +11,10 @@
       </p>
     </div>
 
-    <!-- STATS -->
-    <div class="mb-6 grid gap-5 md:grid-cols-2 xl:grid-cols-4">
-      <div class="stat-card">
+    <!-- STATS: two per row on phones (one each filled the whole screen);
+         the money amounts get the full width there -->
+    <div class="mb-6 grid grid-cols-2 gap-3 sm:gap-5 xl:grid-cols-4">
+      <div class="stat-card col-span-2 sm:col-span-1">
         <p class="stat-label">Today's Sales</p>
 
         <h2 class="stat-value text-red-400">
@@ -37,7 +38,7 @@
         </h2>
       </div>
 
-      <div class="stat-card">
+      <div class="stat-card col-span-2 sm:col-span-1">
         <p class="stat-label">Available Products</p>
 
         <h2 class="stat-value">
@@ -310,6 +311,23 @@ onMounted(fetchDashboard)
   font-size: 36px;
   font-weight: 800;
   color: white;
+}
+
+/* phones: compact cards, so the numbers don't fill the screen */
+@media (max-width: 760px) {
+  .stat-card {
+    border-radius: 18px;
+    padding: 14px;
+  }
+
+  .stat-label {
+    margin-bottom: 6px;
+    font-size: 12px;
+  }
+
+  .stat-value {
+    font-size: 24px;
+  }
 }
 
 .quick-card {

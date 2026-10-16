@@ -15,7 +15,8 @@
     </p>
 
     <!-- SUMMARY CARDS -->
-    <div class="mb-6 grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+    <!-- two per row on phones (one each filled the whole screen) -->
+    <div class="mb-6 grid grid-cols-2 gap-3 sm:gap-5 xl:grid-cols-4">
       <div class="dashboard-card">
         <p class="card-label">Total Products</p>
         <h2 class="card-value">{{ totalProducts }}</h2>
@@ -387,5 +388,25 @@ function formatDate(date) {
   margin-top: 0.35rem;
   font-size: 0.75rem;
   color: rgb(113 113 122);
+}
+
+/* phones: compact cards, so the numbers don't fill the screen */
+@media (max-width: 760px) {
+  .dashboard-card {
+    border-radius: 18px;
+    padding: 0.9rem;
+  }
+
+  .card-label {
+    font-size: 0.8rem;
+  }
+
+  .card-value {
+    font-size: 1.6rem;
+  }
+
+  .card-sub {
+    font-size: 0.7rem;
+  }
 }
 </style>

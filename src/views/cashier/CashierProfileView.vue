@@ -55,7 +55,8 @@
         {{ salesError }}
       </p>
 
-      <div class="overflow-hidden rounded-2xl bg-black">
+      <!-- scrolls sideways on phones instead of cutting the table off -->
+      <div class="overflow-x-auto rounded-2xl bg-black">
         <table class="w-full text-left text-sm">
           <thead class="bg-zinc-800 text-zinc-300">
             <tr>

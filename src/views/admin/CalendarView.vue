@@ -43,7 +43,7 @@
             <p class="text-sm text-zinc-400">{{ group.items.length }} product(s)</p>
           </div>
 
-          <div class="grid grid-cols-[repeat(auto-fill,220px)] gap-5">
+          <div class="grid grid-cols-1 gap-5 sm:grid-cols-[repeat(auto-fill,220px)]">
             <div
               v-for="item in group.items"
               :key="item.id"
@@ -146,7 +146,7 @@
         No delivery schedules.
       </div>
 
-      <div v-else class="grid grid-cols-[repeat(auto-fill,260px)] gap-5">
+      <div v-else class="grid grid-cols-1 gap-5 sm:grid-cols-[repeat(auto-fill,260px)]">
         <div
           v-for="delivery in deliveries"
           :key="delivery.id"

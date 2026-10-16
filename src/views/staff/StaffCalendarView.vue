@@ -52,7 +52,7 @@
           </p>
         </div>
 
-        <div class="grid grid-cols-[repeat(auto-fill,220px)] gap-5">
+        <div class="grid grid-cols-1 gap-5 sm:grid-cols-[repeat(auto-fill,220px)]">
           <div
             v-for="item in group.items"
             :key="item.id"
@@ -124,7 +124,7 @@
         No delivery schedules.
       </div>
 
-      <div v-else class="grid grid-cols-[repeat(auto-fill,260px)] gap-5">
+      <div v-else class="grid grid-cols-1 gap-5 sm:grid-cols-[repeat(auto-fill,260px)]">
         <div
           v-for="delivery in deliveries"
           :key="delivery.id"
@@ -221,10 +221,11 @@
         </div>
 
         <!-- TWO COLUMN BODY -->
-        <div class="grid grid-cols-2 gap-0 max-h-[80vh] overflow-y-auto">
+        <!-- one column on phones (side by side was too narrow), two from tablet size up -->
+        <div class="grid grid-cols-1 gap-0 max-h-[80vh] overflow-y-auto md:grid-cols-2">
 
           <!-- LEFT: INFO + INPUTS -->
-          <div class="border-r border-white/10 p-6 space-y-5">
+          <div class="space-y-5 border-b border-white/10 p-4 sm:p-6 md:border-b-0 md:border-r">
 
             <!-- STATS -->
             <div class="grid grid-cols-2 gap-3">
@@ -335,7 +336,7 @@
           </div>
 
           <!-- RIGHT: SAVED + SUBMITTED LISTS -->
-          <div class="p-6 space-y-5 overflow-y-auto">
+          <div class="space-y-5 overflow-y-auto p-4 sm:p-6">
 
             <!-- SAVED INSPECTIONS -->
             <div v-if="selectedProductSavedList.length > 0">

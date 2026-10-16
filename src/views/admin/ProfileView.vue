@@ -12,15 +12,31 @@
     </div>
 
     <!-- MAIN -->
-    <div class="grid items-start gap-5 lg:grid-cols-[320px_1fr]">
+    <!-- minmax(0, …): a column may shrink to the screen; otherwise the
+         swipeable tab row widened the whole page on phones -->
+    <div class="grid grid-cols-1 items-start gap-5 lg:grid-cols-[320px_minmax(0,1fr)]">
 
-      <!-- ADD USER: the server generates a one-time temporary password -->
+      <!-- ADD USER: the server generates a one-time temporary password.
+           Phones: behind a button, so the user list isn't pushed down. -->
       <div class="lg:sticky lg:top-5">
-        <CreateEmployeeForm @created="fetchUsers" />
+        <button
+          type="button"
+          class="phone-only w-full rounded-2xl bg-red-600 py-3 font-bold text-white hover:bg-red-700"
+          :aria-expanded="showCreateForm"
+          @click="showCreateForm = !showCreateForm"
+        >
+          {{ showCreateForm ? '✕ Close' : '+ Add employee' }}
+        </button>
+
+        <!-- hidden with CSS, not v-if: the new temporary password popup
+             belongs to this form and must stay open after "Create account" -->
+        <div :class="showCreateForm ? 'mt-3' : 'desktop-only'">
+          <CreateEmployeeForm @created="fetchUsers" />
+        </div>
       </div>
 
       <!-- USERS -->
-      <div class="card flex flex-col p-5 lg:h-[calc(100vh-250px)] lg:min-h-[460px]">
+      <div class="card flex min-w-0 flex-col p-5 lg:h-[calc(100vh-250px)] lg:min-h-[460px]">
 
         <!-- TOP -->
         <div class="mb-4 flex items-center justify-between gap-4">
@@ -54,12 +70,12 @@
           </p>
         </div>
 
-        <!-- CATEGORY TABS -->
-        <div class="mb-4 flex flex-wrap gap-1.5">
+        <!-- CATEGORY TABS: one row you can swipe on phones, wrapping on bigger screens -->
+        <div class="-mx-1 mb-4 flex gap-1.5 overflow-x-auto px-1 pb-1 sm:flex-wrap sm:overflow-visible">
           <button
             v-for="tab in tabs"
             :key="tab.key"
-            class="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition"
+            class="flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-semibold transition"
             :class="activeTab === tab.key
               ? 'bg-red-600 text-white'
               : 'bg-zinc-800/70 text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200'"
@@ -102,23 +118,26 @@
               >
                 <!-- AVATAR -->
                 <div
-                  class="grid h-9 w-9 place-items-center rounded-full text-xs font-bold ring-1"
+                  class="cell-avatar grid h-9 w-9 place-items-center rounded-full text-xs font-bold ring-1"
                   :class="[roleTone(user.role), user.is_active === false ? 'opacity-40' : '']"
                 >
                   {{ initials(user) }}
                 </div>
 
                 <!-- NAME / EMAIL -->
-                <div class="min-w-0" :class="user.is_active === false ? 'opacity-60' : ''">
+                <div class="cell-name min-w-0" :class="user.is_active === false ? 'opacity-60' : ''">
                   <div class="flex min-w-0 items-baseline gap-2">
                     <p class="truncate text-sm font-semibold text-white">
                       {{ user.full_name }}
                     </p>
-                    <span class="shrink-0 font-mono text-[10px] text-zinc-600">
+                    <!-- phones: under the name instead, so the name isn't cut off -->
+                    <span class="desktop-only shrink-0 font-mono text-[10px] text-zinc-600">
                       #{{ user.account_no }}
                     </span>
                   </div>
-                  <p class="truncate text-xs text-zinc-400">{{ user.email }}</p>
+                  <p class="truncate text-xs text-zinc-400">
+                    {{ user.email }}<span class="phone-only font-mono text-zinc-600"> · #{{ user.account_no }}</span>
+                  </p>
                 </div>
 
                 <!-- ROLE -->
@@ -158,7 +177,7 @@
 
                 <!-- ACTIONS -->
                 <button
-                  class="grid h-8 w-8 place-items-center rounded-lg text-lg leading-none text-zinc-500 transition hover:bg-zinc-800 hover:text-white"
+                  class="cell-actions grid h-8 w-8 place-items-center rounded-lg text-lg leading-none text-zinc-500 transition hover:bg-zinc-800 hover:text-white"
                   :class="menu?.user.id === user.id ? 'bg-zinc-800 text-white' : ''"
                   aria-label="Account actions"
                   :aria-expanded="menu?.user.id === user.id"
@@ -254,6 +273,9 @@ import TempPasswordReveal from '../../components/TempPasswordReveal.vue'
 import ChangeOwnPasswordModal from '../../components/ChangeOwnPasswordModal.vue'
 
 const showOwnPassword = ref(false)
+
+// phones: the "Add employee" form opens from a button
+const showCreateForm = ref(false)
 
 const users = ref([])
 const userSearch = ref('')
@@ -541,25 +563,21 @@ onBeforeUnmount(() => {
   padding: 0.625rem 0.75rem;
 }
 
-/* Small screens: role + status drop under the name */
+/* Small screens, two lines:
+     avatar | name / email            | ⋯
+            | role       | status     |
+   (Before, role and status each took a line of their own.) */
 @media (max-width: 640px) {
   .user-row {
-    grid-template-columns: 36px minmax(0, 1fr) 32px;
+    grid-template-columns: 36px minmax(0, 1fr) auto 32px;
     row-gap: 0.5rem;
   }
 
-  .cell-role,
-  .cell-status {
-    grid-column: 2;
-  }
-
-  .cell-role {
-    grid-row: 2;
-  }
-
-  .cell-status {
-    grid-row: 3;
-  }
+  .cell-avatar  { grid-column: 1;     grid-row: 1; }
+  .cell-name    { grid-column: 2 / 4; grid-row: 1; }
+  .cell-actions { grid-column: 4;     grid-row: 1; }
+  .cell-role    { grid-column: 2;     grid-row: 2; }
+  .cell-status  { grid-column: 3;     grid-row: 2; }
 }
 
 .role-select {

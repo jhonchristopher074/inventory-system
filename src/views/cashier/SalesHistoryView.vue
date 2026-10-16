@@ -8,7 +8,8 @@
     </div>
 
     <div class="overflow-hidden rounded-[24px] border border-white/10 bg-zinc-900">
-      <table class="w-full border-collapse text-left">
+      <!-- resp-table: each sale becomes a small card on phones -->
+      <table class="resp-table w-full border-collapse text-left">
         <thead class="bg-black text-sm text-zinc-400">
           <tr>
             <th class="px-5 py-4">Sale ID</th>
@@ -26,23 +27,23 @@
             class="cursor-pointer border-t border-white/10 transition hover:border-l-4 hover:border-l-blue-500 hover:bg-zinc-800/70"
             @click="openSale(sale)"
           >
-            <td class="px-5 py-4 font-bold text-white">
+            <td data-label="Sale ID" class="px-5 py-4 font-bold text-white">
               #{{ sale.id }}
             </td>
 
-            <td class="px-5 py-4 text-zinc-300">
+            <td data-label="Date" class="px-5 py-4 text-zinc-300">
               {{ formatDate(sale.created_at) }}
             </td>
 
-            <td class="px-5 py-4 text-zinc-300">
+            <td data-label="Items" class="px-5 py-4 text-zinc-300">
               {{ sale.sale_items?.length || 0 }} item(s)
             </td>
 
-            <td class="px-5 py-4 font-bold text-red-400">
+            <td data-label="Total" class="px-5 py-4 font-bold text-red-400">
               ₱{{ Number(sale.total_amount).toFixed(2) }}
             </td>
 
-            <td class="px-5 py-4">
+            <td data-label="Action" class="px-5 py-4">
               <span
                 class="font-bold text-blue-400 hover:underline"
                 @click.stop="openReceipt(sale)"

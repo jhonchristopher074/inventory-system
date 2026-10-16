@@ -16,7 +16,7 @@
 
     <div
       v-if="showList"
-      class="absolute right-0 z-[9999] mt-3 w-96 rounded-2xl border border-white/10 bg-zinc-950 p-4 shadow-2xl"
+      class="absolute right-0 z-[9999] mt-3 w-[min(24rem,calc(100vw_-_5.5rem))] rounded-2xl border border-white/10 bg-zinc-950 p-4 shadow-2xl"
     >
       <div class="mb-3 flex items-center justify-between">
         <h2 class="text-lg font-bold text-white">Notifications</h2>
@@ -68,7 +68,7 @@
 <script setup>
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { supabase } from '../lib/supabase'
+import { supabase, uniqueChannelName } from '../lib/supabase'
 
 const router = useRouter()
 
@@ -122,11 +122,20 @@ async function fetchNotifications() {
   loading.value = false
 }
 
-function setupRealtime() {
-  const audio = new Audio('/notif.mp3')
+// Created on the first notification, not on every page load: loading it up
+// front downloaded the sound on every visit (and showed a console error in
+// Chrome with DevTools' "Disable cache") even when nothing arrived.
+let audio = null
 
+function playSound() {
+  if (!audio) audio = new Audio('/notif.mp3')
+  audio.currentTime = 0
+  audio.play().catch(() => {}) // the browser may block sound until the page was clicked
+}
+
+function setupRealtime() {
   channel = supabase
-    .channel('notifications-changes')
+    .channel(uniqueChannelName('notifications'))
     .on(
       'postgres_changes',
       {
@@ -142,8 +151,7 @@ function setupRealtime() {
         notifications.value.unshift(payload.new)
         if (unreadTotal.value !== null) unreadTotal.value += 1
 
-        audio.currentTime = 0
-        audio.play().catch(() => {})
+        playSound()
       }
     )
     .subscribe()
@@ -239,13 +247,18 @@ function formatDate(date) {
   return new Date(date).toLocaleString()
 }
 
+// set when the bell goes away (e.g. logout) while still loading, so the
+// realtime channel isn't opened afterwards and left running
+let unmounted = false
+
 onMounted(async () => {
   await fetchRole()
   await fetchNotifications()
-  setupRealtime()
+  if (!unmounted) setupRealtime()
 })
 
 onUnmounted(() => {
+  unmounted = true
   cleanupRealtime()
 })
 </script>

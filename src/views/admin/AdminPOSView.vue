@@ -5,7 +5,8 @@
       <p class="text-zinc-400">Cashier product sales and stock-out system.</p>
     </div>
 
-    <div class="grid gap-6 lg:grid-cols-[1fr_380px]">
+    <!-- pb-24 on phones: room for the cart bar fixed at the bottom -->
+    <div class="grid gap-6 pb-24 lg:grid-cols-[1fr_380px] lg:pb-0">
       <!-- PRODUCTS -->
       <div>
         <input
@@ -17,15 +18,17 @@
 
         <p v-if="loading" class="text-zinc-400">Loading products...</p>
 
-        <div class="grid grid-cols-[repeat(auto-fill,220px)] gap-5">
+        <div class="grid grid-cols-1 gap-5 sm:grid-cols-[repeat(auto-fill,220px)]">
           <div
-            v-for="product in filteredProducts"
+            v-for="product in visibleProducts"
             :key="product.id"
             class="card flex flex-col p-4"
           >
             <img
               :src="product.image_url || 'https://via.placeholder.com/300x200'"
+              :alt="product.name"
               class="mb-3 h-[140px] w-full shrink-0 rounded-2xl object-cover"
+              loading="lazy"
             />
 
             <h2 class="line-clamp-2 text-lg font-bold leading-snug text-white">
@@ -53,11 +56,38 @@
             </button>
           </div>
         </div>
+
+        <!-- the next products load as this comes into view -->
+        <div v-if="remaining > 0" ref="listEnd" class="py-5 text-center">
+          <button
+            class="rounded-xl bg-zinc-800 px-5 py-2 text-sm font-bold text-white hover:bg-zinc-700"
+            @click="showMore"
+          >
+            Show more ({{ remaining }} left)
+          </button>
+        </div>
       </div>
 
-      <!-- CART -->
-      <div class="sticky top-5 h-fit card p-5">
-        <h2 class="mb-4 text-2xl font-bold text-white">Cart</h2>
+      <!-- CART: beside the products on wide screens. On phones it opens from
+           the cart bar at the bottom instead of sitting below every product. -->
+      <div
+        class="card p-5 lg:sticky lg:top-5 lg:h-fit"
+        :class="showCart
+          ? 'max-lg:fixed max-lg:bottom-0 max-lg:right-0 max-lg:left-[var(--side)] max-lg:z-50 max-lg:max-h-[85vh] max-lg:overflow-y-auto max-lg:rounded-b-none'
+          : 'max-lg:hidden'"
+      >
+        <div class="mb-4 flex items-center justify-between">
+          <h2 class="text-2xl font-bold text-white">Cart</h2>
+
+          <button
+            type="button"
+            class="rounded-full bg-zinc-800 px-3 py-1 text-white hover:bg-zinc-700 lg:hidden"
+            aria-label="Close cart"
+            @click="showCart = false"
+          >
+            ✕
+          </button>
+        </div>
 
         <p v-if="cart.length === 0" class="text-zinc-500">No items in cart.</p>
 
@@ -138,6 +168,23 @@
       </div>
     </div>
 
+    <!-- PHONES: the cart is always one tap away -->
+    <div
+      v-if="showCart"
+      class="fixed inset-0 z-40 bg-black/60 lg:hidden"
+      @click="showCart = false"
+    ></div>
+
+    <button
+      v-else
+      type="button"
+      class="fixed bottom-3 right-3 left-[calc(var(--side)_+_0.75rem)] z-40 flex items-center justify-between gap-3 rounded-2xl bg-red-600 px-5 py-4 font-bold text-white shadow-2xl hover:bg-red-700 lg:hidden"
+      @click="showCart = true"
+    >
+      <span>🛒 Cart · {{ cartCount }} item(s)</span>
+      <span>₱{{ totalAmount.toFixed(2) }}</span>
+    </button>
+
     <!-- RECEIPT MODAL -->
     <div
       v-if="receipt"
@@ -211,8 +258,9 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { supabase } from '../../lib/supabase'
+import { useShowMore } from '../../lib/useShowMore'
 import { printElement } from '../../lib/printReceipt'
 
 const products = ref([])
@@ -226,6 +274,12 @@ const errorMessage = ref('')
 const successMessage = ref('')
 
 const receipt = ref(null)
+
+// phones: the cart opens as a sheet from the bar at the bottom of the screen
+const showCart = ref(false)
+const cartCount = computed(() =>
+  cart.value.reduce((count, item) => count + Number(item.cartQty || 0), 0)
+)
 const cashierEmail = ref('')
 
 const filteredProducts = computed(() => {
@@ -238,6 +292,18 @@ const filteredProducts = computed(() => {
     product.category?.toLowerCase().includes(search)
   )
 })
+
+// Long lists: 40 products at a time, more as you scroll (keeps phones fast).
+const {
+  visible: visibleProducts,
+  remaining,
+  sentinel: listEnd,
+  showMore,
+  reset: resetList,
+} = useShowMore(filteredProducts)
+
+// a new search starts again at the top
+watch(searchQuery, resetList)
 
 const totalAmount = computed(() => {
   return cart.value.reduce((total, item) => {
@@ -382,6 +448,7 @@ async function checkout() {
   }
 
   successMessage.value = 'Sale completed successfully.'
+  showCart.value = false // the receipt shows next
   cart.value = []
 
   await fetchProducts()

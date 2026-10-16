@@ -215,7 +215,7 @@
 
 <script setup>
 import { onMounted, onUnmounted, ref } from 'vue'
-import { supabase } from '../../lib/supabase'
+import { supabase, uniqueChannelName } from '../../lib/supabase'
 import PageHeader from '../../components/PageHeader.vue'
 
 /* ------------------------------------------------------------------
@@ -546,7 +546,7 @@ async function rejectSupplierUpload(upload) {
 // needing a manual refresh.
 function setupSupplierRealtime() {
   uploadsChannel = supabase
-    .channel('supplier-uploads-admin')
+    .channel(uniqueChannelName('supplier-uploads-admin'))
     .on(
       'postgres_changes',
       { event: 'INSERT', schema: 'public', table: 'supplier_uploads' },
