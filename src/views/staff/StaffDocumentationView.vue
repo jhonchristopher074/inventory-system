@@ -77,7 +77,7 @@
       v-if="showAddModal"
       class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
     >
-      <div class="w-full max-w-lg card p-5">
+      <div class="max-h-[92vh] w-full max-w-lg overflow-y-auto card p-5">
         <h2 class="text-2xl font-black text-white">Add Documentation</h2>
 
         <div class="mt-5 space-y-4">
@@ -188,19 +188,24 @@
     </div>
 
     <!-- VIEW MODAL -->
+    <!-- Fits the screen and scrolls inside; the title row with × stays on top.
+         (It used to be taller than a phone screen with no way to scroll, so
+         neither × nor Close could be reached.) Tapping outside closes it. -->
     <div
       v-if="selectedDocument"
-      class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-3 sm:p-4"
+      @click.self="selectedDocument = null"
     >
-      <div class="w-full max-w-xl card p-5">
-        <!-- HEADER -->
-        <div class="mb-4 flex items-start justify-between">
-          <div>
-            <h2 class="text-2xl font-black text-white">{{ selectedDocument.title }}</h2>
+      <div class="max-h-[92vh] w-full max-w-xl overflow-y-auto card px-5 pb-5">
+        <!-- HEADER (stays visible while scrolling) -->
+        <div class="sticky top-0 z-10 -mx-5 mb-4 flex items-start justify-between gap-3 bg-zinc-900/95 px-5 pb-3 pt-5 backdrop-blur">
+          <div class="min-w-0">
+            <h2 class="break-words text-2xl font-black text-white">{{ selectedDocument.title }}</h2>
             <p class="mt-1 text-xs text-zinc-500">{{ formatDate(selectedDocument.created_at) }}</p>
           </div>
           <button
-            class="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-xl text-white transition hover:bg-white/20"
+            class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/10 text-xl text-white transition hover:bg-white/20"
+            aria-label="Close"
             @click="selectedDocument = null"
           >
             ×

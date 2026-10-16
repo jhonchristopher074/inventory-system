@@ -124,7 +124,7 @@
       class="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4"
       @click.self="closeReportModal"
     >
-      <div class="w-full max-w-md card p-5">
+      <div class="max-h-[92vh] w-full max-w-md overflow-y-auto card p-5">
         <h2 class="text-2xl font-bold text-white">
           Report Product
         </h2>

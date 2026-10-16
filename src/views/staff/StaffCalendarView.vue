@@ -163,7 +163,7 @@
       class="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4"
       @click.self="closeDeliveryDone"
     >
-      <div class="w-full max-w-sm rounded-2xl border border-white/10 bg-zinc-900 p-5 shadow-2xl">
+      <div class="max-h-[92vh] w-full max-w-sm overflow-y-auto rounded-2xl border border-white/10 bg-zinc-900 p-5 shadow-2xl">
         <h2 class="mb-3 text-xl font-bold text-white">Mark as Delivered</h2>
 
         <p class="text-sm text-zinc-300"><b>Delivery:</b> {{ deliveryToFinish.title }}</p>

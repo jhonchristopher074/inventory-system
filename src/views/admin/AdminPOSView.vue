@@ -190,7 +190,7 @@
       v-if="receipt"
       class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
     >
-      <div class="w-full max-w-md card p-5 shadow-2xl">
+      <div class="max-h-[92vh] w-full max-w-md overflow-y-auto card p-5 shadow-2xl">
         <div id="receiptArea" class="rounded-2xl bg-white p-5 text-black">
           <div class="text-center">
             <h2 class="text-2xl font-extrabold">10 FIVE 7 Hardware</h2>

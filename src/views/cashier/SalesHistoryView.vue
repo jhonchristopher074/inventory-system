@@ -66,7 +66,7 @@
       class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
       @click.self="selectedSale = null"
     >
-      <div class="w-full max-w-2xl rounded-[24px] border border-white/10 bg-zinc-900 p-5">
+      <div class="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-[24px] border border-white/10 bg-zinc-900 p-5">
         <div class="mb-4 flex items-center justify-between">
           <div>
             <h2 class="text-2xl font-bold text-white">
@@ -121,7 +121,7 @@
       class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
       @click.self="receiptSale = null"
     >
-      <div class="w-full max-w-md rounded-[24px] border border-white/10 bg-zinc-900 p-5">
+      <div class="max-h-[92vh] w-full max-w-md overflow-y-auto rounded-[24px] border border-white/10 bg-zinc-900 p-5">
         <div id="receiptArea" class="rounded-2xl bg-white p-5 text-black">
           <div class="text-center">
             <h2 class="text-2xl font-extrabold">10 FIVE 7 Hardware</h2>

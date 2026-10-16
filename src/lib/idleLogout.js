@@ -10,9 +10,16 @@
  * Change IDLE_MINUTES to adjust the limit.
  */
 
-export const IDLE_MINUTES = 15
+export const IDLE_MINUTES = 120 // 2 hours
 
-export const IDLE_MESSAGE = `You were logged out after ${IDLE_MINUTES} minutes without activity.`
+// "2 hours" / "90 minutes" / "1 hour"
+function describeMinutes(minutes) {
+  if (minutes % 60 !== 0) return `${minutes} minutes`
+  const hours = minutes / 60
+  return hours === 1 ? '1 hour' : `${hours} hours`
+}
+
+export const IDLE_MESSAGE = `You were logged out after ${describeMinutes(IDLE_MINUTES)} without activity.`
 
 const KEY = 'lastActivityAt'
 const LIMIT_MS = IDLE_MINUTES * 60 * 1000
