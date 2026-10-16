@@ -73,7 +73,7 @@
           <button
             class="rounded-2xl bg-emerald-600 px-6 py-3 font-bold text-white hover:bg-emerald-700 disabled:opacity-50"
             :disabled="isBusy(upload.id)"
-            @click="approveSupplierUpload(upload)"
+            @click="openReview(upload, 'approve')"
           >
             {{ isBusy(upload.id) ? 'Working...' : 'Approve' }}
           </button>
@@ -89,9 +89,178 @@
       </div>
     </div>
 
+    <!-- Approved receipts waiting their turn to be sent to n8n.
+         They are sent one at a time so each gets its own profit percentage. -->
+    <div
+      v-if="sendQueue.length > 0"
+      class="mb-8 rounded-[24px] border border-sky-500/30 bg-zinc-900 p-5"
+    >
+      <h2 class="mb-1 text-lg font-bold text-white">Waiting to be sent to the scanner</h2>
+      <p class="mb-3 text-sm text-zinc-400">
+        Approved receipts are sent one at a time, about {{ SEND_GAP_MS / 1000 }} seconds
+        apart, so every receipt gets its own profit percentage. Keep this page open
+        until the list is empty.
+      </p>
+
+      <ul class="space-y-2">
+        <li
+          v-for="(item, index) in sendQueue"
+          :key="item.upload.id"
+          class="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-zinc-800 px-4 py-3 text-sm"
+        >
+          <span class="min-w-0 truncate font-bold text-white">
+            {{ item.upload.file_name }}
+            <span class="font-normal text-zinc-400">· {{ item.percent }}% profit</span>
+          </span>
+          <span class="shrink-0 font-bold text-sky-300">
+            <template v-if="index > 0">{{ index }} ahead</template>
+            <template v-else-if="secondsToNext > 0">sends in {{ secondsToNext }}s</template>
+            <template v-else>sending now…</template>
+          </span>
+        </li>
+      </ul>
+    </div>
+
+    <!-- ============================================================
+         NEW PRICES TO CHECK
+         Shown after n8n has finished and the products table is updated:
+         every product the receipt added or restocked, with its price.
+    ============================================================ -->
+    <div v-if="reviewGroups.length > 0 || itemsError || itemsSuccess" class="mb-8">
+      <h2 class="mb-1 text-lg font-bold text-white">New prices to check</h2>
+      <p class="mb-3 text-sm text-zinc-400">
+        The receipt scanner finished. These products were added or restocked. Check the
+        price of each one, change it if you want, then press Confirm.
+      </p>
+
+      <p v-if="itemsError" class="mb-3 rounded-xl bg-red-600/20 p-4 text-red-400">
+        {{ itemsError }}
+      </p>
+      <p v-if="itemsSuccess" class="mb-3 rounded-xl bg-emerald-600/20 p-4 text-emerald-400">
+        {{ itemsSuccess }}
+      </p>
+
+      <!-- one short card per receipt; "Open" shows its prices in a window -->
+      <div
+        v-for="group in reviewGroups"
+        :key="group.key"
+        class="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-[24px] border border-emerald-500/30 bg-zinc-900 p-4 sm:p-5"
+      >
+        <div class="min-w-0 flex-1 basis-48">
+          <p class="truncate font-bold text-white">{{ group.fileName || 'Receipt' }}</p>
+          <p class="mt-1 text-sm text-zinc-400">
+            {{ group.items.length }} product{{ group.items.length === 1 ? '' : 's' }} to check
+            · Profit chosen: {{ group.percent != null ? group.percent + '%' : '—' }}
+          </p>
+        </div>
+
+        <button
+          class="rounded-2xl bg-emerald-600 px-6 py-3 font-bold text-white hover:bg-emerald-700"
+          @click="openReviewKey = group.key"
+        >
+          Open
+        </button>
+      </div>
+    </div>
+
+    <!-- PRICE CHECK WINDOW: scrolls inside, title row with × stays on top,
+         tapping outside closes it. Closes by itself after Confirm / Keep as is
+         (the receipt then leaves the list). -->
+    <div
+      v-if="priceWindow"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-3 sm:p-4"
+      @click.self="openReviewKey = null"
+    >
+      <div
+        class="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-[24px] border border-emerald-500/30 bg-zinc-900 px-4 pb-4 sm:px-5 sm:pb-5"
+        role="dialog"
+        aria-modal="true"
+        :aria-label="'Prices for ' + (priceWindow.fileName || 'receipt')"
+      >
+        <div class="sticky top-0 z-10 -mx-4 mb-3 flex items-start justify-between gap-3 bg-zinc-900/95 px-4 pb-3 pt-4 backdrop-blur sm:-mx-5 sm:px-5 sm:pt-5">
+          <div class="min-w-0">
+            <p class="truncate text-lg font-bold text-white">
+              {{ priceWindow.fileName || 'Receipt' }}
+            </p>
+            <span class="mt-1 inline-block rounded-full bg-emerald-600/20 px-3 py-1 text-xs font-bold text-emerald-400">
+              Profit chosen: {{ priceWindow.percent != null ? priceWindow.percent + '%' : '—' }}
+            </span>
+          </div>
+
+          <button
+            class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/10 text-xl text-white hover:bg-white/20"
+            aria-label="Close"
+            @click="openReviewKey = null"
+          >
+            ×
+          </button>
+        </div>
+
+        <template v-for="group in [priceWindow]" :key="group.key">
+        <div class="space-y-2">
+          <div
+            v-for="item in group.items"
+            :key="item.id"
+            class="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-zinc-800 p-3"
+          >
+            <div class="min-w-0 flex-1 basis-48">
+              <p class="truncate font-bold text-white">{{ item.product_name || 'Product' }}</p>
+              <p class="mt-1 text-xs text-zinc-400">
+                <span
+                  class="mr-1 rounded-full px-2 py-0.5 font-bold"
+                  :class="item.is_new ? 'bg-sky-500/20 text-sky-300' : 'bg-amber-500/20 text-amber-300'"
+                >
+                  {{ item.is_new ? 'NEW' : 'RESTOCK' }}
+                </span>
+                +{{ item.qty_added ?? 0 }} pcs
+                · Cost: {{ item.cost != null ? money(item.cost) : '—' }}
+                <template v-if="!item.is_new"> · Now: {{ money(item.price) }}</template>
+              </p>
+            </div>
+
+            <div class="flex items-center gap-2">
+              <input
+                v-model="priceEdits[item.id]"
+                type="number"
+                inputmode="decimal"
+                min="0"
+                step="0.01"
+                class="input w-28 text-right"
+                :class="isChanged(item) ? 'ring-2 ring-amber-400' : ''"
+                :aria-label="'Price of ' + item.product_name"
+              />
+              <span class="w-20 text-xs text-zinc-400">
+                <template v-if="profitOf(item) !== null">{{ profitOf(item) }}% profit</template>
+                <template v-else>no cost</template>
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-4 flex gap-3">
+          <button
+            class="flex-1 rounded-2xl bg-emerald-600 py-3 font-bold text-white hover:bg-emerald-700 disabled:opacity-50"
+            :disabled="reviewSaving.has(group.key)"
+            @click="confirmGroup(group)"
+          >
+            {{ reviewSaving.has(group.key) ? 'Saving...' : 'Confirm prices' }}
+          </button>
+
+          <button
+            class="rounded-2xl bg-zinc-800 px-5 py-3 font-bold text-white hover:bg-zinc-700 disabled:opacity-50"
+            :disabled="reviewSaving.has(group.key)"
+            @click="dismissGroup(group)"
+          >
+            Keep as is
+          </button>
+        </div>
+        </template>
+      </div>
+    </div>
+
     <!-- Approved, but copying to the Approved Receipt bucket failed,
          so n8n never received them. Only shown when there are any. -->
-    <div v-if="unsentUploads.length > 0" class="mb-8">
+    <div v-if="unsentVisible.length > 0" class="mb-8">
       <h2 class="mb-1 text-lg font-bold text-white">Approved but not sent</h2>
       <p class="mb-3 text-sm text-zinc-400">
         These were approved, but sending them to "{{ APPROVED_BUCKET }}" failed, so the
@@ -100,7 +269,7 @@
 
       <div class="space-y-3">
         <div
-          v-for="upload in unsentUploads"
+          v-for="upload in unsentVisible"
           :key="upload.id"
           class="flex flex-wrap items-center justify-between gap-4 rounded-[24px] border border-amber-500/30 bg-zinc-900 p-5"
         >
@@ -123,9 +292,9 @@
           <button
             class="shrink-0 rounded-2xl bg-amber-500 px-5 py-3 font-bold text-black hover:bg-amber-400 disabled:opacity-50"
             :disabled="isBusy(upload.id)"
-            @click="resendSupplierUpload(upload)"
+            @click="openReview(upload, 'send')"
           >
-            {{ isBusy(upload.id) ? 'Sending...' : 'Send again' }}
+            {{ isBusy(upload.id) ? 'In line...' : 'Send again' }}
           </button>
         </div>
       </div>
@@ -210,12 +379,256 @@
         </div>
       </div>
     </div>
+    <!-- ============================================================
+         REVIEW WINDOW: opens when Approve / Send again is pressed.
+         Ask for the profit percentage, and let the owner zoom the receipt.
+    ============================================================ -->
+    <Teleport to="body">
+      <div
+        v-if="review"
+        class="fixed inset-0 z-[2000] flex items-center justify-center bg-black/80 p-3 sm:p-4"
+        @click.self="closeReview"
+      >
+        <div class="max-h-[94vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-white/10 bg-zinc-900 p-4 shadow-2xl sm:rounded-[24px] sm:p-6">
+          <h2 class="text-xl font-bold text-white sm:text-2xl">
+            {{ review.mode === 'send' ? 'Send receipt again' : 'Approve receipt' }}
+          </h2>
+
+          <p class="mt-1 truncate text-sm text-zinc-400">
+            {{ review.upload.file_name }} · From
+            {{ review.upload.supplier_name || review.upload.supplier_email || 'Supplier' }}
+          </p>
+
+          <!-- receipt preview: click to zoom -->
+          <div class="mt-4">
+            <button
+              v-if="isImage(review.upload.file_name)"
+              type="button"
+              class="group relative block w-full overflow-hidden rounded-xl bg-black"
+              title="Click to zoom"
+              @click="openZoom"
+            >
+              <img
+                :src="review.upload.file_url"
+                :alt="review.upload.file_name"
+                class="max-h-[40vh] w-full object-contain"
+              />
+              <span class="absolute bottom-2 right-2 rounded-full bg-black/70 px-3 py-1 text-xs font-bold text-white group-hover:bg-red-600">
+                🔍 Click to zoom
+              </span>
+            </button>
+
+            <div v-else class="overflow-hidden rounded-xl bg-black">
+              <iframe
+                :src="review.upload.file_url"
+                class="h-[40vh] w-full"
+                title="Receipt preview"
+              ></iframe>
+              <a
+                :href="review.upload.file_url"
+                target="_blank"
+                rel="noopener"
+                class="block py-2 text-center text-sm font-bold text-red-400 hover:underline"
+              >
+                Open the PDF in a new tab
+              </a>
+            </div>
+          </div>
+
+          <!-- profit percentage -->
+          <div class="mt-5">
+            <label class="mb-2 block text-sm font-bold text-zinc-300" for="profit-input">
+              Profit percentage
+            </label>
+
+            <div class="flex items-center gap-2">
+              <input
+                id="profit-input"
+                v-model="profitInput"
+                type="number"
+                inputmode="decimal"
+                min="0"
+                max="1000"
+                step="0.01"
+                placeholder="e.g. 25"
+                class="input flex-1"
+                @keyup.enter="confirmReview"
+              />
+              <span class="text-lg font-bold text-zinc-300">%</span>
+            </div>
+
+            <div class="mt-3 flex flex-wrap gap-2">
+              <button
+                v-for="quick in [10, 15, 20, 25, 30, 50]"
+                :key="quick"
+                type="button"
+                class="rounded-xl bg-zinc-800 px-3 py-1.5 text-sm font-bold text-zinc-200 hover:bg-zinc-700"
+                @click="profitInput = String(quick)"
+              >
+                {{ quick }}%
+              </button>
+            </div>
+
+            <p class="mt-2 text-xs text-zinc-500">
+              After the scanner has read the receipt, the new products appear on this
+              page under "New prices to check" with this percentage already added.
+              You can change any price there before confirming.
+            </p>
+          </div>
+
+          <p
+            v-if="reviewError"
+            class="mt-4 rounded-xl bg-red-600/20 p-3 text-sm text-red-400"
+          >
+            {{ reviewError }}
+          </p>
+
+          <div class="mt-5 flex gap-3">
+            <button
+              class="flex-1 rounded-2xl bg-emerald-600 py-3 font-bold text-white hover:bg-emerald-700"
+              @click="confirmReview"
+            >
+              {{ review.mode === 'send' ? 'Send' : 'Approve & send' }}
+            </button>
+
+            <button
+              class="flex-1 rounded-2xl bg-zinc-800 py-3 font-bold text-white hover:bg-zinc-700"
+              @click="closeReview"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- FULL-SCREEN ZOOM -->
+      <div
+        v-if="review && zoomOpen"
+        class="fixed inset-0 z-[2100] flex flex-col bg-black/95"
+      >
+        <div class="flex items-center justify-between gap-2 p-3">
+          <div class="flex items-center gap-2">
+            <button
+              class="rounded-xl bg-zinc-800 px-4 py-2 text-lg font-bold text-white hover:bg-zinc-700"
+              title="Zoom out"
+              @click="changeZoom(-0.5)"
+            >
+              −
+            </button>
+            <span class="w-14 text-center text-sm font-bold text-zinc-300">
+              {{ Math.round(zoom * 100) }}%
+            </span>
+            <button
+              class="rounded-xl bg-zinc-800 px-4 py-2 text-lg font-bold text-white hover:bg-zinc-700"
+              title="Zoom in"
+              @click="changeZoom(0.5)"
+            >
+              +
+            </button>
+            <button
+              class="rounded-xl bg-zinc-800 px-3 py-2 text-sm font-bold text-white hover:bg-zinc-700"
+              @click="zoom = 1"
+            >
+              Reset
+            </button>
+          </div>
+
+          <button
+            class="rounded-xl bg-red-600 px-4 py-2 font-bold text-white hover:bg-red-700"
+            @click="zoomOpen = false"
+          >
+            ✕ Close
+          </button>
+        </div>
+
+        <!-- scroll to move around while zoomed in; click the picture to zoom in / out -->
+        <div class="flex-1 overflow-auto p-2">
+          <img
+            :src="review.upload.file_url"
+            :alt="review.upload.file_name"
+            class="mx-auto block max-w-none cursor-zoom-in select-none"
+            :class="zoom > 1 ? 'cursor-zoom-out' : ''"
+            :style="{ width: zoom * 100 + '%' }"
+            @click="zoom = zoom >= 2 ? 1 : 2.5"
+          />
+        </div>
+      </div>
+    </Teleport>
+
+    <!-- ============================================================
+         LOADING SCREEN: shown while a receipt is being sent, read by n8n
+         and written to the products table. "Continue in background"
+         shrinks it to a small badge so you can keep working.
+    ============================================================ -->
+    <Teleport to="body">
+      <div
+        v-if="processing && !overlayHidden"
+        class="fixed inset-0 z-[1900] flex items-center justify-center bg-black/80 p-4"
+        role="status"
+        aria-live="polite"
+      >
+        <div class="w-full max-w-md rounded-[24px] border border-white/10 bg-zinc-900 p-6 text-center shadow-2xl">
+          <div class="mx-auto h-14 w-14 animate-spin rounded-full border-4 border-zinc-700 border-t-emerald-500"></div>
+
+          <h2 class="mt-5 text-xl font-bold text-white">{{ processingTitle }}</h2>
+          <p class="mt-1 text-sm text-zinc-400">
+            Please keep this page open. The new prices will show up here when it is done.
+          </p>
+
+          <!-- steps -->
+          <ol class="mt-5 space-y-2 text-left text-sm">
+            <li
+              v-for="(label, index) in processingSteps"
+              :key="label"
+              class="flex items-center gap-3 rounded-xl px-3 py-2"
+              :class="index + 1 === processingStage ? 'bg-emerald-600/15 text-emerald-300' : index + 1 < processingStage ? 'text-zinc-400' : 'text-zinc-600'"
+            >
+              <span
+                class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold"
+                :class="index + 1 < processingStage ? 'bg-emerald-600 text-white' : index + 1 === processingStage ? 'bg-emerald-500 text-black' : 'bg-zinc-800 text-zinc-500'"
+              >
+                {{ index + 1 < processingStage ? '✓' : index + 1 }}
+              </span>
+              <span class="font-bold">{{ label }}</span>
+            </li>
+          </ol>
+
+          <!-- each receipt -->
+          <ul v-if="processingList.length > 0" class="mt-4 space-y-2 text-left">
+            <li
+              v-for="entry in processingList"
+              :key="entry.key"
+              class="rounded-xl bg-zinc-800 px-3 py-2 text-sm"
+            >
+              <p class="truncate font-bold text-white">{{ entry.name }}</p>
+              <p class="text-xs text-zinc-400">{{ entry.text }}</p>
+            </li>
+          </ul>
+
+          <button
+            class="mt-5 w-full rounded-2xl bg-zinc-800 py-3 font-bold text-white hover:bg-zinc-700"
+            @click="overlayHidden = true"
+          >
+            Continue in background
+          </button>
+        </div>
+      </div>
+
+      <button
+        v-else-if="processing"
+        class="fixed bottom-4 right-4 z-[1900] flex items-center gap-3 rounded-full border border-white/10 bg-zinc-900 px-4 py-3 text-sm font-bold text-white shadow-2xl hover:bg-zinc-800"
+        @click="overlayHidden = false"
+      >
+        <span class="h-4 w-4 animate-spin rounded-full border-2 border-zinc-600 border-t-emerald-500"></span>
+        Processing receipt…
+      </button>
+    </Teleport>
   </div>
 </template>
 
 <script setup>
-import { onMounted, onUnmounted, ref } from 'vue'
-import { supabase, uniqueChannelName } from '../../lib/supabase'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { supabase } from '../../lib/supabase'
 import PageHeader from '../../components/PageHeader.vue'
 
 /* ------------------------------------------------------------------
@@ -308,6 +721,89 @@ const busyIds = ref(new Set())
 
 let uploadsChannel = null
 
+/* ------------------------------------------------------------------
+   Review window (profit percentage + zoom)
+   Approve / Send again open it first; nothing is sent until the owner
+   confirms. The percentage is NOT sent to n8n: it is saved in the database
+   (receipt_markups) and the database adds it to the price of the new
+   products n8n creates. n8n only sees the receipt itself.
+------------------------------------------------------------------ */
+const review = ref(null) // { upload, mode: 'approve' | 'send' }
+const profitInput = ref('')
+const reviewError = ref('')
+const zoomOpen = ref(false)
+const zoom = ref(1)
+
+function openReview(upload, mode) {
+  review.value = { upload, mode }
+  profitInput.value = ''
+  reviewError.value = ''
+  zoomOpen.value = false
+  zoom.value = 1
+}
+
+function closeReview() {
+  review.value = null
+  zoomOpen.value = false
+}
+
+function openZoom() {
+  zoom.value = 1
+  zoomOpen.value = true
+}
+
+function changeZoom(step) {
+  zoom.value = Math.min(5, Math.max(0.5, zoom.value + step))
+}
+
+function confirmReview() {
+  const raw = String(profitInput.value).trim()
+  const percent = Number(raw)
+
+  if (raw === '' || !Number.isFinite(percent)) {
+    reviewError.value = 'Please enter the profit percentage.'
+    return
+  }
+
+  if (percent < 0 || percent > 1000) {
+    reviewError.value = 'The percentage must be between 0 and 1000.'
+    return
+  }
+
+  // keep at most 2 decimals (25.456 -> 25.46)
+  const clean = Math.round(percent * 100) / 100
+  const { upload, mode } = review.value
+
+  closeReview()
+
+  if (mode === 'send') {
+    resendSupplierUpload(upload, clean)
+  } else {
+    approveSupplierUpload(upload, clean)
+  }
+}
+
+function money(value) {
+  const number = Number(value)
+  if (value === null || value === '' || !Number.isFinite(number)) return '—'
+  return number.toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })
+}
+
+// Esc closes the zoom first, then the window.
+function onKey(event) {
+  if (event.key !== 'Escape' || !review.value) return
+  if (zoomOpen.value) zoomOpen.value = false
+  else closeReview()
+}
+
+// lock page scrolling behind the windows
+watch(review, (value) => {
+  document.body.style.overflow = value ? 'hidden' : ''
+})
+
 function isBusy(id) {
   return busyIds.value.has(id)
 }
@@ -316,17 +812,33 @@ function isImage(fileName) {
   return /\.(png|jpe?g|webp|gif)$/i.test(fileName || '')
 }
 
-async function fetchSupplierUploads() {
-  supplierLoading.value = true
-  supplierError.value = ''
+// Several suppliers can upload at the same moment, which fires several
+// refreshes at once. Only the newest answer is used, so an older, slower
+// answer can never overwrite a newer list. "silent" refreshes (realtime,
+// timer) don't flash "Loading..." and never wipe the list on a hiccup.
+let fetchSeq = 0
+
+async function fetchSupplierUploads({ silent = false } = {}) {
+  const seq = ++fetchSeq
+
+  if (!silent) {
+    supplierLoading.value = true
+    supplierError.value = ''
+  }
 
   const { data, error } = await supabase.rpc('admin_list_supplier_uploads', {
     p_status: 'pending',
   })
 
+  if (seq !== fetchSeq) return // a newer refresh is already running
+
   if (error) {
-    supplierError.value = error.message
-    supplierUploads.value = []
+    if (!silent) {
+      supplierError.value = error.message
+      supplierUploads.value = []
+    } else {
+      console.error(error)
+    }
   } else {
     supplierUploads.value = data || []
   }
@@ -368,10 +880,11 @@ function safeFileName(name) {
   return String(name || 'receipt').replace(/[^A-Za-z0-9._-]+/g, '_')
 }
 
-async function approveSupplierUpload(upload) {
+async function approveSupplierUpload(upload, profitPercent) {
   supplierError.value = ''
   supplierSuccess.value = ''
   busyIds.value.add(upload.id)
+  preparing.value += 1
 
   try {
     // 1. save a copy locally before anything is deleted
@@ -386,28 +899,121 @@ async function approveSupplierUpload(upload) {
 
     supplierUploads.value = supplierUploads.value.filter((item) => item.id !== upload.id)
 
-    // 3. send it on to n8n, then remove the original
-    try {
-      const { deleteFailed } = await forwardReceipt(approved, blob)
+    // 3. line it up to be sent to n8n (one receipt at a time)
+    enqueueSend({ upload: approved, blob, percent: profitPercent, mode: 'approve' })
 
-      supplierSuccess.value = deleteFailed
-        ? `Approved "${upload.file_name}", saved it to your device and sent it to ${APPROVED_BUCKET}, but the original is still in storage — check the bucket's delete policy.`
-        : `Approved "${upload.file_name}", saved it to your device, sent it to ${APPROVED_BUCKET} and removed the original.`
-    } catch (sendError) {
-      // Approved, but not sent: the original stays in storage and the
-      // upload is listed under "Approved but not sent" for another try.
-      console.error('Approved, but could not send to the Approved Receipt bucket:', sendError)
-      supplierError.value = sendError.alreadySent
-        ? `"${upload.file_name}" was approved and sent to "${APPROVED_BUCKET}", but the app ` +
-          `couldn't record that it was sent (${sendError.message}). If it's listed under ` +
-          `"Approved but not sent", press "Send again": that only records it, it won't be sent twice.`
-        : `"${upload.file_name}" was approved and saved to your device, but sending it to ` +
-          `"${APPROVED_BUCKET}" failed (${sendError.message}). It's listed under ` +
-          `"Approved but not sent" — press "Send again" to retry.`
-      await fetchUnsentUploads()
-    }
+    supplierSuccess.value = `Approved "${upload.file_name}" and saved it to your device. It is in line to be sent to the receipt scanner.`
   } catch (err) {
+    busyIds.value.delete(upload.id)
     supplierError.value = err.message || 'Something went wrong approving this upload.'
+  } finally {
+    preparing.value -= 1
+  }
+}
+
+/* ------------------------------------------------------------------
+   Send queue
+
+   The database gives a new product the NEWEST profit percentage saved in the
+   last 15 minutes. If two receipts were sent to n8n at the same moment,
+   their products could get each other's percentage. So receipts are sent one
+   at a time, SEND_GAP_MS apart: each receipt's percentage is saved right
+   before that receipt is sent, and n8n has time to finish the previous one.
+   Raise SEND_GAP_MS if n8n takes longer than this to read a receipt.
+
+   If the page is closed while receipts are waiting, they stay approved and
+   show up under "Approved but not sent" for "Send again".
+------------------------------------------------------------------ */
+const SEND_GAP_MS = 90 * 1000
+
+const sendQueue = ref([]) // { upload, blob, percent, mode }
+const nextSendAt = ref(0)
+const nowTick = ref(Date.now())
+let queueRunning = false
+let isMounted = true
+let tickTimer = null
+let pollTimer = null
+let refreshTimer = null
+
+const secondsToNext = computed(() =>
+  Math.max(0, Math.ceil((nextSendAt.value - nowTick.value) / 1000))
+)
+
+function isQueued(id) {
+  return sendQueue.value.some((item) => item.upload.id === id)
+}
+
+// "Approved but not sent" minus the ones that are in line right now
+const unsentVisible = computed(() =>
+  unsentUploads.value.filter((item) => !isQueued(item.id))
+)
+
+function enqueueSend(item) {
+  sendQueue.value.push(item)
+  runSendQueue()
+}
+
+async function runSendQueue() {
+  if (queueRunning) return
+  queueRunning = true
+
+  while (isMounted && sendQueue.value.length > 0) {
+    const wait = nextSendAt.value - Date.now()
+
+    if (wait > 0) {
+      await new Promise((resolve) => setTimeout(resolve, wait))
+      if (!isMounted) break
+    }
+
+    const item = sendQueue.value[0]
+    const sent = await sendQueued(item)
+
+    sendQueue.value.shift()
+
+    // only wait before the next one when this one really reached n8n
+    if (sent) nextSendAt.value = Date.now() + SEND_GAP_MS
+  }
+
+  queueRunning = false
+}
+
+// Sends one queued receipt. Returns true when it reached the Approved Receipt bucket.
+async function sendQueued(item) {
+  const { upload, mode } = item
+
+  try {
+    const blob = item.blob || (await fetchFile(upload.file_url))
+    const { deleteFailed, newlySent } = await forwardReceipt(upload, blob, item.percent)
+
+    if (newlySent) startScanning(upload)
+
+    unsentUploads.value = unsentUploads.value.filter((entry) => entry.id !== upload.id)
+
+    supplierError.value = ''
+    supplierSuccess.value = deleteFailed
+      ? `Sent "${upload.file_name}" to ${APPROVED_BUCKET}, but the original is still in storage — check the bucket's delete policy.`
+      : `Sent "${upload.file_name}" to ${APPROVED_BUCKET} and removed the original.`
+
+    return true
+  } catch (sendError) {
+    console.error('Could not send to the Approved Receipt bucket:', sendError)
+
+    if (sendError.alreadySent) {
+      supplierError.value =
+        `"${upload.file_name}" was sent to "${APPROVED_BUCKET}", but the app ` +
+        `couldn't record that it was sent (${sendError.message}). If it's listed under ` +
+        `"Approved but not sent", press "Send again": that only records it, it won't be sent twice.`
+    } else if (mode === 'send') {
+      supplierError.value = `Sending "${upload.file_name}" failed again: ${sendError.message || sendError}`
+    } else {
+      supplierError.value =
+        `"${upload.file_name}" was approved and saved to your device, but sending it to ` +
+        `"${APPROVED_BUCKET}" failed (${sendError.message}). It's listed under ` +
+        `"Approved but not sent" — press "Send again" to retry.`
+    }
+
+    await fetchUnsentUploads()
+    return Boolean(sendError.alreadySent)
   } finally {
     busyIds.value.delete(upload.id)
   }
@@ -415,17 +1021,43 @@ async function approveSupplierUpload(upload) {
 
 // Copies an approved receipt into the "Approved Receipt" bucket (that copy
 // is what triggers n8n), records it as sent, then removes the original.
+// Before the copy, the owner's profit percentage is saved in the database;
+// the database applies it to the prices of the new products.
 // Throws when it couldn't be sent and recorded; the original is kept then,
 // so "Send again" can still read it.
-async function forwardReceipt(upload, blob) {
+async function forwardReceipt(upload, blob, profitPercent) {
+  // Plain file name: n8n gets only the receipt, no percentage.
   const approvedPath = `${upload.id}-${safeFileName(upload.file_name)}`
 
-  const { error: uploadError } = await supabase.storage
+  // If an earlier try already put this receipt in the bucket, don't send it
+  // a second time: that would add the stock twice.
+  const { data: existing } = await supabase.storage
     .from(APPROVED_BUCKET)
-    .upload(approvedPath, blob, {
-      contentType: blob.type || undefined,
-      upsert: false,
+    .list('', { search: `${upload.id}-` })
+
+  const alreadyThere = (existing || []).some((file) =>
+    file.name.startsWith(`${upload.id}-`)
+  )
+
+  // Save the percentage first. If this fails, nothing is sent, so a receipt
+  // can never reach n8n without its markup.
+  if (!alreadyThere) {
+    const { error: markupError } = await supabase.rpc('admin_set_receipt_markup', {
+      p_upload_ref: String(upload.id),
+      p_percent: profitPercent,
     })
+
+    if (markupError) {
+      throw new Error(`Could not save the profit percentage (${markupError.message})`)
+    }
+  }
+
+  const { error: uploadError } = alreadyThere
+    ? { error: null }
+    : await supabase.storage.from(APPROVED_BUCKET).upload(approvedPath, blob, {
+        contentType: blob.type || undefined,
+        upsert: false,
+      })
 
   // "Already exists" means an earlier try did copy it and only recording it
   // failed. It already reached n8n, so count it as sent instead of sending
@@ -458,7 +1090,7 @@ async function forwardReceipt(upload, blob) {
     console.error('Sent, but failed to delete the original from storage:', removeError)
   }
 
-  return { deleteFailed }
+  return { deleteFailed, newlySent: !alreadyThere }
 }
 
 function isAlreadyExists(error) {
@@ -482,25 +1114,14 @@ async function fetchUnsentUploads() {
   unsentUploads.value = data || []
 }
 
-async function resendSupplierUpload(upload) {
+async function resendSupplierUpload(upload, profitPercent) {
   supplierError.value = ''
   supplierSuccess.value = ''
   busyIds.value.add(upload.id)
 
-  try {
-    const blob = await fetchFile(upload.file_url)
-    const { deleteFailed } = await forwardReceipt(upload, blob)
+  enqueueSend({ upload, blob: null, percent: profitPercent, mode: 'send' })
 
-    unsentUploads.value = unsentUploads.value.filter((item) => item.id !== upload.id)
-
-    supplierSuccess.value = deleteFailed
-      ? `Sent "${upload.file_name}" to ${APPROVED_BUCKET}, but the original is still in storage — check the bucket's delete policy.`
-      : `Sent "${upload.file_name}" to ${APPROVED_BUCKET} and removed the original.`
-  } catch (err) {
-    supplierError.value = `Sending "${upload.file_name}" failed again: ${err.message || err}`
-  } finally {
-    busyIds.value.delete(upload.id)
-  }
+  supplierSuccess.value = `"${upload.file_name}" is in line to be sent to the receipt scanner.`
 }
 
 async function rejectSupplierUpload(upload) {
@@ -542,19 +1163,274 @@ async function rejectSupplierUpload(upload) {
   supplierUploads.value = supplierUploads.value.filter((item) => item.id !== upload.id)
 }
 
-// New uploads show up here the moment a supplier submits one, without
-// needing a manual refresh.
+/* ------------------------------------------------------------------
+   New prices to check
+
+   When n8n has finished, every product it added or restocked is listed
+   here (the database writes them to receipt_review_items). The owner can
+   change any price, then Confirm. The page looks for new ones every
+   10 seconds, so they appear by themselves a little after the receipt is sent.
+------------------------------------------------------------------ */
+const reviewItems = ref([])
+const priceEdits = ref({}) // item id -> what is typed in the price box
+const reviewSaving = ref(new Set()) // group keys being saved
+
+// Receipts that were sent to n8n and are still being read / written to products
+const SCAN_TIMEOUT_MS = 3 * 60 * 1000
+const scanning = ref([]) // { ref, name, baseline, found, stable, startedAt }
+const preparing = ref(0) // receipts being downloaded / approved right now
+const overlayHidden = ref(false)
+const itemsError = ref('')
+const itemsSuccess = ref('')
+let reviewPollTimer = null
+
+// The receipt whose prices are open in the window (null = window closed).
+// When it's confirmed or kept as is it leaves reviewGroups, which closes
+// the window by itself.
+const openReviewKey = ref(null)
+const priceWindow = computed(() =>
+  reviewGroups.value.find((group) => group.key === openReviewKey.value) || null
+)
+
+const reviewGroups = computed(() => {
+  const groups = new Map()
+
+  for (const item of reviewItems.value) {
+    const key = item.upload_ref || 'other'
+
+    if (!groups.has(key)) {
+      groups.set(key, { key, fileName: item.file_name, percent: item.percent, items: [] })
+    }
+
+    groups.get(key).items.push(item)
+  }
+
+  return [...groups.values()]
+})
+
+async function fetchReviewItems() {
+  const { data, error } = await supabase.rpc('admin_list_receipt_review')
+
+  if (error) {
+    // e.g. 7-receipt-review.sql hasn't been run yet: just hide the section
+    console.error(error)
+    updateScanning()
+    return
+  }
+
+  reviewItems.value = data || []
+
+  // new rows get their price in the box; boxes the owner already edited are kept
+  const edits = { ...priceEdits.value }
+  for (const item of reviewItems.value) {
+    if (!(item.id in edits)) {
+      const suggested = suggestedPrice(item)
+      // restocked products: suggest cost + the receipt's percentage
+      edits[item.id] = String(item.is_new || suggested === null ? (item.price ?? '') : suggested)
+    }
+  }
+  priceEdits.value = edits
+
+  updateScanning()
+}
+
+// A receipt was just sent to n8n: wait for its products to show up.
+function startScanning(upload) {
+  const key = String(upload.id)
+  const baseline = reviewItems.value.filter((item) => item.upload_ref === key).length
+
+  scanning.value.push({
+    ref: key,
+    name: upload.file_name,
+    baseline,
+    found: baseline,
+    stable: 0,
+    startedAt: Date.now(),
+  })
+
+  fetchReviewItems()
+}
+
+// Done when products have appeared and no more are coming (two checks in a row
+// with the same count). Gives up after SCAN_TIMEOUT_MS with a clear message.
+function updateScanning() {
+  if (scanning.value.length === 0) return
+
+  const finished = []
+
+  for (const entry of scanning.value) {
+    const count = reviewItems.value.filter((item) => item.upload_ref === entry.ref).length
+
+    if (count > entry.baseline) {
+      if (count === entry.found) {
+        entry.stable += 1
+      } else {
+        entry.found = count
+        entry.stable = 0
+      }
+
+      if (entry.stable >= 1) {
+        finished.push(entry)
+        itemsError.value = ''
+        itemsSuccess.value = `"${entry.name}": ${count - entry.baseline} product${count - entry.baseline === 1 ? '' : 's'} updated. Press Open to check the prices.`
+      }
+    } else if (Date.now() - entry.startedAt > SCAN_TIMEOUT_MS) {
+      finished.push(entry)
+      itemsSuccess.value = ''
+      itemsError.value =
+        `Still no products from "${entry.name}" after 3 minutes. Check the n8n Executions tab, ` +
+        `and make sure 7-receipt-review.sql was run. This page will show them if they arrive later.`
+    }
+  }
+
+  if (finished.length > 0) {
+    scanning.value = scanning.value.filter((entry) => !finished.includes(entry))
+  }
+}
+
+/* ---- loading screen ---- */
+const processing = computed(
+  () => preparing.value > 0 || sendQueue.value.length > 0 || scanning.value.length > 0
+)
+
+const processingSteps = ['Sending the receipt', 'Reading it (n8n)', 'Updating products']
+
+// 1 = sending, 2 = n8n is reading, 3 = products are being written
+const processingStage = computed(() => {
+  if (preparing.value > 0 || sendQueue.value.length > 0) return 1
+  if (scanning.value.some((entry) => entry.found <= entry.baseline)) return 2
+  return 3
+})
+
+const processingTitle = computed(() => processingSteps[processingStage.value - 1] + '…')
+
+const processingList = computed(() => {
+  const list = sendQueue.value.map((item, index) => ({
+    key: 'q' + item.upload.id,
+    name: item.upload.file_name,
+    text:
+      index > 0
+        ? `Waiting in line (${index} ahead)`
+        : secondsToNext.value > 0
+          ? `Sends in ${secondsToNext.value}s`
+          : 'Sending…',
+  }))
+
+  for (const entry of scanning.value) {
+    const added = entry.found - entry.baseline
+    list.push({
+      key: 's' + entry.ref,
+      name: entry.name,
+      text: added > 0 ? `Updating products (${added} so far)…` : 'Reading the receipt…',
+    })
+  }
+
+  return list
+})
+
+// show the full screen again whenever another receipt joins
+watch(
+  () => preparing.value + sendQueue.value.length + scanning.value.length,
+  (now, before) => {
+    if (now > before) overlayHidden.value = false
+  }
+)
+
+// cost + the percentage chosen for the receipt (null when the cost is unknown;
+// promo items at 0.01 or less keep their price)
+function suggestedPrice(item) {
+  const cost = Number(item.cost)
+  const percent = Number(item.percent)
+
+  if (item.cost == null || item.percent == null || !(cost > 0.01) || !Number.isFinite(percent)) {
+    return null
+  }
+
+  return Math.round(cost * (1 + percent / 100) * 100) / 100
+}
+
+function isChanged(item) {
+  return Number(priceEdits.value[item.id]) !== Number(item.price)
+}
+
+// profit % of the price in the box, compared with the receipt cost
+function profitOf(item) {
+  const cost = Number(item.cost)
+  const price = Number(priceEdits.value[item.id])
+
+  if (!(cost > 0.01) || !Number.isFinite(price)) return null
+
+  return Math.round(((price - cost) / cost) * 1000) / 10
+}
+
+function removeGroup(group) {
+  const ids = new Set(group.items.map((item) => item.id))
+  reviewItems.value = reviewItems.value.filter((item) => !ids.has(item.id))
+}
+
+async function confirmGroup(group) {
+  itemsError.value = ''
+  itemsSuccess.value = ''
+
+  const items = group.items.map((item) => ({
+    id: item.id,
+    price: Number(priceEdits.value[item.id]),
+  }))
+
+  if (items.some((item) => !Number.isFinite(item.price) || item.price < 0)) {
+    itemsError.value = 'Every price must be a number, 0 or more.'
+    return
+  }
+
+  reviewSaving.value.add(group.key)
+
+  const { error } = await supabase.rpc('admin_confirm_receipt_review', { p_items: items })
+
+  reviewSaving.value.delete(group.key)
+
+  if (error) {
+    itemsError.value = error.message
+    return
+  }
+
+  removeGroup(group)
+  itemsSuccess.value = `Prices saved for ${items.length} product${items.length === 1 ? '' : 's'}.`
+}
+
+async function dismissGroup(group) {
+  itemsError.value = ''
+  itemsSuccess.value = ''
+  reviewSaving.value.add(group.key)
+
+  const { error } = await supabase.rpc('admin_dismiss_receipt_review', {
+    p_ids: group.items.map((item) => item.id),
+  })
+
+  reviewSaving.value.delete(group.key)
+
+  if (error) {
+    itemsError.value = error.message
+    return
+  }
+
+  removeGroup(group)
+  itemsSuccess.value = 'Kept the prices as they are.'
+}
+
+// Suppliers can upload at the same moment, so every change is refreshed once
+// (bursts are merged into one refresh) without needing a manual reload.
+function scheduleRefresh() {
+  clearTimeout(refreshTimer)
+  refreshTimer = setTimeout(() => fetchSupplierUploads({ silent: true }), 250)
+}
+
 function setupSupplierRealtime() {
   uploadsChannel = supabase
-    .channel(uniqueChannelName('supplier-uploads-admin'))
+    .channel('supplier-uploads-admin')
     .on(
       'postgres_changes',
-      { event: 'INSERT', schema: 'public', table: 'supplier_uploads' },
-      (payload) => {
-        if (payload.new.status === 'pending') {
-          fetchSupplierUploads()
-        }
-      }
+      { event: '*', schema: 'public', table: 'supplier_uploads' },
+      scheduleRefresh
     )
     .subscribe()
 }
@@ -571,13 +1447,37 @@ function formatDate(date) {
 }
 
 onMounted(() => {
+  isMounted = true
   fetchApprovals()
   fetchSupplierUploads()
   fetchUnsentUploads()
+  fetchReviewItems()
   setupSupplierRealtime()
+  window.addEventListener('keydown', onKey)
+
+  // safety net: if a live update is ever missed, the list still catches up
+  pollTimer = setInterval(() => fetchSupplierUploads({ silent: true }), 30000)
+  // every 3 seconds while a receipt is being processed, otherwise every 10
+  let pollCount = 0
+  reviewPollTimer = setInterval(() => {
+    pollCount += 1
+    if (scanning.value.length > 0 || pollCount % 3 === 0) fetchReviewItems()
+  }, 3000)
+  tickTimer = setInterval(() => {
+    nowTick.value = Date.now()
+  }, 1000)
 })
 
 onUnmounted(() => {
+  isMounted = false
+  window.removeEventListener('keydown', onKey)
+  document.body.style.overflow = ''
+
+  clearTimeout(refreshTimer)
+  clearInterval(pollTimer)
+  clearInterval(tickTimer)
+  clearInterval(reviewPollTimer)
+
   if (uploadsChannel) supabase.removeChannel(uploadsChannel)
 })
 </script>
