@@ -100,31 +100,52 @@
         <p v-if="activeTab === 'upload' && errorMessage" class="status-msg error">{{ errorMessage }}</p>
         <p v-if="activeTab === 'upload' && successMessage" class="status-msg success">{{ successMessage }}</p>
 
-        <!-- MY UPLOADS and where each one is -->
+        <!-- MY UPLOADS: last 50, by day, filter by status, 15 at a time -->
         <section v-if="activeTab === 'uploads'" class="my-uploads" aria-labelledby="my-uploads-title">
-          <h3 id="my-uploads-title">Your recent uploads</h3>
+          <h3 id="my-uploads-title" class="sr-only">Your uploads</h3>
 
-          <p v-if="uploadRows.length === 0" class="my-uploads-empty">No uploads yet.</p>
+          <div class="filters" role="tablist" aria-label="Show uploads">
+            <button
+              v-for="option in STATUS_FILTERS"
+              :key="option.key"
+              class="filter"
+              :class="{ active: statusFilter === option.key }"
+              :aria-pressed="statusFilter === option.key"
+              @click="statusFilter = option.key"
+            >
+              {{ option.label }}
+              <span class="filter-count">{{ statusCounts[option.key] }}</span>
+            </button>
+          </div>
 
-          <ul>
-            <li v-for="row in uploadRows" :key="row.id" class="my-upload">
-              <div class="my-upload-info">
+          <p v-if="filteredRows.length === 0" class="my-uploads-empty">
+            {{ uploadRows.length === 0 ? 'No uploads yet.' : 'Nothing here.' }}
+          </p>
+
+          <div v-for="day in visibleDays" :key="day.key" class="day">
+            <p class="day-title">{{ day.title }}</p>
+
+            <ul>
+              <li v-for="row in day.rows" :key="row.id" class="my-upload">
                 <p class="my-upload-name">{{ row.file_name }}</p>
-                <p class="my-upload-date">{{ formatWhen(row.created_at) }}</p>
-              </div>
+                <span class="my-upload-time">{{ formatTime(row.created_at) }}</span>
+                <span class="chip" :class="row.state.kind">
+                  {{ row.state.kind === 'countdown' ? 'Sends in ' + clock(row.state.left) : row.state.text }}
+                </span>
+              </li>
+            </ul>
+          </div>
 
-              <span class="chip" :class="row.state.kind">
-                {{ row.state.kind === 'countdown' ? 'Sends in ' + clock(row.state.left) : row.state.text }}
-              </span>
-            </li>
-          </ul>
+          <button v-if="remainingRows > 0" class="show-more" @click="shownCount += PAGE">
+            Show more ({{ remainingRows }} left)
+          </button>
         </section>
       </div>
     </div>
   </template>
 
   <script setup>
-  import { computed, onMounted, onUnmounted, ref } from 'vue'
+  import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
   import { supabase, uniqueChannelName } from '../../lib/supabase'
 
   /* ------------------------------------------------------------------
@@ -312,7 +333,7 @@
   const knownStatus = new Map()
 
   async function fetchMyUploads() {
-    const { data, error } = await supabase.rpc('supplier_list_my_uploads', { p_limit: 10 })
+    const { data, error } = await supabase.rpc('supplier_list_my_uploads', { p_limit: 50 })
 
     if (error) {
       // e.g. the 2026-10-19 supplier_send_timer SQL wasn't run yet: no list
@@ -345,6 +366,64 @@
     return { kind: 'approved', text: 'Approved · waiting to be sent' }
   }
 
+  // ----- My uploads tab: status filter, grouped by day, 15 at a time -----
+  const STATUS_FILTERS = [
+    { key: 'all', label: 'All' },
+    { key: 'waiting', label: 'Waiting' },
+    { key: 'sent', label: 'Sent' },
+    { key: 'denied', label: 'Denied' },
+  ]
+  const statusFilter = ref('all')
+  const PAGE = 15
+  const shownCount = ref(PAGE)
+
+  // which filter a row belongs to ("waiting" = for approval or to be sent)
+  function groupOf(row) {
+    if (row.state.kind === 'rejected') return 'denied'
+    if (row.state.kind === 'sent') return 'sent'
+    return 'waiting'
+  }
+
+  const statusCounts = computed(() => {
+    const counts = { all: uploadRows.value.length, waiting: 0, sent: 0, denied: 0 }
+    for (const row of uploadRows.value) counts[groupOf(row)] += 1
+    return counts
+  })
+
+  const filteredRows = computed(() =>
+    statusFilter.value === 'all' ? uploadRows.value : uploadRows.value.filter((row) => groupOf(row) === statusFilter.value)
+  )
+
+  const remainingRows = computed(() => Math.max(filteredRows.value.length - shownCount.value, 0))
+
+  // "Today", "Yesterday", "Oct 16" (+ the year when it isn't this year)
+  function dayTitle(date) {
+    const today = new Date()
+    const yesterday = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1)
+    if (date.toDateString() === today.toDateString()) return 'Today'
+    if (date.toDateString() === yesterday.toDateString()) return 'Yesterday'
+    return date.toLocaleDateString(undefined, {
+      month: 'short',
+      day: 'numeric',
+      ...(date.getFullYear() === today.getFullYear() ? {} : { year: 'numeric' }),
+    })
+  }
+
+  const visibleDays = computed(() => {
+    const days = []
+    for (const row of filteredRows.value.slice(0, shownCount.value)) {
+      const date = new Date(row.created_at)
+      const key = date.toDateString()
+      if (days.length === 0 || days[days.length - 1].key !== key) days.push({ key, title: dayTitle(date), rows: [] })
+      days[days.length - 1].rows.push(row)
+    }
+    return days
+  })
+
+  function formatTime(date) {
+    return new Date(date).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
+  }
+
   const uploadRows = computed(() =>
     myUploads.value.map((row) => ({ ...row, state: stateOf(row) }))
   )
@@ -360,17 +439,6 @@
   function clock(seconds) {
     const s = Math.max(0, Math.round(seconds))
     return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
-  }
-
-  function formatWhen(date) {
-    if (!date) return ''
-
-    return new Date(date).toLocaleString(undefined, {
-      month: 'short',
-      day: 'numeric',
-      hour: 'numeric',
-      minute: '2-digit',
-    })
   }
 
   // waiting for approval, or approved but not sent yet
@@ -441,6 +509,11 @@
   function dismissDecisionAlert() {
     decisionAlert.value = null
   }
+
+  // another filter starts again at the first 15
+  watch(statusFilter, () => {
+    shownCount.value = PAGE
+  })
 
   let tickTimer = null
   let pollTimer = null
@@ -795,39 +868,99 @@
     margin-top: 6px;
   }
 
-  .my-uploads h3 {
-    margin: 0 0 10px;
-    color: #ddd;
-    font-size: 15px;
-  }
-
   .my-uploads ul {
     margin: 0;
     padding: 0;
     list-style: none;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
   }
 
-  .my-upload {
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+
+  /* status filter */
+  .filters {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 14px;
+    overflow-x: auto;
+  }
+
+  .filter {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-
-    padding: 12px 14px;
-    border-radius: 12px;
+    gap: 6px;
+    flex-shrink: 0;
+    padding: 6px 12px;
     border: 1px solid #222;
+    border-radius: 999px;
+    background: #111;
+    color: #999;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .filter:hover {
+    color: #fff;
+  }
+
+  .filter.active {
+    border-color: #e50914;
+    background: rgba(229, 9, 20, 0.15);
+    color: #fff;
+  }
+
+  .filter-count {
+    color: #777;
+    font-size: 12px;
+  }
+
+  .filter.active .filter-count {
+    color: #ff8a8f;
+  }
+
+  /* one day */
+  .day + .day {
+    margin-top: 14px;
+  }
+
+  .day-title {
+    margin: 0 0 6px 4px;
+    color: #777;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .day ul {
+    overflow: hidden;
+    border: 1px solid #222;
+    border-radius: 12px;
     background: #111;
   }
 
-  .my-upload-info {
-    flex: 1;
-    min-width: 0;
+  /* one upload: name · time · status, on one line */
+  .my-upload {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px;
+  }
+
+  .my-upload + .my-upload {
+    border-top: 1px solid #1c1c1c;
   }
 
   .my-upload-name {
+    flex: 1;
+    min-width: 0;
     margin: 0;
     color: #eee;
     font-size: 14px;
@@ -837,10 +970,33 @@
     white-space: nowrap;
   }
 
-  .my-upload-date {
-    margin: 2px 0 0;
+  .my-upload-time {
+    flex-shrink: 0;
     color: #777;
     font-size: 12px;
+  }
+
+  /* same width for every status, so the times line up */
+  .my-upload .chip {
+    min-width: 150px;
+    text-align: center;
+  }
+
+  .show-more {
+    display: block;
+    margin: 14px auto 0;
+    padding: 8px 18px;
+    border: 1px solid #222;
+    border-radius: 10px;
+    background: #111;
+    color: #ddd;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .show-more:hover {
+    background: #1a1a1a;
   }
 
   .chip {
