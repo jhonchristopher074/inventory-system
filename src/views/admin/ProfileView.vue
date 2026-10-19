@@ -377,14 +377,22 @@ function toggleMenu(user, event) {
     user,
     top: openUp ? rect.top - menuHeight - 6 : rect.bottom + 6,
     right: window.innerWidth - rect.right,
+    openedAt: Date.now(),
   }
 }
+
+// A double click (or a touchpad / phone "ghost" tap) could land its second
+// click on an item of the menu that had just opened and start e.g. Reset
+// password without anyone choosing it. Items only work after a short moment.
+const MENU_READY_MS = 400
 
 function closeMenu() {
   menu.value = null
 }
 
 function runMenu(action) {
+  if (menu.value && Date.now() - menu.value.openedAt < MENU_READY_MS) return
+
   const user = menu.value?.user
   closeMenu()
   if (!user) return
