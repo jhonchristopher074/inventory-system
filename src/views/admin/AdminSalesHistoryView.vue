@@ -66,6 +66,24 @@
       </div>
     </div>
 
+    <!-- CHART + BEST SELLERS of what's shown -->
+    <SalesInsights :sales="filteredSales" :range="range" />
+
+    <!-- what the list shows, and download it for Excel -->
+    <div class="mb-3 flex items-center justify-between gap-3">
+      <p class="text-sm text-zinc-400">
+        {{ filteredSales.length }} sale{{ filteredSales.length === 1 ? '' : 's' }}
+      </p>
+
+      <button
+        class="rounded-xl border border-white/10 bg-zinc-900 px-4 py-2 text-sm font-bold text-white transition hover:bg-zinc-800 disabled:opacity-50"
+        :disabled="filteredSales.length === 0"
+        @click="exportCsv"
+      >
+        ⬇ Export CSV
+      </button>
+    </div>
+
     <!-- TABLE -->
     <div class="overflow-hidden rounded-[24px] border border-white/10 bg-zinc-900">
       <table class="resp-table w-full border-collapse text-left">
@@ -252,6 +270,7 @@ import { supabase } from '../../lib/supabase'
 import { printElement } from '../../lib/printReceipt'
 import { useShowMore } from '../../lib/useShowMore'
 import SalesPeriodFilter from '../../components/SalesPeriodFilter.vue'
+import SalesInsights from '../../components/SalesInsights.vue'
 
 const sales = ref([])
 const loading = ref(false)
@@ -325,6 +344,52 @@ const {
 
 // another period or cashier starts again at the top
 watch([range, selectedCashier, cashierSearch], resetList)
+
+// Downloads the sales shown (date filter + cashier) as a CSV file that
+// opens in Excel: one row per sale, with its products in one column.
+function exportCsv() {
+  const cell = (value) => {
+    const text = String(value ?? '')
+    return /[",\n]/.test(text) ? '"' + text.replace(/"/g, '""') + '"' : text
+  }
+
+  const rows = [['Sale ID', 'Date', 'Time', 'Cashier', 'Products', 'Items sold', 'Total (PHP)']]
+
+  for (const sale of filteredSales.value) {
+    const date = new Date(sale.created_at)
+    const items = sale.sale_items || []
+    rows.push([
+      sale.id,
+      date.toLocaleDateString('en-CA'), // 2026-10-19: Excel sorts it right
+      date.toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' }),
+      cashierName(sale),
+      items.map((i) => `${i.product_name} x${i.quantity}`).join('; '),
+      items.reduce((n, i) => n + Number(i.quantity || 0), 0),
+      Number(sale.total_amount || 0).toFixed(2),
+    ])
+  }
+
+  rows.push(['', '', '', '', 'TOTAL', summaryItems.value, summaryTotal.value.toFixed(2)])
+
+  // the BOM makes Excel read names with ñ and the like correctly
+  const csv = '﻿' + rows.map((r) => r.map(cell).join(',')).join('\r\n')
+  const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }))
+
+  const { start, end } = range.value
+  const day = (d) => d.toLocaleDateString('en-CA')
+  const period = start
+    ? `${day(start)}_to_${day(end ? new Date(end.getTime() - 86400000) : new Date())}`
+    : 'all'
+  const who = selectedCashier.value?.name || cashierSearch.value.trim()
+
+  const link = document.createElement('a')
+  link.href = url
+  link.download = `sales_${period}${who ? '_' + who.replace(/[^A-Za-z0-9]+/g, '-') : ''}.csv`
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  URL.revokeObjectURL(url)
+}
 
 async function fetchSales() {
   loading.value = true
