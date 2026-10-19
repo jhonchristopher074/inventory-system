@@ -29,6 +29,9 @@
       </div>
     </div>
 
+    <!-- CHART + BEST SELLERS of your sales shown (opens with its button) -->
+    <SalesInsights :sales="filteredSales" :range="range" />
+
     <div class="overflow-hidden rounded-[24px] border border-white/10 bg-zinc-900">
       <!-- resp-table: each sale becomes a small card on phones -->
       <table class="resp-table w-full border-collapse text-left">
@@ -228,6 +231,7 @@ import { supabase } from '../../lib/supabase'
 import { printElement } from '../../lib/printReceipt'
 import { useShowMore } from '../../lib/useShowMore'
 import SalesPeriodFilter from '../../components/SalesPeriodFilter.vue'
+import SalesInsights from '../../components/SalesInsights.vue'
 
 defineProps({
   // shown inside the Profile page: no page heading of its own
