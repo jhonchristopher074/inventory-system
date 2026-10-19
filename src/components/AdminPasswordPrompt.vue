@@ -68,8 +68,10 @@ function submit() {
 
       <div class="ap-actions">
         <button type="button" class="ap-cancel" :disabled="busy" @click="emit('cancel')">Cancel</button>
+        <!-- greyed out until the password (and name) are typed: the hover note says why -->
         <button type="submit" class="ap-confirm"
-                :disabled="!password || busy || (textLabel && !text.trim())">
+                :disabled="!password || busy || (textLabel && !text.trim())"
+                :title="!password ? 'Type your password first' : (textLabel && !text.trim()) ? 'Type the ' + textLabel.toLowerCase() + ' first' : ''">
           {{ busy ? 'Checking…' : confirmLabel }}
         </button>
       </div>
@@ -93,5 +95,6 @@ h2 { margin: 0 0 6px; font-size: 1.2rem; }
 .ap-actions button { flex: 1; padding: 11px; border: 0; border-radius: 10px; font-weight: 700; cursor: pointer; }
 .ap-cancel { background: #26262b; color: #f4f4f5; }
 .ap-confirm { background: #e11d48; color: #fff; }
-.ap-actions button:disabled { opacity: .45; cursor: not-allowed; }
+/* not the browser's "no entry" cursor: it looked like an error */
+.ap-actions button:disabled { opacity: .45; cursor: default; }
 </style>
