@@ -16,6 +16,8 @@
 #                       the database password
 #   BACKUP_PASSPHRASE   a long password you make up. Keep it somewhere safe:
 #                       without it the backups can't be opened.
+# Until both are set, the weekly run makes no backup and only shows a
+# warning (no failure emails). Adding them is all it takes to start.
 #
 # Open a backup (Git Bash on Windows already has gpg):
 #   gpg -d database-backup-2026-10-26.tar.gz.gpg > backup.tar.gz
@@ -42,33 +44,36 @@ jobs:
     timeout-minutes: 20
 
     steps:
-      - uses: supabase/setup-cli@v1
+      - name: Check the secrets
+        env:
+          DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          if [ -z "$DB_URL" ] || [ -z "$PASSPHRASE" ]; then
+            echo "::warning::No backup made: the SUPABASE_DB_URL and BACKUP_PASSPHRASE secrets aren't set up yet (see the top of backup.yml)."
+            echo "SKIP_BACKUP=1" >> "$GITHUB_ENV"
+          fi
+
+      - if: env.SKIP_BACKUP != '1'
+        uses: supabase/setup-cli@v1
         with:
           version: latest
 
       - name: Copy the database
+        if: env.SKIP_BACKUP != '1'
         env:
           DB_URL: ${{ secrets.SUPABASE_DB_URL }}
         run: |
-          if [ -z "$DB_URL" ]; then
-            echo "::error::Add the SUPABASE_DB_URL secret first (see the top of backup.yml)"
-            exit 1
-          fi
-
           mkdir backup
           supabase db dump --db-url "$DB_URL" -f backup/roles.sql --role-only
           supabase db dump --db-url "$DB_URL" -f backup/schema.sql
           supabase db dump --db-url "$DB_URL" -f backup/data.sql --use-copy --data-only
 
       - name: Encrypt it
+        if: env.SKIP_BACKUP != '1'
         env:
           PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
         run: |
-          if [ -z "$PASSPHRASE" ]; then
-            echo "::error::Add the BACKUP_PASSPHRASE secret first (see the top of backup.yml)"
-            exit 1
-          fi
-
           name="database-backup-$(date -u +%F)"
           tar -czf backup.tar.gz backup
           gpg --batch --yes --pinentry-mode loopback --passphrase "$PASSPHRASE" \
@@ -76,7 +81,8 @@ jobs:
           rm -rf backup backup.tar.gz
           echo "BACKUP_NAME=$name" >> "$GITHUB_ENV"
 
-      - uses: actions/upload-artifact@v4
+      - if: env.SKIP_BACKUP != '1'
+        uses: actions/upload-artifact@v4
         with:
           name: ${{ env.BACKUP_NAME }}
           path: ${{ env.BACKUP_NAME }}.tar.gz.gpg
