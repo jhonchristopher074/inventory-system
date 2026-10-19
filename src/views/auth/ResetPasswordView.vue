@@ -59,6 +59,8 @@ async function submit() {
       return
     }
 
+    await clearTemporaryMark()
+
     endPasswordRecovery()
     newPassword.value = confirmPassword.value = ''
 
@@ -71,6 +73,22 @@ async function submit() {
   } finally {
     loading.value = false
   }
+}
+
+// An employee who never replaced their first temporary password is still
+// marked as having one: logging in would then ask for it again, or refuse
+// it as expired. The reset email proved it's them, so the server clears that
+// mark (supabase/functions/finish-password-reset). Nobody else needs this,
+// and the new password is already saved, so a failure never stops the reset.
+async function clearTemporaryMark() {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession()
+
+  if (!session?.user?.app_metadata?.must_change_password) return
+
+  const { error: fnError } = await supabase.functions.invoke('finish-password-reset', { body: {} })
+  if (fnError) console.error('Could not clear the temporary-password mark:', fnError)
 }
 
 async function cancel() {
