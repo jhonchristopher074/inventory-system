@@ -14,6 +14,11 @@ import { supabase } from './supabase'
 const KEY = 'passwordRecovery'
 let recovering = false
 
+// also called after the 6-digit code from the email was accepted
+export function startPasswordRecovery() {
+  remember()
+}
+
 function remember() {
   recovering = true
   try {

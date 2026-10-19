@@ -10,10 +10,64 @@
         {{ mode === 'forgot' ? 'Reset your password' : 'Login to Inventory Management System' }}
       </p>
 
-      <!-- FORGOT PASSWORD: its own screen, asks only for the email -->
-      <form v-if="mode === 'forgot'" @submit.prevent="forgotPassword" class="mt-8 space-y-4">
+      <!-- FORGOT PASSWORD, step 2: the 6-digit code from the email -->
+      <form v-if="mode === 'forgot' && resetSent" @submit.prevent="verifyCode" class="mt-8 space-y-4">
         <p class="text-sm text-zinc-400">
-          Enter the email of your account. We'll send you a link to choose a new password.
+          We sent a code to <b class="text-white">{{ resetEmail.trim() }}</b>.
+          Enter it below (or use the link in the email).
+        </p>
+
+        <div>
+          <label class="text-sm text-zinc-400" for="reset-code">Code</label>
+
+          <input
+            id="reset-code"
+            ref="resetCodeInput"
+            v-model="resetCode"
+            inputmode="numeric"
+            autocomplete="one-time-code"
+            maxlength="10"
+            required
+            class="mt-2 w-full rounded-2xl border border-white/10 bg-black px-4 py-3 text-center text-2xl font-bold tracking-[0.5em] outline-none focus:border-red-500"
+            placeholder="••••••"
+            @input="resetCode = resetCode.replace(/\D/g, ''); errorMessage = ''"
+          />
+        </div>
+
+        <p
+          v-if="errorMessage"
+          class="rounded-xl bg-red-500/10 p-3 text-sm text-red-400"
+        >
+          {{ errorMessage }}
+        </p>
+
+        <button
+          type="submit"
+          :disabled="verifying || resetCode.length < 6"
+          class="w-full rounded-2xl bg-red-600 py-3 font-bold transition hover:bg-red-700 disabled:opacity-50"
+        >
+          {{ verifying ? 'Checking...' : 'Continue' }}
+        </button>
+
+        <div class="flex justify-between gap-3 text-sm font-semibold">
+          <button type="button" class="text-zinc-400 hover:text-red-400" @click="resetSent = false">
+            ← Change email
+          </button>
+          <button
+            type="button"
+            class="text-zinc-400 hover:text-red-400 disabled:opacity-50"
+            :disabled="sendingReset"
+            @click="forgotPassword"
+          >
+            {{ sendingReset ? 'Sending...' : 'Send a new code' }}
+          </button>
+        </div>
+      </form>
+
+      <!-- FORGOT PASSWORD, step 1: its own screen, asks only for the email -->
+      <form v-else-if="mode === 'forgot'" @submit.prevent="forgotPassword" class="mt-8 space-y-4">
+        <p class="text-sm text-zinc-400">
+          Enter the email of your account. We'll send you a code to choose a new password.
         </p>
 
         <div>
@@ -42,7 +96,7 @@
           :disabled="sendingReset"
           class="w-full rounded-2xl bg-red-600 py-3 font-bold transition hover:bg-red-700 disabled:opacity-50"
         >
-          {{ sendingReset ? 'Sending...' : (resetSent ? 'Send again' : 'Send reset link') }}
+          {{ sendingReset ? 'Sending...' : 'Send code' }}
         </button>
 
         <button
@@ -159,6 +213,7 @@ import { useRouter, useRoute } from 'vue-router'
 import { supabase } from '../../lib/supabase'
 import { afterLogin } from '../../lib/passwordStatus'
 import { markActivity } from '../../lib/idleLogout'
+import { startPasswordRecovery } from '../../lib/passwordRecovery'
 
 const router = useRouter()
 const route = useRoute()
@@ -172,7 +227,10 @@ const errorMessage = ref(route.query.notice ? String(route.query.notice) : '')
 // good news, e.g. "Your password was changed..." after a password reset
 const infoMessage = ref(route.query.info ? String(route.query.info) : '')
 const sendingReset = ref(false)
-const resetSent = ref(false) // the reset button then says "Send again"
+const resetSent = ref(false) // the email went out: show the code step
+const resetCode = ref('')
+const resetCodeInput = ref(null)
+const verifying = ref(false)
 
 // The good-news toast hides itself after a few seconds.
 let toastTimer = null
@@ -325,11 +383,38 @@ async function forgotPassword() {
   }
 
   resetSent.value = true
+  resetCode.value = ''
+  nextTick(() => resetCodeInput.value?.focus())
 
   // Same message whether or not the account exists, so this can't be used
   // to find out which emails have accounts.
   infoMessage.value =
-    `If ${address} has an account, a link to reset the password was sent to it. ` +
+    `If ${address} has an account, a code to reset the password was sent to it. ` +
     'Check the inbox (and the spam folder).'
+}
+
+// The code from the email logs in just for the reset, then the Reset
+// password page asks for the new password (same as opening the link).
+async function verifyCode() {
+  errorMessage.value = ''
+  verifying.value = true
+
+  const { error } = await supabase.auth.verifyOtp({
+    email: resetEmail.value.trim(),
+    token: resetCode.value,
+    type: 'recovery',
+  })
+
+  verifying.value = false
+
+  if (error) {
+    errorMessage.value = /expired|invalid/i.test(error.message)
+      ? 'That code is wrong or has expired. Check the newest email, or press "Send a new code".'
+      : error.message
+    return
+  }
+
+  startPasswordRecovery()
+  router.replace('/reset-password')
 }
 </script>
