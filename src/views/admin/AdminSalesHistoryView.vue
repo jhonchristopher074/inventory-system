@@ -23,24 +23,24 @@
       </p>
     </div>
 
-    <!-- DATE FILTER (shared with the other Sales History page) -->
-    <!-- CASHIER SEARCH (not needed once a cashier was clicked) -->
-    <div v-if="!selectedCashier" class="relative mb-4">
-      <input
-        v-model="cashierSearch"
-        type="search"
-        placeholder="Search cashier..."
-        aria-label="Search cashier"
-        list="cashier-names"
-        class="w-full rounded-2xl border border-white/10 bg-zinc-900 px-4 py-3 text-sm text-white outline-none placeholder:text-zinc-500 focus:border-red-500"
-      />
-      <!-- suggestions while typing: every cashier who has sales -->
-      <datalist id="cashier-names">
-        <option v-for="name in cashierNames" :key="name" :value="name" />
-      </datalist>
-    </div>
-
-    <SalesPeriodFilter v-model="range" />
+    <!-- DATE FILTER, with the cashier search at the right end of its row
+         (not needed once a cashier's name was clicked) -->
+    <SalesPeriodFilter v-model="range">
+      <template v-if="!selectedCashier" #end>
+        <input
+          v-model="cashierSearch"
+          type="search"
+          placeholder="Search cashier..."
+          aria-label="Search cashier"
+          list="cashier-names"
+          class="w-full rounded-full border border-white/10 bg-zinc-900 px-4 py-2 text-sm text-white outline-none placeholder:text-zinc-500 focus:border-red-500"
+        />
+        <!-- suggestions while typing: every cashier who has sales -->
+        <datalist id="cashier-names">
+          <option v-for="name in cashierNames" :key="name" :value="name" />
+        </datalist>
+      </template>
+    </SalesPeriodFilter>
 
     <!-- SUMMARY of what's shown (date filter + cashier) -->
     <div class="mb-6 grid gap-4 sm:grid-cols-3">

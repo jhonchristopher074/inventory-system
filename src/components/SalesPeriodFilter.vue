@@ -84,8 +84,9 @@ watch([period, from, to], () => {
 
 <template>
   <div class="mb-4">
+    <div class="flex flex-wrap items-center gap-2">
     <!-- one row you can swipe on phones -->
-    <div class="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
+    <div class="-mx-1 flex min-w-0 max-w-full gap-2 overflow-x-auto px-1 pb-1">
       <button
         v-for="option in PERIODS"
         :key="option.key"
@@ -97,6 +98,13 @@ watch([period, from, to], () => {
       >
         {{ option.label }}
       </button>
+    </div>
+
+    <!-- e.g. the admin's cashier search: right end of the same row
+         (its own line on phones) -->
+    <div v-if="$slots.end" class="w-full pb-1 sm:ml-auto sm:w-64">
+      <slot name="end" />
+    </div>
     </div>
 
     <div
