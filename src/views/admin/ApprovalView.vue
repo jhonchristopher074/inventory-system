@@ -622,13 +622,53 @@
         <span class="h-4 w-4 animate-spin rounded-full border-2 border-zinc-600 border-t-emerald-500"></span>
         Processing receipt…
       </button>
+
+      <!-- LEAVE QUESTION: receipts in line are sent from this page -->
+      <div
+        v-if="leavePrompt"
+        class="fixed inset-0 z-[2200] flex items-center justify-center bg-black/80 p-4"
+        @click.self="answerLeave(false)"
+      >
+        <div
+          class="w-full max-w-md rounded-[24px] border border-amber-500/30 bg-zinc-900 p-6 shadow-2xl"
+          role="alertdialog"
+          aria-modal="true"
+          aria-labelledby="leave-title"
+        >
+          <h2 id="leave-title" class="text-xl font-bold text-white">Receipts are still being sent</h2>
+
+          <p class="mt-2 text-sm leading-relaxed text-zinc-400">
+            {{ waitingCount }} receipt{{ waitingCount === 1 ? ' is' : 's are' }} waiting to go to
+            the receipt scanner. They are sent from this page, so if you leave now they stop and
+            wait under "Approved but not sent" until you press "Send again".
+          </p>
+
+          <div class="mt-5 flex flex-col gap-2 sm:flex-row">
+            <button
+              class="flex-1 rounded-2xl bg-emerald-600 py-3 font-bold text-white hover:bg-emerald-700"
+              @click="answerLeave(false)"
+            >
+              Stay on this page
+            </button>
+
+            <button
+              class="flex-1 rounded-2xl bg-zinc-800 py-3 font-bold text-white hover:bg-zinc-700"
+              @click="answerLeave(true)"
+            >
+              Leave anyway
+            </button>
+          </div>
+        </div>
+      </div>
     </Teleport>
   </div>
 </template>
 
 <script setup>
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
-import { supabase } from '../../lib/supabase'
+import { onBeforeRouteLeave } from 'vue-router'
+import { supabase, uniqueChannelName } from '../../lib/supabase'
+import { setLeaveQuestion } from '../../lib/leaveGuard'
 import PageHeader from '../../components/PageHeader.vue'
 
 /* ------------------------------------------------------------------
@@ -792,17 +832,16 @@ function money(value) {
   })
 }
 
-// Esc closes the zoom first, then the window.
+// Esc closes the top-most window: the leave question, the zoom, the
+// profit window, then the price window.
 function onKey(event) {
-  if (event.key !== 'Escape' || !review.value) return
-  if (zoomOpen.value) zoomOpen.value = false
-  else closeReview()
-}
+  if (event.key !== 'Escape') return
 
-// lock page scrolling behind the windows
-watch(review, (value) => {
-  document.body.style.overflow = value ? 'hidden' : ''
-})
+  if (leavePrompt.value) answerLeave(false)
+  else if (zoomOpen.value) zoomOpen.value = false
+  else if (review.value) closeReview()
+  else if (priceWindow.value) openReviewKey.value = null
+}
 
 function isBusy(id) {
   return busyIds.value.has(id)
@@ -950,6 +989,7 @@ const unsentVisible = computed(() =>
 
 function enqueueSend(item) {
   sendQueue.value.push(item)
+  publishSchedule()
   runSendQueue()
 }
 
@@ -958,6 +998,7 @@ async function runSendQueue() {
   queueRunning = true
 
   while (isMounted && sendQueue.value.length > 0) {
+    publishSchedule() // times change after every send
     const wait = nextSendAt.value - Date.now()
 
     if (wait > 0) {
@@ -975,6 +1016,38 @@ async function runSendQueue() {
   }
 
   queueRunning = false
+}
+
+// Saves when each receipt in line will be sent, so the supplier sees a
+// countdown on their page. Sending doesn't depend on it: if saving fails
+// (e.g. the 2026-10-19 supplier_send_timer SQL wasn't run yet) it's only logged.
+function publishSchedule() {
+  // page already left: nothing in line will be sent, so promise no times
+  if (!isMounted) return
+
+  const first = Math.max(0, nextSendAt.value - Date.now())
+
+  saveSchedule(
+    sendQueue.value.map((item, index) => ({
+      id: item.upload.id,
+      seconds: Math.ceil((first + index * SEND_GAP_MS) / 1000),
+    }))
+  )
+}
+
+// No longer in line: the supplier's countdown goes away.
+function clearSchedule(uploads) {
+  saveSchedule(uploads.map((upload) => ({ id: upload.id, seconds: null })))
+}
+
+async function saveSchedule(schedule) {
+  if (schedule.length === 0) return
+
+  const { error } = await supabase.rpc('admin_schedule_supplier_uploads', {
+    p_schedule: schedule,
+  })
+
+  if (error) console.error('Could not save the send times for the supplier:', error)
 }
 
 // Sends one queued receipt. Returns true when it reached the Approved Receipt bucket.
@@ -997,6 +1070,8 @@ async function sendQueued(item) {
     return true
   } catch (sendError) {
     console.error('Could not send to the Approved Receipt bucket:', sendError)
+
+    if (!sendError.alreadySent) clearSchedule([upload])
 
     if (sendError.alreadySent) {
       supplierError.value =
@@ -1208,6 +1283,15 @@ const reviewGroups = computed(() => {
   return [...groups.values()]
 })
 
+// lock page scrolling behind the windows (placed after reviewGroups: the
+// watch reads priceWindow right away, which needs reviewGroups to exist)
+watch(
+  () => Boolean(review.value || priceWindow.value),
+  (open) => {
+    document.body.style.overflow = open ? 'hidden' : ''
+  }
+)
+
 async function fetchReviewItems() {
   const { data, error } = await supabase.rpc('admin_list_receipt_review')
 
@@ -1417,6 +1501,56 @@ async function dismissGroup(group) {
   itemsSuccess.value = 'Kept the prices as they are.'
 }
 
+/* ------------------------------------------------------------------
+   Leaving the page while receipts are in line
+
+   Receipts in line are sent from this page, so leaving it stops them (they
+   then wait under "Approved but not sent"). Ask first: inside the app
+   (links, Back, Logout) with our own window, and when closing the tab or
+   reloading with the browser's own question.
+------------------------------------------------------------------ */
+const leavePrompt = ref(null) // while the question is shown: the function that answers it
+
+const waitingCount = computed(() => preparing.value + sendQueue.value.length)
+
+// resolves true = leave, false = stay
+function askToLeave() {
+  if (waitingCount.value === 0) return Promise.resolve(true)
+
+  leavePrompt.value?.(false) // a newer question replaces an older one
+
+  return new Promise((resolve) => {
+    leavePrompt.value = resolve
+  })
+}
+
+function answerLeave(leave) {
+  const resolve = leavePrompt.value
+  leavePrompt.value = null
+  resolve?.(leave)
+}
+
+onBeforeRouteLeave(async () => {
+  if (waitingCount.value === 0) return true
+
+  // already logged out (Logout asked first; the auto-logout doesn't ask)
+  const {
+    data: { session },
+  } = await supabase.auth.getSession()
+
+  if (!session) return true
+
+  return askToLeave()
+})
+
+const stopLeaveQuestion = setLeaveQuestion(askToLeave)
+
+function onBeforeUnload(event) {
+  if (waitingCount.value === 0) return
+  event.preventDefault()
+  event.returnValue = '' // older browsers need this to show the question
+}
+
 // Suppliers can upload at the same moment, so every change is refreshed once
 // (bursts are merged into one refresh) without needing a manual reload.
 function scheduleRefresh() {
@@ -1426,7 +1560,7 @@ function scheduleRefresh() {
 
 function setupSupplierRealtime() {
   uploadsChannel = supabase
-    .channel('supplier-uploads-admin')
+    .channel(uniqueChannelName('supplier-uploads-admin'))
     .on(
       'postgres_changes',
       { event: '*', schema: 'public', table: 'supplier_uploads' },
@@ -1454,6 +1588,7 @@ onMounted(() => {
   fetchReviewItems()
   setupSupplierRealtime()
   window.addEventListener('keydown', onKey)
+  window.addEventListener('beforeunload', onBeforeUnload)
 
   // safety net: if a live update is ever missed, the list still catches up
   pollTimer = setInterval(() => fetchSupplierUploads({ silent: true }), 30000)
@@ -1471,7 +1606,12 @@ onMounted(() => {
 onUnmounted(() => {
   isMounted = false
   window.removeEventListener('keydown', onKey)
+  window.removeEventListener('beforeunload', onBeforeUnload)
+  stopLeaveQuestion()
   document.body.style.overflow = ''
+
+  // receipts still in line won't be sent now: stop the suppliers' countdowns
+  clearSchedule(sendQueue.value.map((item) => item.upload))
 
   clearTimeout(refreshTimer)
   clearInterval(pollTimer)

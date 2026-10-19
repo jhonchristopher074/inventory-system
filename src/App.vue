@@ -95,6 +95,7 @@ import { supabase } from './lib/supabase'
 import NotificationBell from './components/NotificationBell.vue'
 import NavIcon from './components/NavIcon.vue'
 import { watchIdle, IDLE_MESSAGE } from './lib/idleLogout'
+import { confirmLeave } from './lib/leaveGuard'
 
 const router = useRouter()
 const route = useRoute()
@@ -286,6 +287,9 @@ async function getUserRole() {
 }
 
 async function logout() {
+  // e.g. the Approval page asks first while receipts are still being sent
+  if (!(await confirmLeave())) return
+
   await supabase.auth.signOut()
   role.value = 'staff'
   router.push('/login')
