@@ -1,6 +1,30 @@
   <template>
     <div class="upload-container">
       <div class="drop-box-wrap">
+        <!-- TABS: upload a receipt / see where your uploads are -->
+        <div class="tabs" role="tablist">
+          <button
+            class="tab"
+            :class="{ active: activeTab === 'upload' }"
+            role="tab"
+            :aria-selected="activeTab === 'upload'"
+            @click="activeTab = 'upload'"
+          >
+            Upload
+          </button>
+          <button
+            class="tab"
+            :class="{ active: activeTab === 'uploads' }"
+            role="tab"
+            :aria-selected="activeTab === 'uploads'"
+            @click="activeTab = 'uploads'"
+          >
+            My uploads
+            <span v-if="openCount > 0" class="tab-count">{{ openCount }}</span>
+          </button>
+        </div>
+
+        <!-- the approved / denied news and the send timer show on both tabs -->
         <div
           v-if="decisionAlert"
           class="decision-banner"
@@ -38,6 +62,7 @@
         </div>
 
         <div
+          v-if="activeTab === 'upload'"
           class="drop-box"
           :class="{ dragging: isDragging, hasFile: selectedFile }"
           @dragover.prevent="isDragging = true"
@@ -72,12 +97,14 @@
           </div>
         </div>
 
-        <p v-if="errorMessage" class="status-msg error">{{ errorMessage }}</p>
-        <p v-if="successMessage" class="status-msg success">{{ successMessage }}</p>
+        <p v-if="activeTab === 'upload' && errorMessage" class="status-msg error">{{ errorMessage }}</p>
+        <p v-if="activeTab === 'upload' && successMessage" class="status-msg success">{{ successMessage }}</p>
 
-        <!-- MY RECENT UPLOADS and where each one is -->
-        <section v-if="uploadRows.length > 0" class="my-uploads" aria-labelledby="my-uploads-title">
+        <!-- MY UPLOADS and where each one is -->
+        <section v-if="activeTab === 'uploads'" class="my-uploads" aria-labelledby="my-uploads-title">
           <h3 id="my-uploads-title">Your recent uploads</h3>
+
+          <p v-if="uploadRows.length === 0" class="my-uploads-empty">No uploads yet.</p>
 
           <ul>
             <li v-for="row in uploadRows" :key="row.id" class="my-upload">
@@ -272,6 +299,7 @@
     many seconds are left (supplier_list_my_uploads), so the countdown is
     right even when this device's clock isn't.
   ------------------------------------------------------------------ */
+  const activeTab = ref('upload') // 'upload' | 'uploads'
   const myUploads = ref([])
   const fetchedAt = ref(0) // when myUploads was loaded (this device's time)
   const nowMs = ref(Date.now()) // ticks every second while the page is open
@@ -320,6 +348,9 @@
   const uploadRows = computed(() =>
     myUploads.value.map((row) => ({ ...row, state: stateOf(row) }))
   )
+
+  // waiting for approval or not sent yet: the number on the My uploads tab
+  const openCount = computed(() => myUploads.value.filter(isOpen).length)
 
   const activeTimers = computed(() =>
     uploadRows.value.filter((row) => row.state.kind === 'countdown' || row.state.kind === 'sending')
@@ -634,6 +665,60 @@
 
   .decision-dismiss:hover {
     opacity: 1;
+  }
+
+  /* tabs */
+  .tabs {
+    display: flex;
+    gap: 6px;
+    padding: 5px;
+    border-radius: 14px;
+    border: 1px solid #222;
+    background: #111;
+    align-self: center;
+  }
+
+  .tab {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 18px;
+    border: 0;
+    border-radius: 10px;
+    background: transparent;
+    color: #999;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: 0.2s;
+  }
+
+  .tab:hover {
+    color: #fff;
+  }
+
+  .tab.active {
+    background: #e50914;
+    color: #fff;
+  }
+
+  .tab-count {
+    min-width: 20px;
+    padding: 1px 6px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.2);
+    font-size: 12px;
+  }
+
+  .my-uploads-empty {
+    margin: 0;
+    padding: 24px;
+    border-radius: 12px;
+    border: 1px solid #222;
+    background: #111;
+    color: #777;
+    font-size: 14px;
+    text-align: center;
   }
 
   /* send timer */
