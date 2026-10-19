@@ -40,3 +40,9 @@ __screenshots__/
 
 # Supabase CLI cache (local to this computer)
 supabase/.temp/
+
+# Database backups opened on this computer. Never commit them: this repo is
+# public and they contain every account and sale.
+backup/
+backup.tar.gz
+database-backup-*

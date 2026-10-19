@@ -1,0 +1,84 @@
+# Weekly backup of the Supabase database: every table's data, plus the
+# structure (tables, the database functions, policies) and roles.
+#
+# Supabase's free plan keeps no backups you can download, and many database
+# functions exist only in Supabase (not in supabase/migrations), so this is
+# the copy to restore from if something is deleted or broken.
+#
+# Each backup is kept for 90 days under Actions > Database backup > a run >
+# Artifacts. This repo is public, so the file is encrypted: it can only be
+# opened with BACKUP_PASSPHRASE.
+#
+# Needs two repository secrets (GitHub > Settings > Secrets and variables
+# > Actions > New repository secret):
+#   SUPABASE_DB_URL     Supabase > Connect (top bar) > "Session pooler"
+#                       connection string, with [YOUR-PASSWORD] replaced by
+#                       the database password
+#   BACKUP_PASSPHRASE   a long password you make up. Keep it somewhere safe:
+#                       without it the backups can't be opened.
+#
+# Open a backup (Git Bash on Windows already has gpg):
+#   gpg -d database-backup-2026-10-26.tar.gz.gpg > backup.tar.gz
+#   tar -xzf backup.tar.gz
+# That gives backup/roles.sql, backup/schema.sql and backup/data.sql
+# (restore them with psql; see "Backup and restore using the CLI" in the
+# Supabase docs).
+#
+# Only the database: files in Storage (receipt and product images) are not
+# in it.
+name: Database backup
+
+on:
+  schedule:
+    - cron: '0 18 * * 6' # every Sunday, 2:00 AM Philippine time
+  workflow_dispatch: # adds a "Run workflow" button for a backup right now
+
+permissions:
+  contents: read
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Copy the database
+        env:
+          DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          if [ -z "$DB_URL" ]; then
+            echo "::error::Add the SUPABASE_DB_URL secret first (see the top of backup.yml)"
+            exit 1
+          fi
+
+          mkdir backup
+          supabase db dump --db-url "$DB_URL" -f backup/roles.sql --role-only
+          supabase db dump --db-url "$DB_URL" -f backup/schema.sql
+          supabase db dump --db-url "$DB_URL" -f backup/data.sql --use-copy --data-only
+
+      - name: Encrypt it
+        env:
+          PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          if [ -z "$PASSPHRASE" ]; then
+            echo "::error::Add the BACKUP_PASSPHRASE secret first (see the top of backup.yml)"
+            exit 1
+          fi
+
+          name="database-backup-$(date -u +%F)"
+          tar -czf backup.tar.gz backup
+          gpg --batch --yes --pinentry-mode loopback --passphrase "$PASSPHRASE" \
+            --symmetric --cipher-algo AES256 -o "$name.tar.gz.gpg" backup.tar.gz
+          rm -rf backup backup.tar.gz
+          echo "BACKUP_NAME=$name" >> "$GITHUB_ENV"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.BACKUP_NAME }}
+          path: ${{ env.BACKUP_NAME }}.tar.gz.gpg
+          retention-days: 90
+          compression-level: 0 # already compressed and encrypted
