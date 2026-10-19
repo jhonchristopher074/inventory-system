@@ -12,6 +12,15 @@
       >
         {{ unreadCount > 99 ? '99+' : unreadCount }}
       </span>
+
+      <!-- a sound was blocked: any click on the page turns sound back on -->
+      <span
+        v-if="soundBlocked"
+        class="absolute -bottom-1 -right-1 rounded-full bg-zinc-800 px-[3px] text-[9px] leading-4"
+        title="Sound is off until you click or tap the page"
+      >
+        🔇
+      </span>
     </button>
 
     <div
@@ -122,16 +131,69 @@ async function fetchNotifications() {
   loading.value = false
 }
 
-// Created on the first notification, not on every page load: loading it up
-// front downloaded the sound on every visit (and showed a console error in
-// Chrome with DevTools' "Disable cache") even when nothing arrived.
+// Created on the first click or notification, not on every page load:
+// loading it up front downloaded the sound on every visit (and showed a
+// console error in Chrome with DevTools' "Disable cache") even when nothing
+// arrived.
 let audio = null
 
-function playSound() {
+// Browsers refuse to play sound until the page has been clicked or tapped
+// once (after every refresh). Phones (iOS especially) also want the sound
+// itself started from a tap. So on the first tap/key, play it silently
+// once: after that, notifications can play it whenever they arrive.
+// soundBlocked shows a hint on the bell when a sound was refused.
+const soundBlocked = ref(false)
+const UNLOCK_EVENTS = ['pointerdown', 'keydown', 'touchend']
+
+function getAudio() {
   if (!audio) audio = new Audio('/notif.mp3')
-  audio.currentTime = 0
-  audio.play().catch(() => {}) // the browser may block sound until the page was clicked
+  return audio
 }
+
+function unlockSound() {
+  UNLOCK_EVENTS.forEach((name) => window.removeEventListener(name, unlockSound, true))
+
+  const sound = getAudio()
+  sound.muted = true
+  sound
+    .play()
+    .then(() => {
+      sound.pause()
+      sound.currentTime = 0
+      soundBlocked.value = false
+    })
+    .catch(() => {})
+    .finally(() => {
+      sound.muted = false
+    })
+}
+
+function playSound() {
+  const sound = getAudio()
+  sound.muted = false
+  sound.currentTime = 0
+  sound.play().then(
+    () => (soundBlocked.value = false),
+    () => (soundBlocked.value = true)
+  )
+}
+
+// Realtime only hears inserts while it's connected. A sleeping tab, a
+// locked phone or a dropped connection misses them: they then showed up
+// later in the list without any sound. So whenever the page comes back or
+// realtime reconnects, reload the list and beep if there are more unread
+// than before.
+async function refreshAndAlert() {
+  const before = unreadTotal.value
+  await fetchNotifications()
+  if (before !== null && unreadTotal.value !== null && unreadTotal.value > before) playSound()
+}
+
+function onVisible() {
+  if (document.visibilityState === 'visible') refreshAndAlert()
+}
+
+let subscribedBefore = false
 
 function setupRealtime() {
   channel = supabase
@@ -147,6 +209,7 @@ function setupRealtime() {
         // realtime delivers every insert, so filter here the same way
         // list_notifications does on the server
         if (!isForMe(payload.new)) return
+        if (notifications.value.some((notif) => notif.id === payload.new.id)) return
 
         notifications.value.unshift(payload.new)
         if (unreadTotal.value !== null) unreadTotal.value += 1
@@ -154,7 +217,12 @@ function setupRealtime() {
         playSound()
       }
     )
-    .subscribe()
+    .subscribe((status) => {
+      if (status !== 'SUBSCRIBED') return
+      // the first time is the normal start; later ones are reconnects
+      if (subscribedBefore) refreshAndAlert()
+      subscribedBefore = true
+    })
 }
 
 function cleanupRealtime() {
@@ -252,6 +320,9 @@ function formatDate(date) {
 let unmounted = false
 
 onMounted(async () => {
+  UNLOCK_EVENTS.forEach((name) => window.addEventListener(name, unlockSound, true))
+  document.addEventListener('visibilitychange', onVisible)
+
   await fetchRole()
   await fetchNotifications()
   if (!unmounted) setupRealtime()
@@ -259,6 +330,8 @@ onMounted(async () => {
 
 onUnmounted(() => {
   unmounted = true
+  UNLOCK_EVENTS.forEach((name) => window.removeEventListener(name, unlockSound, true))
+  document.removeEventListener('visibilitychange', onVisible)
   cleanupRealtime()
 })
 </script>
