@@ -1,3 +1,4 @@
+import { ref } from 'vue'
 import { createRouter, createWebHistory } from 'vue-router'
 import { supabase } from '../lib/supabase'
 
@@ -63,8 +64,14 @@ const routes = [
 
   { path: '/SupplierDropBoxView', component: SupplierDropBoxView, meta: { requiresAuth: true, role: 'supplier' } },
 
-  
+  // a mistyped address: your home page (or the login page)
+  { path: '/:pathMatch(.*)*', redirect: '/' },
 ]
+
+// The logged-in person's role, as found by the check below on every page
+// change. The sidebar shows that role's menu from it, so there's no second
+// lookup and no wrong menu showing first.
+export const currentRole = ref('')
 
 const HOME = {
   admin: '/',
@@ -88,6 +95,8 @@ router.beforeEach(async (to) => {
 
   const user = session?.user
 
+  if (!user) currentRole.value = ''
+
   if (to.meta.requiresAuth && !user) {
     return '/login'
   }
@@ -102,6 +111,7 @@ router.beforeEach(async (to) => {
   // catches a browser that was closed without logging out): end it.
   if (isIdleExpired()) {
     await supabase.auth.signOut({ scope: 'local' })
+    currentRole.value = ''
     if (to.path === '/login') return
     return { path: '/login', query: { notice: IDLE_MESSAGE } }
   }
@@ -114,6 +124,7 @@ router.beforeEach(async (to) => {
 
   if (passwordStatus === 'expired') {
     await supabase.auth.signOut()
+    currentRole.value = ''
     return { path: '/login', query: { notice: EXPIRED_MESSAGE } }
   }
 
@@ -135,9 +146,12 @@ router.beforeEach(async (to) => {
 
   if (!home || profile.is_active === false || profile.is_hidden === true) {
     await supabase.auth.signOut()
+    currentRole.value = ''
     if (to.path === '/login') return
     return { path: '/login', query: { notice: BLOCKED_MESSAGE } }
   }
+
+  currentRole.value = profile.role
 
   if (to.path === '/login') return home
 

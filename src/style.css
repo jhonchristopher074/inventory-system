@@ -814,3 +814,25 @@ tbody tr:hover {
     color: var(--color-zinc-500);
   }
 }
+
+/* Phones and tablets: form fields at 16px or more. iPhones zoom in on any
+   smaller field you tap (this app's text is 90% size), which is why zooming
+   used to be switched off for the whole app. Pinch-zoom is allowed again
+   (index.html). Fields that already have big text keep it. */
+@media (pointer: coarse) {
+  input:not([type='checkbox'], [type='radio'], [type='range'], [type='file'], [class*='text-xl'], [class*='text-2xl'], [class*='text-3xl']),
+  select:not([class*='text-xl'], [class*='text-2xl'], [class*='text-3xl']),
+  textarea:not([class*='text-xl'], [class*='text-2xl'], [class*='text-3xl']) {
+    font-size: 16px !important;
+  }
+}
+
+/* "Loading…" until the first page is known (App.vue), like index.html's */
+.boot-loading {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  color: var(--color-zinc-500);
+  font-size: 0.95rem;
+  font-weight: 600;
+}

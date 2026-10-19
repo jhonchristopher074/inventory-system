@@ -1,7 +1,10 @@
 <template>
+  <!-- until the first page is known (same look as the one in index.html) -->
+  <div v-if="!started" class="boot-loading">Loading…</div>
+
   <!-- full-screen pages: no sidebar (its links don't work there anyway) -->
   <RouterView
-    v-if="['/login', '/change-password', '/reset-password'].includes($route.path)"
+    v-else-if="['/login', '/change-password', '/reset-password'].includes($route.path)"
   />
 
   <div v-else class="min-h-screen text-white app-scale">
@@ -89,18 +92,28 @@
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute, useRouter, RouterLink } from 'vue-router'
 import { supabase } from './lib/supabase'
 import NotificationBell from './components/NotificationBell.vue'
 import NavIcon from './components/NavIcon.vue'
 import { watchIdle, IDLE_MESSAGE } from './lib/idleLogout'
 import { confirmLeave } from './lib/leaveGuard'
+import { currentRole } from './router'
 
 const router = useRouter()
 const route = useRoute()
 
-const role = ref('staff')
+// set by the router's check on every page change ('' = not logged in)
+const role = currentRole
+
+// Nothing is shown until the first page is known. Before, the sidebar and
+// the notification bell flashed on every load (even on the login page,
+// where their requests failed) while the router was still deciding.
+const started = ref(false)
+router.isReady().finally(() => {
+  started.value = true
+})
 
 /* ------------------------------------------------------------------
    Sidebar collapse
@@ -149,7 +162,6 @@ onMounted(() => {
   }
 
   window.addEventListener('resize', applyWidth)
-  getUserRole()
   stopIdleWatch = watchIdle(idleLogout)
 })
 
@@ -173,7 +185,6 @@ async function idleLogout() {
   // 'local': only this browser. A plain signOut() would also log the same
   // account out on every other device.
   await supabase.auth.signOut({ scope: 'local' })
-  role.value = 'staff'
   router.replace({ path: '/login', query: { notice: IDLE_MESSAGE } })
 }
 
@@ -258,47 +269,16 @@ const NAV = {
   ],
 }
 
-const navGroups = computed(() => NAV[role.value] || NAV.supplier)
+const navGroups = computed(() => NAV[role.value] || [])
 
 /* ------------------------------------------------------------------
    Session
 ------------------------------------------------------------------ */
-async function getUserRole() {
-  const {
-    data: { session },
-  } = await supabase.auth.getSession()
-
-  const user = session?.user
-
-  if (!user) {
-    role.value = 'staff'
-    return
-  }
-
-  const { data, error } = await supabase.rpc('get_my_role')
-
-  if (error) {
-    console.error('ROLE ERROR:', error)
-    role.value = 'staff'
-    return
-  }
-
-  role.value = data || 'staff'
-}
-
 async function logout() {
   // e.g. the Approval page asks first while receipts are still being sent
   if (!(await confirmLeave())) return
 
   await supabase.auth.signOut()
-  role.value = 'staff'
   router.push('/login')
 }
-
-watch(
-  () => route.path,
-  () => {
-    getUserRole()
-  }
-)
 </script>

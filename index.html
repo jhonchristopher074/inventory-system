@@ -3,14 +3,20 @@
   <head>
     <meta charset="UTF-8">
     <link rel="icon" href="/favicon.ico">
-    <meta
-      name="viewport"
-      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
-    />
+    <!-- pinch-zoom allowed; form fields are 16px on phones so iPhones don't
+         zoom in by themselves (style.css) -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>10 FIVE 7 Hardware</title>
   </head>
-  <body>
-    <div id="app"></div>
+  <body style="margin: 0; background: #000">
+    <div id="app">
+      <!-- shown until the app has started (the app replaces it) -->
+      <div
+        style="min-height: 100vh; display: grid; place-items: center; color: #71717a; font: 600 14px system-ui, sans-serif"
+      >
+        Loading…
+      </div>
+    </div>
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>
