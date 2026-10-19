@@ -23,20 +23,8 @@
       </p>
     </div>
 
-    <!-- DATE FILTER: one row you can swipe on phones -->
-    <div class="-mx-1 mb-4 flex gap-2 overflow-x-auto px-1 pb-1">
-      <button
-        v-for="option in PERIODS"
-        :key="option.key"
-        class="shrink-0 whitespace-nowrap rounded-full px-4 py-2 text-sm font-bold transition"
-        :class="period === option.key
-          ? 'bg-red-600 text-white'
-          : 'bg-zinc-900 text-zinc-400 hover:bg-zinc-800 hover:text-white'"
-        @click="period = option.key"
-      >
-        {{ option.label }}
-      </button>
-    </div>
+    <!-- DATE FILTER (shared with the other Sales History page) -->
+    <SalesPeriodFilter v-model="range" />
 
     <!-- SUMMARY of what's shown (date filter + cashier) -->
     <div class="mb-6 grid gap-4 sm:grid-cols-3">
@@ -247,6 +235,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { supabase } from '../../lib/supabase'
 import { printElement } from '../../lib/printReceipt'
 import { useShowMore } from '../../lib/useShowMore'
+import SalesPeriodFilter from '../../components/SalesPeriodFilter.vue'
 
 const sales = ref([])
 const loading = ref(false)
@@ -254,23 +243,13 @@ const errorMessage = ref('')
 const receiptSale = ref(null)
 const selectedCashier = ref(null) // { key, name } or null = show everyone
 
-// Date filter, by this computer's clock
-const PERIODS = [
-  { key: 'all', label: 'All' },
-  { key: 'today', label: 'Today' },
-  { key: 'week', label: 'Last 7 days' },
-  { key: 'month', label: 'This month' },
-]
-const period = ref('all')
+// { start, end } of the date filter (end not included); null = no limit
+const range = ref({ start: null, end: null })
 
-// Midnight at the start of the chosen period, or null for every sale.
-function periodStart(key) {
-  const now = new Date()
-
-  if (key === 'today') return new Date(now.getFullYear(), now.getMonth(), now.getDate())
-  if (key === 'week') return new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6)
-  if (key === 'month') return new Date(now.getFullYear(), now.getMonth(), 1)
-  return null
+function inRange(sale) {
+  const date = new Date(sale.created_at)
+  const { start, end } = range.value
+  return (!start || date >= start) && (!end || date < end)
 }
 
 function cashierName(sale) {
@@ -290,12 +269,8 @@ function cashierKey(sale) {
 
 // sales in the chosen period, of the chosen cashier (if any)
 const filteredSales = computed(() => {
-  const start = periodStart(period.value)
-
   return sales.value.filter(
-    (s) =>
-      (!selectedCashier.value || cashierKey(s) === selectedCashier.value.key) &&
-      (!start || new Date(s.created_at) >= start)
+    (s) => (!selectedCashier.value || cashierKey(s) === selectedCashier.value.key) && inRange(s)
   )
 })
 
@@ -321,7 +296,7 @@ const {
 } = useShowMore(filteredSales)
 
 // another period or cashier starts again at the top
-watch([period, selectedCashier], resetList)
+watch([range, selectedCashier], resetList)
 
 async function fetchSales() {
   loading.value = true
