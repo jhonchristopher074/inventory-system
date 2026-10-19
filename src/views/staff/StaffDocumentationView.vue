@@ -10,11 +10,11 @@
       <div
         v-for="doc in documents"
         :key="doc.id"
-        class="card p-4 transition hover:border-red-500/40"
+        class="card flex flex-col p-4 transition hover:border-red-500/40"
       >
         <!-- IMAGE -->
         <div
-          class="mb-3 flex h-28 items-center justify-center overflow-hidden rounded-xl bg-black"
+          class="mb-3 flex h-28 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-black"
         >
           <img
             v-if="doc.receipt_image_url || doc.image_url"
@@ -30,33 +30,33 @@
         </div>
 
         <!-- TYPE -->
-        <div class="inline-flex rounded-full bg-red-950 px-3 py-1 text-[11px] font-bold text-red-400">
+        <div class="self-start rounded-full bg-red-950 px-3 py-1 text-[11px] font-bold text-red-400">
           {{ doc.type || 'Staff Documentation' }}
         </div>
 
         <!-- TITLE -->
-        <h2 class="mt-2 text-base font-bold text-white leading-snug">
+        <h2 class="mt-2 line-clamp-2 min-h-[2.75em] text-base font-bold leading-snug text-white">
           {{ doc.title || 'Untitled Document' }}
         </h2>
 
         <!-- PRODUCT -->
-        <p v-if="doc.product_name" class="mt-1 text-xs font-semibold text-yellow-400 line-clamp-1">
+        <p class="mt-1 min-h-[1.5em] text-xs font-semibold text-yellow-400 line-clamp-1">
           {{ doc.product_name }}
         </p>
 
         <!-- DESCRIPTION -->
-        <p class="mt-1 line-clamp-2 text-xs text-zinc-500">
+        <p class="mt-1 line-clamp-2 min-h-[3em] text-xs leading-normal text-zinc-500">
           {{ doc.description || 'No description.' }}
         </p>
 
         <!-- DATE -->
-        <p class="mt-2 text-[11px] text-zinc-600">
+        <p class="mb-3 mt-2 text-[11px] text-zinc-600">
           {{ formatDate(doc.created_at) }}
         </p>
 
         <!-- OPEN -->
         <button
-          class="mt-3 w-full rounded-xl bg-red-600 py-2 text-sm font-bold text-white transition hover:bg-red-700"
+          class="mt-auto w-full rounded-xl bg-red-600 py-2 text-sm font-bold text-white transition hover:bg-red-700"
           @click="openDocument(doc)"
         >
           Open
@@ -196,12 +196,25 @@
       class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-3 sm:p-4"
       @click.self="selectedDocument = null"
     >
-      <div class="max-h-[92vh] w-full max-w-xl overflow-y-auto card px-5 pb-5">
-        <!-- HEADER (stays visible while scrolling) -->
-        <div class="sticky top-0 z-10 -mx-5 mb-4 flex items-start justify-between gap-3 bg-zinc-900/95 px-5 pb-3 pt-5 backdrop-blur">
+      <!-- same size for every document and never taller than the screen, so
+           it doesn't scroll: the picture takes the space that's left (always
+           whole); only a very long description scrolls in its own box -->
+      <div
+        class="card flex h-[min(760px,92vh)] w-full max-w-xl flex-col gap-3 overflow-hidden p-4 sm:p-5"
+        role="dialog"
+        aria-modal="true"
+        :aria-label="selectedDocument.title || 'Document'"
+      >
+        <!-- HEADER -->
+        <div class="flex shrink-0 items-start justify-between gap-3">
           <div class="min-w-0">
-            <h2 class="break-words text-2xl font-black text-white">{{ selectedDocument.title }}</h2>
-            <p class="mt-1 text-xs text-zinc-500">{{ formatDate(selectedDocument.created_at) }}</p>
+            <h2 class="line-clamp-2 break-words text-xl font-black text-white sm:text-2xl">{{ selectedDocument.title }}</h2>
+            <div class="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1">
+              <span class="rounded-full bg-red-950 px-3 py-1 text-[11px] font-bold text-red-400">
+                {{ selectedDocument.type }}
+              </span>
+              <span class="text-xs text-zinc-500">{{ formatDate(selectedDocument.created_at) }}</span>
+            </div>
           </div>
           <button
             class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/10 text-xl text-white transition hover:bg-white/20"
@@ -212,58 +225,64 @@
           </button>
         </div>
 
-        <!-- IMAGE -->
-        <div class="mb-4 overflow-hidden card card-hover">
+        <!-- IMAGE: tap to open it full size -->
+        <a
+          v-if="selectedDocument.receipt_image_url || selectedDocument.image_url"
+          :href="selectedDocument.receipt_image_url || selectedDocument.image_url"
+          target="_blank"
+          rel="noopener"
+          title="Open the full picture"
+          class="flex min-h-0 flex-1 items-center justify-center overflow-hidden rounded-[16px] bg-black"
+        >
           <img
-            v-if="selectedDocument.receipt_image_url || selectedDocument.image_url"
             :src="selectedDocument.receipt_image_url || selectedDocument.image_url"
-            class="max-h-56 w-full object-contain"
+            :alt="selectedDocument.title || 'Document picture'"
+            class="h-full w-full object-contain"
           />
-          <div
-            v-else
-            class="flex h-28 flex-col items-center justify-center gap-1 text-zinc-600"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
-            <span class="text-[11px] uppercase tracking-wide">No image attached</span>
-          </div>
+        </a>
+        <div
+          v-else
+          class="flex min-h-0 flex-1 flex-col items-center justify-center gap-1 rounded-[16px] bg-black text-zinc-600"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+          <span class="text-[11px] uppercase tracking-wide">No image attached</span>
         </div>
 
         <!-- CONTENT -->
-        <div class="rounded-[16px] bg-black p-4 mb-4">
-          <div class="mb-3 inline-flex rounded-full bg-red-950 px-3 py-1 text-[11px] font-bold text-red-400">
-            {{ selectedDocument.type }}
-          </div>
+        <div class="h-[26%] shrink-0 overflow-y-auto rounded-[16px] bg-black p-4">
           <div v-if="selectedDocument.product_name" class="mb-2 text-sm font-bold text-yellow-400">
             {{ selectedDocument.product_name }}
           </div>
-          <p class="whitespace-pre-line text-sm text-white">{{ selectedDocument.description }}</p>
+          <p class="whitespace-pre-line text-sm leading-5 text-white">{{ selectedDocument.description }}</p>
         </div>
 
-        <!-- UPDATE PHOTO -->
-        <div class="rounded-[16px] bg-black p-4 mb-4">
-          <h3 class="mb-3 text-sm font-bold text-white">Add / Change Photo</h3>
-          <input
-            type="file"
-            accept="image/*"
-            class="w-full rounded-xl border border-white/10 bg-zinc-800 p-3 text-sm text-white mb-3"
-            @change="handleUpdatePhoto"
-          />
-          <button
-            class="w-full rounded-xl bg-red-600 py-2.5 text-sm font-bold text-white transition hover:bg-red-700 disabled:opacity-50"
-            :disabled="updatingPhoto"
-            @click="updateDocumentPhoto"
-          >
-            {{ updatingPhoto ? 'Uploading...' : 'Save Photo' }}
-          </button>
-          <p v-if="viewError" class="mt-2 rounded-xl bg-red-950 p-3 text-sm text-red-300">
+        <!-- ADD / CHANGE PHOTO: one row -->
+        <div class="shrink-0">
+          <div class="flex gap-2">
+            <input
+              type="file"
+              accept="image/*"
+              aria-label="Add or change photo"
+              class="min-w-0 flex-1 rounded-xl border border-white/10 bg-zinc-800 p-2.5 text-sm text-white"
+              @change="handleUpdatePhoto"
+            />
+            <button
+              class="shrink-0 rounded-xl bg-red-600 px-4 text-sm font-bold text-white transition hover:bg-red-700 disabled:opacity-50"
+              :disabled="updatingPhoto"
+              @click="updateDocumentPhoto"
+            >
+              {{ updatingPhoto ? 'Uploading...' : 'Save Photo' }}
+            </button>
+          </div>
+          <p v-if="viewError" class="mt-2 rounded-xl bg-red-950 p-2.5 text-sm text-red-300">
             {{ viewError }}
           </p>
         </div>
 
         <!-- ACTIONS -->
-        <div v-if="!confirmingDelete" class="grid grid-cols-2 gap-3">
+        <div v-if="!confirmingDelete" class="grid shrink-0 grid-cols-2 gap-3">
           <button
             class="rounded-xl border border-red-500/60 py-3 text-sm font-bold text-red-400 transition hover:bg-red-600 hover:text-white"
             @click="confirmingDelete = true"
@@ -279,7 +298,7 @@
         </div>
 
         <!-- asks here, instead of the browser's "localhost says" popup -->
-        <div v-else class="rounded-[16px] border border-red-500/40 bg-red-950/40 p-4">
+        <div v-else class="shrink-0 rounded-[16px] border border-red-500/40 bg-red-950/40 p-4">
           <p class="text-sm font-bold text-white">Delete this document?</p>
           <p class="mt-1 text-xs text-zinc-400">This cannot be undone.</p>
 
