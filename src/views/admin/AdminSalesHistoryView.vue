@@ -75,13 +75,24 @@
         {{ filteredSales.length }} sale{{ filteredSales.length === 1 ? '' : 's' }}
       </p>
 
-      <button
-        class="rounded-xl border border-white/10 bg-zinc-900 px-4 py-2 text-sm font-bold text-white transition hover:bg-zinc-800 disabled:opacity-50"
-        :disabled="filteredSales.length === 0"
-        @click="exportCsv"
-      >
-        ⬇ Export CSV
-      </button>
+      <div class="flex gap-2">
+        <button
+          class="rounded-xl border border-white/10 bg-zinc-900 px-4 py-2 text-sm font-bold text-white transition hover:bg-zinc-800 disabled:opacity-50"
+          :disabled="filteredSales.length === 0"
+          title="One row per sale"
+          @click="exportCsv('sales')"
+        >
+          ⬇ Sales CSV
+        </button>
+        <button
+          class="rounded-xl border border-white/10 bg-zinc-900 px-4 py-2 text-sm font-bold text-white transition hover:bg-zinc-800 disabled:opacity-50"
+          :disabled="filteredSales.length === 0"
+          title="One row per product sold"
+          @click="exportCsv('items')"
+        >
+          ⬇ Items CSV
+        </button>
+      </div>
     </div>
 
     <!-- TABLE -->
@@ -345,31 +356,62 @@ const {
 // another period or cashier starts again at the top
 watch([range, selectedCashier, cashierSearch], resetList)
 
-// Downloads the sales shown (date filter + cashier) as a CSV file that
-// opens in Excel: one row per sale, with its products in one column.
-function exportCsv() {
+// Downloads the sales shown (date filter + cashier) as a CSV file for Excel.
+//   'sales': one row per sale, its products in one column
+//   'items': one row per product sold (best for totals per product in Excel)
+function exportCsv(kind) {
   const cell = (value) => {
     const text = String(value ?? '')
     return /[",\n]/.test(text) ? '"' + text.replace(/"/g, '""') + '"' : text
   }
 
-  const rows = [['Sale ID', 'Date', 'Time', 'Cashier', 'Products', 'Items sold', 'Total (PHP)']]
-
-  for (const sale of filteredSales.value) {
+  const when = (sale) => {
     const date = new Date(sale.created_at)
-    const items = sale.sale_items || []
-    rows.push([
-      sale.id,
+    return [
       date.toLocaleDateString('en-CA'), // 2026-10-19: Excel sorts it right
       date.toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' }),
-      cashierName(sale),
-      items.map((i) => `${i.product_name} x${i.quantity}`).join('; '),
-      items.reduce((n, i) => n + Number(i.quantity || 0), 0),
-      Number(sale.total_amount || 0).toFixed(2),
-    ])
+    ]
   }
 
-  rows.push(['', '', '', '', 'TOTAL', summaryItems.value, summaryTotal.value.toFixed(2)])
+  let rows
+
+  if (kind === 'items') {
+    rows = [['Sale ID', 'Date', 'Time', 'Cashier', 'Product', 'Quantity', 'Price (PHP)', 'Subtotal (PHP)']]
+
+    for (const sale of filteredSales.value) {
+      for (const item of sale.sale_items || []) {
+        const quantity = Number(item.quantity || 0)
+        const price = Number(item.price || 0)
+        rows.push([
+          sale.id,
+          ...when(sale),
+          cashierName(sale),
+          item.product_name,
+          quantity,
+          price.toFixed(2),
+          Number(item.subtotal ?? price * quantity).toFixed(2),
+        ])
+      }
+    }
+
+    rows.push(['', '', '', '', 'TOTAL', summaryItems.value, '', summaryTotal.value.toFixed(2)])
+  } else {
+    rows = [['Sale ID', 'Date', 'Time', 'Cashier', 'Products', 'Items sold', 'Total (PHP)']]
+
+    for (const sale of filteredSales.value) {
+      const items = sale.sale_items || []
+      rows.push([
+        sale.id,
+        ...when(sale),
+        cashierName(sale),
+        items.map((i) => `${i.product_name} x${i.quantity}`).join('; '),
+        items.reduce((n, i) => n + Number(i.quantity || 0), 0),
+        Number(sale.total_amount || 0).toFixed(2),
+      ])
+    }
+
+    rows.push(['', '', '', '', 'TOTAL', summaryItems.value, summaryTotal.value.toFixed(2)])
+  }
 
   // the BOM makes Excel read names with ñ and the like correctly
   const csv = '﻿' + rows.map((r) => r.map(cell).join(',')).join('\r\n')
@@ -384,7 +426,7 @@ function exportCsv() {
 
   const link = document.createElement('a')
   link.href = url
-  link.download = `sales_${period}${who ? '_' + who.replace(/[^A-Za-z0-9]+/g, '-') : ''}.csv`
+  link.download = `${kind === 'items' ? 'items-sold' : 'sales'}_${period}${who ? '_' + who.replace(/[^A-Za-z0-9]+/g, '-') : ''}.csv`
   document.body.appendChild(link)
   link.click()
   link.remove()

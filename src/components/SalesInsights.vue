@@ -4,12 +4,31 @@
 // (date filter + cashier), so everything on the page agrees.
 //
 //   <SalesInsights :sales="filteredSales" :range="range" />
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 
 const props = defineProps({
   sales: { type: Array, required: true },
   range: { type: Object, default: () => ({ start: null, end: null }) },
 })
+
+// Hidden until opened (it takes a lot of room); the choice is remembered.
+const STORAGE_KEY = 'salesInsightsOpen'
+const open = ref(false)
+try {
+  open.value = localStorage.getItem(STORAGE_KEY) === '1'
+} catch {
+  // storage off: starts closed
+}
+watch(open, (value) => {
+  try {
+    localStorage.setItem(STORAGE_KEY, value ? '1' : '0')
+  } catch {
+    // ignore
+  }
+})
+
+// best sellers: top 5, or all 10 after 'Show top 10'
+const showAllProducts = ref(false)
 
 const MAX_DAY_BARS = 62 // longer periods are shown per month
 
@@ -43,7 +62,7 @@ const chart = computed(() => {
   const buckets = []
   if (byMonth) {
     for (let d = new Date(start.getFullYear(), start.getMonth(), 1); d <= lastDay; d = new Date(d.getFullYear(), d.getMonth() + 1, 1)) {
-      buckets.push({ key: monthKey(d), label: d.toLocaleDateString(undefined, { month: 'short', year: '2-digit' }), total: 0, count: 0 })
+      buckets.push({ key: monthKey(d), label: d.toLocaleDateString(undefined, { month: 'short', year: 'numeric' }), total: 0, count: 0 })
     }
   } else {
     for (let d = new Date(start); d <= lastDay; d = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1)) {
@@ -88,12 +107,26 @@ const topProducts = computed(() => {
 
   return list.map((p) => ({ ...p, share: max ? (p.total / max) * 100 : 0 }))
 })
+
+const shownProducts = computed(() =>
+  showAllProducts.value ? topProducts.value : topProducts.value.slice(0, 5)
+)
 </script>
 
 <template>
-  <div class="mb-6 grid gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
-    <!-- SALES OVER TIME (fills the height of the card beside it) -->
-    <section class="flex min-w-0 flex-col rounded-[24px] border border-white/10 bg-zinc-900 p-5">
+  <div class="mb-6">
+  <button
+    class="flex items-center gap-2 rounded-full border border-white/10 bg-zinc-900 px-4 py-2 text-sm font-bold text-white transition hover:bg-zinc-800"
+    :aria-expanded="open"
+    @click="open = !open"
+  >
+    {{ open ? 'Hide chart & best sellers' : 'Show chart & best sellers' }}
+    <span class="text-xs text-zinc-400 transition" :class="open ? 'rotate-180' : ''" aria-hidden="true">▼</span>
+  </button>
+
+  <div v-if="open" class="mt-3 grid items-start gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+    <!-- SALES OVER TIME -->
+    <section class="min-w-0 rounded-[24px] border border-white/10 bg-zinc-900 p-5">
       <div class="mb-4 flex flex-wrap items-baseline justify-between gap-2">
         <h2 class="text-lg font-bold text-white">
           Sales per {{ chart?.byMonth ? 'month' : 'day' }}
@@ -105,9 +138,9 @@ const topProducts = computed(() => {
 
       <p v-if="!chart" class="py-10 text-center text-sm text-zinc-500">No sales to show.</p>
 
-      <div v-else class="flex flex-1 flex-col">
+      <div v-else>
         <!-- hover (or tap) a bar for its day's total -->
-        <div class="flex min-h-44 flex-1 items-end gap-[2px] border-b border-white/10" role="img" :aria-label="`Sales per ${chart.byMonth ? 'month' : 'day'}`">
+        <div class="flex h-44 items-end gap-[2px] border-b border-white/10" role="img" :aria-label="`Sales per ${chart.byMonth ? 'month' : 'day'}`">
           <div
             v-for="bucket in chart.buckets"
             :key="bucket.key"
@@ -149,7 +182,7 @@ const topProducts = computed(() => {
       </p>
 
       <ol v-else class="space-y-2.5">
-        <li v-for="(product, i) in topProducts" :key="product.name" class="text-sm">
+        <li v-for="(product, i) in shownProducts" :key="product.name" class="text-sm">
           <div class="flex items-baseline justify-between gap-3">
             <span class="min-w-0 truncate text-zinc-200">
               <span class="mr-1.5 text-zinc-500">{{ i + 1 }}.</span>{{ product.name }}
@@ -164,6 +197,15 @@ const topProducts = computed(() => {
           </div>
         </li>
       </ol>
+
+      <button
+        v-if="topProducts.length > 5"
+        class="mt-3 text-sm font-bold text-zinc-400 hover:text-white"
+        @click="showAllProducts = !showAllProducts"
+      >
+        {{ showAllProducts ? 'Show top 5' : 'Show top 10' }}
+      </button>
     </section>
+  </div>
   </div>
 </template>
