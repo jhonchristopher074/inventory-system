@@ -37,18 +37,20 @@
       No documents found.
     </div>
 
+    <!-- every card is the same size: fixed picture, title of 2 lines and
+         description of 3 lines at most, button at the bottom -->
     <div class="grid gap-3 sm:gap-5 md:grid-cols-2 xl:grid-cols-3">
       <div
         v-for="document in visibleDocuments"
         :key="document.id"
-        class="rounded-2xl border border-white/10 bg-zinc-900 p-3 shadow-xl sm:rounded-[24px] sm:p-5"
+        class="flex flex-col rounded-2xl border border-white/10 bg-zinc-900 p-3 shadow-xl sm:rounded-[24px] sm:p-5"
       >
         <div
-          class="mb-3 flex h-32 items-center justify-center overflow-hidden rounded-xl bg-black sm:mb-4 sm:h-40 sm:rounded-2xl"
+          class="mb-3 flex h-32 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-black sm:mb-4 sm:h-40 sm:rounded-2xl"
         >
           <img
-            v-if="document.receipt_image_url || document.image_url"
-            :src="document.receipt_image_url || document.image_url"
+            v-if="documentImage(document)"
+            :src="documentImage(document)"
             loading="lazy"
             class="h-full w-full object-cover"
           />
@@ -71,20 +73,22 @@
           </span>
         </div>
 
-        <h2 class="text-base font-bold text-white sm:text-xl">
+        <h2 class="line-clamp-2 min-h-[2.75em] text-base font-bold leading-snug text-white sm:text-xl">
           {{ document.title || document.type || 'Untitled Document' }}
         </h2>
 
-        <p class="mt-2 line-clamp-3 text-sm text-zinc-400">
+        <p class="mt-2 line-clamp-3 min-h-[4.5rem] text-sm leading-6 text-zinc-400">
           {{ document.description || 'No description provided.' }}
         </p>
 
-        <button
-          class="mt-3 w-full rounded-xl bg-red-600 py-2.5 text-sm font-bold text-white transition hover:bg-red-700 sm:mt-5 sm:rounded-2xl sm:py-3 sm:text-base"
-          @click="openDocument(document)"
-        >
-          View Details
-        </button>
+        <div class="mt-auto pt-3 sm:pt-5">
+          <button
+            class="w-full rounded-xl bg-red-600 py-2.5 text-sm font-bold text-white transition hover:bg-red-700 sm:rounded-2xl sm:py-3 sm:text-base"
+            @click="openDocument(document)"
+          >
+            View Details
+          </button>
+        </div>
       </div>
     </div>
 
@@ -104,69 +108,85 @@
       All {{ filteredDocuments.length }} documents shown.
     </p>
 
-    <!-- VIEW MODAL -->
+    <!-- VIEW MODAL: the same size for every document and never taller than
+         the screen, so the window itself doesn't scroll. The picture takes
+         the space that's left (always whole, never cut off); only a very
+         long description scrolls, inside its own box. -->
     <div
       v-if="selectedDocument"
-      class="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-3 sm:p-4"
       @click.self="closeDocument"
     >
-      <div class="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-white/10 bg-zinc-900 p-4 sm:rounded-[24px] sm:p-5">
-        <div class="mb-4 flex items-start justify-between gap-4">
-          <div>
-            <h2 class="text-lg font-bold text-white sm:text-2xl">
+      <div
+        class="flex h-[min(760px,92vh)] w-full max-w-2xl flex-col gap-3 overflow-hidden rounded-2xl border border-white/10 bg-zinc-900 p-4 sm:gap-4 sm:rounded-[24px] sm:p-5"
+        role="dialog"
+        aria-modal="true"
+        :aria-label="selectedDocument.title || 'Document details'"
+      >
+        <div class="flex shrink-0 items-start justify-between gap-4">
+          <div class="min-w-0">
+            <h2 class="line-clamp-2 text-lg font-bold text-white sm:text-2xl">
               {{ selectedDocument.title || selectedDocument.type || 'Document Details' }}
             </h2>
 
-            <p class="mt-1 text-sm text-zinc-400">
-              {{ formatDate(selectedDocument.created_at) }}
-            </p>
+            <div class="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1">
+              <span
+                class="rounded-full px-3 py-1 text-xs font-bold"
+                :class="badgeClass(selectedDocument.type)"
+              >
+                {{ selectedDocument.type || 'Document' }}
+              </span>
+
+              <span v-if="selectedDocument.created_at" class="text-sm text-zinc-400">
+                {{ formatDate(selectedDocument.created_at) }}
+              </span>
+            </div>
           </div>
 
           <button
-            class="rounded-full bg-zinc-800 px-4 py-2 font-bold text-white hover:bg-zinc-700"
+            class="shrink-0 rounded-full bg-zinc-800 px-4 py-2 font-bold text-white hover:bg-zinc-700"
+            aria-label="Close"
             @click="closeDocument"
           >
             ✕
           </button>
         </div>
 
-        <div
-          class="mb-4 flex max-h-[260px] sm:max-h-[360px] items-center justify-center overflow-hidden rounded-2xl bg-black"
+        <!-- tap the picture to open it full size (e.g. to read a receipt) -->
+        <a
+          v-if="documentImage(selectedDocument)"
+          :href="documentImage(selectedDocument)"
+          target="_blank"
+          rel="noopener"
+          title="Open the full picture"
+          class="flex min-h-0 flex-1 items-center justify-center overflow-hidden rounded-2xl bg-black"
         >
           <img
-            v-if="selectedDocument.receipt_image_url || selectedDocument.image_url"
-            :src="selectedDocument.receipt_image_url || selectedDocument.image_url"
-            class="max-h-[260px] w-full object-contain sm:max-h-[360px]"
+            :src="documentImage(selectedDocument)"
+            :alt="selectedDocument.title || 'Document picture'"
+            class="h-full w-full object-contain"
           />
+        </a>
 
-          <span v-else class="p-10 text-sm text-zinc-500">
-            No Image
-          </span>
+        <div
+          v-else
+          class="flex min-h-0 flex-1 items-center justify-center rounded-2xl bg-black text-sm text-zinc-500"
+        >
+          No Image
         </div>
 
-        <div class="rounded-2xl bg-black p-4">
+        <div class="h-[30%] shrink-0 overflow-y-auto rounded-2xl bg-black p-4">
           <p class="mb-2 text-sm font-bold text-zinc-300">
-            Type
-          </p>
-
-          <span
-            class="inline-block rounded-full px-3 py-1 text-xs font-bold"
-            :class="badgeClass(selectedDocument.type)"
-          >
-            {{ selectedDocument.type || 'Document' }}
-          </span>
-
-          <p class="mt-4 mb-2 text-sm font-bold text-zinc-300">
             Description
           </p>
 
-          <p class="whitespace-pre-line text-sm leading-6 text-zinc-400">
+          <p class="whitespace-pre-line text-sm leading-5 text-zinc-400">
             {{ selectedDocument.description || 'No description provided.' }}
           </p>
         </div>
 
         <button
-          class="mt-5 w-full rounded-2xl bg-zinc-800 py-3 font-bold text-white hover:bg-zinc-700"
+          class="w-full shrink-0 rounded-2xl bg-zinc-800 py-3 font-bold text-white hover:bg-zinc-700"
           @click="closeDocument"
         >
           Close
@@ -273,6 +293,11 @@ const hasMore = computed(() => visibleCount.value < filteredDocuments.value.leng
 
 function openDocument(document) {
   selectedDocument.value = document
+}
+
+// a document's picture: receipt_image_url, or image_url when that's empty
+function documentImage(document) {
+  return document?.receipt_image_url || document?.image_url || ''
 }
 
 function closeDocument() {
