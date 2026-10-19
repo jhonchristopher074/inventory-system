@@ -468,13 +468,15 @@
   </script>
 
   <style scoped>
+  /* the space left under the top bar (logged-in pill + page padding), so
+     the page doesn't scroll when there's nothing more to show */
   .upload-container {
-    min-height: 100vh;
+    min-height: calc(100vh - 9rem);
+    min-height: calc(100dvh - 9rem);
     display: flex;
     justify-content: center;
     align-items: center;
     background: #090909;
-    padding: 30px;
   }
 
   @media (max-width: 760px) {
