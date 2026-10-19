@@ -289,10 +289,11 @@
 
         <div class="mt-5 flex gap-3">
           <button
-            class="flex-1 rounded-2xl bg-red-600 py-3 font-bold text-white hover:bg-red-700"
+            class="flex-1 rounded-2xl bg-red-600 py-3 font-bold text-white hover:bg-red-700 disabled:opacity-50"
+            :disabled="reportSaving"
             @click="submitReport"
           >
-            Submit Report
+            {{ reportSaving ? 'Sending...' : 'Submit Report' }}
           </button>
 
           <button
@@ -326,6 +327,7 @@ const reportType = ref('Low Stock')
 const reportDescription = ref('')
 const modalError = ref('')
 const modalSuccess = ref('')
+const reportSaving = ref(false)
 
 // ----- Drag & drop (restore / delete) -----
 const draggedProduct = ref(null)
@@ -503,6 +505,8 @@ function closeReportModal() {
 }
 
 async function submitReport() {
+  if (reportSaving.value) return // a double click used to send the report twice
+
   modalError.value = ''
   modalSuccess.value = ''
 
@@ -515,6 +519,8 @@ async function submitReport() {
 
   const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}')
 
+  reportSaving.value = true
+
   const { error } = await supabase.rpc('submit_product_report', {
     p_product_id: selectedProduct.value.id,
     p_product_name: selectedProduct.value.name,
@@ -523,6 +529,8 @@ async function submitReport() {
     p_reported_by: currentUser.full_name || currentUser.email || 'Staff',
     p_image_url: selectedProduct.value.image_url || null,
   })
+
+  reportSaving.value = false
 
   if (error) {
     modalError.value = error.message

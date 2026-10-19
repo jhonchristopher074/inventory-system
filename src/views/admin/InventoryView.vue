@@ -351,10 +351,11 @@
 
         <div class="flex flex-col gap-2">
           <button
-            class="w-full rounded-lg bg-red-600 py-2 text-sm font-semibold text-white hover:bg-red-700"
+            class="w-full rounded-lg bg-red-600 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50"
+            :disabled="archiveSaving"
             @click="confirmArchive"
           >
-            Proceed
+            {{ archiveSaving ? 'Archiving...' : 'Proceed' }}
           </button>
 
           <button
@@ -501,10 +502,10 @@
 
           <button
             class="rounded-2xl bg-red-600 px-10 py-3 font-bold text-white hover:bg-red-700 disabled:opacity-50"
-            :disabled="uploading"
+            :disabled="uploading || addSaving"
             @click="addProduct"
           >
-            Add Product
+            {{ addSaving ? 'Adding...' : 'Add Product' }}
           </button>
         </div>
       </div>
@@ -683,10 +684,11 @@
 
         <div class="mt-5 flex gap-3">
           <button
-            class="flex-1 rounded-xl bg-red-600 py-3 font-bold text-white hover:bg-red-700"
+            class="flex-1 rounded-xl bg-red-600 py-3 font-bold text-white hover:bg-red-700 disabled:opacity-50"
+            :disabled="stockSaving"
             @click="addStock"
           >
-            Confirm
+            {{ stockSaving ? 'Saving...' : 'Confirm' }}
           </button>
 
           <button
@@ -739,6 +741,12 @@ const stockProduct = ref(null)
 const stockAmount = ref(0)
 
 const uploading = ref(false)
+
+// true while saving: the button is disabled, so a double click can't save
+// twice (Add Stock used to add the stock twice, Add Product made two products)
+const stockSaving = ref(false)
+const addSaving = ref(false)
+const archiveSaving = ref(false)
 
 const newProduct = ref({
   name: '',
@@ -878,11 +886,15 @@ function closeActionModal() {
 }
 
 async function confirmArchive() {
-  if (!draggedProduct.value) return
+  if (!draggedProduct.value || archiveSaving.value) return
+
+  archiveSaving.value = true
 
   const { error } = await supabase.rpc('confirm_archive', {
     p_product_id: draggedProduct.value.id,
   })
+
+  archiveSaving.value = false
 
   if (error) {
     modalError.value = error.message
@@ -910,17 +922,21 @@ function closeStockModal() {
 }
 
 async function addStock() {
-  if (!stockProduct.value) return
+  if (!stockProduct.value || stockSaving.value) return
 
   if (!stockAmount.value || Number(stockAmount.value) <= 0) {
     stockError.value = 'Please enter a valid quantity.'
     return
   }
 
+  stockSaving.value = true
+
   const { error } = await supabase.rpc('add_stock', {
     p_product_id: stockProduct.value.id,
     p_amount: Number(stockAmount.value),
   })
+
+  stockSaving.value = false
 
   if (error) {
     stockError.value = error.message
@@ -937,12 +953,16 @@ function closeAddModal() {
 }
 
 async function addProduct() {
+  if (addSaving.value) return
+
   addError.value = ''
 
   if (!newProduct.value.name.trim()) {
     addError.value = 'Product name is required.'
     return
   }
+
+  addSaving.value = true
 
   const { error } = await supabase.rpc('add_product', {
     p_name: newProduct.value.name.trim(),
@@ -951,6 +971,8 @@ async function addProduct() {
     p_price: Number(newProduct.value.price || 0),
     p_image_url: newProduct.value.image_url.trim(),
   })
+
+  addSaving.value = false
 
   if (error) {
     addError.value = error.message

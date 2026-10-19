@@ -315,10 +315,11 @@
           </button>
 
           <button
-            class="rounded-2xl bg-red-600 px-10 py-3 font-bold text-white hover:bg-red-700"
+            class="rounded-2xl bg-red-600 px-10 py-3 font-bold text-white hover:bg-red-700 disabled:opacity-50"
+            :disabled="scheduleSaving"
             @click="saveSchedule"
           >
-            Save Schedule
+            {{ scheduleSaving ? 'Saving...' : 'Save Schedule' }}
           </button>
         </div>
       </div>
@@ -730,7 +731,12 @@ function closeAddModal() {
   showProductDropdown.value = false
 }
 
+// true while saving: a double click used to create the delivery twice
+const scheduleSaving = ref(false)
+
 async function saveSchedule() {
+  if (scheduleSaving.value) return
+
   modalError.value = ''
 
   if (!newSchedule.value.date) {
@@ -738,44 +744,50 @@ async function saveSchedule() {
     return
   }
 
-  if (newSchedule.value.type === 'inspection') {
-    if (!newSchedule.value.product_id) {
-      modalError.value = 'Please select a product.'
-      return
+  scheduleSaving.value = true
+
+  try {
+    if (newSchedule.value.type === 'inspection') {
+      if (!newSchedule.value.product_id) {
+        modalError.value = 'Please select a product.'
+        return
+      }
+
+      const { error } = await supabase.rpc('schedule_inspection', {
+        p_product_id: newSchedule.value.product_id,
+        p_date: newSchedule.value.date,
+      })
+
+      if (error) {
+        modalError.value = error.message
+        return
+      }
     }
 
-    const { error } = await supabase.rpc('schedule_inspection', {
-      p_product_id: newSchedule.value.product_id,
-      p_date: newSchedule.value.date,
-    })
+    if (newSchedule.value.type === 'delivery') {
+      if (!newSchedule.value.title.trim()) {
+        modalError.value = 'Please enter delivery title.'
+        return
+      }
 
-    if (error) {
-      modalError.value = error.message
-      return
+      const { error } = await supabase.rpc('create_delivery', {
+        p_title: newSchedule.value.title.trim(),
+        p_supplier: newSchedule.value.supplier.trim() || null,
+        p_date: newSchedule.value.date,
+      })
+
+      if (error) {
+        modalError.value = error.message
+        return
+      }
     }
+
+    closeAddModal()
+    await fetchProducts()
+    await fetchDeliveries()
+  } finally {
+    scheduleSaving.value = false
   }
-
-  if (newSchedule.value.type === 'delivery') {
-    if (!newSchedule.value.title.trim()) {
-      modalError.value = 'Please enter delivery title.'
-      return
-    }
-
-    const { error } = await supabase.rpc('create_delivery', {
-      p_title: newSchedule.value.title.trim(),
-      p_supplier: newSchedule.value.supplier.trim() || null,
-      p_date: newSchedule.value.date,
-    })
-
-    if (error) {
-      modalError.value = error.message
-      return
-    }
-  }
-
-  closeAddModal()
-  await fetchProducts()
-  await fetchDeliveries()
 }
 
 // Remember which overdue products already triggered a notification during this visit,
