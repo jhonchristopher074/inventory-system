@@ -24,6 +24,22 @@
     </div>
 
     <!-- DATE FILTER (shared with the other Sales History page) -->
+    <!-- CASHIER SEARCH (not needed once a cashier was clicked) -->
+    <div v-if="!selectedCashier" class="relative mb-4">
+      <input
+        v-model="cashierSearch"
+        type="search"
+        placeholder="Search cashier..."
+        aria-label="Search cashier"
+        list="cashier-names"
+        class="w-full rounded-2xl border border-white/10 bg-zinc-900 px-4 py-3 text-sm text-white outline-none placeholder:text-zinc-500 focus:border-red-500"
+      />
+      <!-- suggestions while typing: every cashier who has sales -->
+      <datalist id="cashier-names">
+        <option v-for="name in cashierNames" :key="name" :value="name" />
+      </datalist>
+    </div>
+
     <SalesPeriodFilter v-model="range" />
 
     <!-- SUMMARY of what's shown (date filter + cashier) -->
@@ -246,6 +262,13 @@ const selectedCashier = ref(null) // { key, name } or null = show everyone
 // { start, end } of the date filter (end not included); null = no limit
 const range = ref({ start: null, end: null })
 
+// part of a cashier's name typed in the search box
+const cashierSearch = ref('')
+
+const cashierNames = computed(() =>
+  [...new Set(sales.value.map(cashierName))].sort((a, b) => a.localeCompare(b))
+)
+
 function inRange(sale) {
   const date = new Date(sale.created_at)
   const { start, end } = range.value
@@ -269,8 +292,13 @@ function cashierKey(sale) {
 
 // sales in the chosen period, of the chosen cashier (if any)
 const filteredSales = computed(() => {
+  const search = cashierSearch.value.trim().toLowerCase()
+
   return sales.value.filter(
-    (s) => (!selectedCashier.value || cashierKey(s) === selectedCashier.value.key) && inRange(s)
+    (s) =>
+      (!selectedCashier.value || cashierKey(s) === selectedCashier.value.key) &&
+      (selectedCashier.value || !search || cashierName(s).toLowerCase().includes(search)) &&
+      inRange(s)
   )
 })
 
@@ -296,7 +324,7 @@ const {
 } = useShowMore(filteredSales)
 
 // another period or cashier starts again at the top
-watch([range, selectedCashier], resetList)
+watch([range, selectedCashier, cashierSearch], resetList)
 
 async function fetchSales() {
   loading.value = true
