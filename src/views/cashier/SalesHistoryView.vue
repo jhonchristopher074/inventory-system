@@ -1,10 +1,44 @@
 <template>
   <div>
-    <div class="mb-6 rounded-[24px] border border-white/10 bg-zinc-900 p-5">
+    <!-- the Profile page shows this too, under its own heading -->
+    <div v-if="!embedded" class="mb-6 rounded-[24px] border border-white/10 bg-zinc-900 p-5">
       <h1 class="text-3xl font-bold text-white">Sales History</h1>
       <p class="text-zinc-400">
         Company-style record of completed cashier transactions.
       </p>
+    </div>
+
+    <!-- DATE FILTER (same as the admin's Sales History) -->
+    <div class="-mx-1 mb-4 flex gap-2 overflow-x-auto px-1 pb-1">
+      <button
+        v-for="option in PERIODS"
+        :key="option.key"
+        class="shrink-0 whitespace-nowrap rounded-full px-4 py-2 text-sm font-bold transition"
+        :class="period === option.key
+          ? 'bg-red-600 text-white'
+          : 'bg-zinc-900 text-zinc-400 hover:bg-zinc-800 hover:text-white'"
+        @click="period = option.key"
+      >
+        {{ option.label }}
+      </button>
+    </div>
+
+    <!-- SUMMARY of what's shown -->
+    <div class="mb-6 grid gap-4 sm:grid-cols-3">
+      <div class="rounded-[24px] border border-white/10 bg-zinc-900 p-5">
+        <p class="text-sm text-zinc-400">Total sales</p>
+        <p class="mt-1 text-2xl font-extrabold text-red-400">₱{{ summaryTotal.toFixed(2) }}</p>
+      </div>
+
+      <div class="rounded-[24px] border border-white/10 bg-zinc-900 p-5">
+        <p class="text-sm text-zinc-400">Transactions</p>
+        <p class="mt-1 text-2xl font-extrabold text-white">{{ filteredSales.length }}</p>
+      </div>
+
+      <div class="rounded-[24px] border border-white/10 bg-zinc-900 p-5">
+        <p class="text-sm text-zinc-400">Items sold</p>
+        <p class="mt-1 text-2xl font-extrabold text-white">{{ summaryItems }}</p>
+      </div>
     </div>
 
     <div class="overflow-hidden rounded-[24px] border border-white/10 bg-zinc-900">
@@ -71,8 +105,8 @@
       <p v-else-if="errorMessage" class="p-6 text-center text-red-400">
         Couldn't load your sales: {{ errorMessage }}
       </p>
-      <p v-else-if="sales.length === 0" class="p-6 text-center text-zinc-500">
-        No sales found.
+      <p v-else-if="filteredSales.length === 0" class="p-6 text-center text-zinc-500">
+        {{ sales.length === 0 ? 'No sales found.' : 'No sales in this period.' }}
       </p>
     </div>
 
@@ -201,10 +235,15 @@
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { supabase } from '../../lib/supabase'
 import { printElement } from '../../lib/printReceipt'
 import { useShowMore } from '../../lib/useShowMore'
+
+defineProps({
+  // shown inside the Profile page: no page heading of its own
+  embedded: { type: Boolean, default: false },
+})
 
 const sales = ref([])
 const loading = ref(false)
@@ -212,8 +251,52 @@ const errorMessage = ref('')
 const selectedSale = ref(null)
 const receiptSale = ref(null)
 
+// Date filter, by this computer's clock (same as the admin's Sales History)
+const PERIODS = [
+  { key: 'all', label: 'All' },
+  { key: 'today', label: 'Today' },
+  { key: 'week', label: 'Last 7 days' },
+  { key: 'month', label: 'This month' },
+]
+const period = ref('all')
+
+// Midnight at the start of the chosen period, or null for every sale.
+function periodStart(key) {
+  const now = new Date()
+
+  if (key === 'today') return new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  if (key === 'week') return new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6)
+  if (key === 'month') return new Date(now.getFullYear(), now.getMonth(), 1)
+  return null
+}
+
+const filteredSales = computed(() => {
+  const start = periodStart(period.value)
+  return start ? sales.value.filter((s) => new Date(s.created_at) >= start) : sales.value
+})
+
+const summaryTotal = computed(() =>
+  filteredSales.value.reduce((sum, s) => sum + Number(s.total_amount || 0), 0)
+)
+
+const summaryItems = computed(() =>
+  filteredSales.value.reduce(
+    (sum, s) => sum + (s.sale_items || []).reduce((n, i) => n + Number(i.quantity || 0), 0),
+    0
+  )
+)
+
 // Long history: 40 sales at a time, more as you scroll (keeps phones fast).
-const { visible: visibleSales, remaining, sentinel: listEnd, showMore } = useShowMore(sales)
+const {
+  visible: visibleSales,
+  remaining,
+  sentinel: listEnd,
+  showMore,
+  reset: resetList,
+} = useShowMore(filteredSales)
+
+// another period starts again at the top
+watch(period, resetList)
 
 async function fetchSales() {
   loading.value = true
