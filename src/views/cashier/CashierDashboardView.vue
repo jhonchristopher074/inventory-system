@@ -11,6 +11,10 @@
       </p>
     </div>
 
+    <p v-if="errorMessage" class="mb-6 rounded-xl bg-red-600/20 p-4 text-sm text-red-400">
+      Couldn't load everything: {{ errorMessage }}
+    </p>
+
     <!-- STATS: two per row on phones (one each filled the whole screen);
          the money amounts get the full width there -->
     <div class="mb-6 grid grid-cols-2 gap-3 sm:gap-5 xl:grid-cols-4">
@@ -23,7 +27,7 @@
       </div>
 
       <div class="stat-card">
-        <p class="stat-label">Transactions</p>
+        <p class="stat-label">Transactions Today</p>
 
         <h2 class="stat-value">
           {{ totalTransactions }}
@@ -31,7 +35,7 @@
       </div>
 
       <div class="stat-card">
-        <p class="stat-label">Products Sold</p>
+        <p class="stat-label">Products Sold Today</p>
 
         <h2 class="stat-value">
           {{ totalProductsSold }}
@@ -219,6 +223,7 @@ import { supabase } from '../../lib/supabase'
 
 const recentSales = ref([])
 const lowStockProducts = ref([])
+const errorMessage = ref('')
 
 const todaySales = ref(0)
 const totalTransactions = ref(0)
@@ -233,34 +238,35 @@ async function fetchDashboard() {
 }
 
 async function fetchSales() {
-  const {
-    data: { session },
-  } = await supabase.auth.getSession()
+  // Only the last 30 days: the cards count today and "Recent Sales" shows the
+  // newest 5. Loading every sale ever made got slower every month.
+  const since = new Date()
+  since.setHours(0, 0, 0, 0)
+  since.setDate(since.getDate() - 29)
 
-  const userId = session?.user?.id
-
-  if (!userId) return
-
-  const { data, error } = await supabase.rpc('list_my_sales')
+  const { data, error } = await supabase.rpc('list_my_sales_since', {
+    p_since: since.toISOString(),
+  })
 
   if (error) {
-    console.error(error)
+    errorMessage.value = error.message
     return
   }
 
-  const cashierSales = data || []
+  const cashierSales = [...(data || [])].sort(
+    (a, b) => new Date(b.created_at) - new Date(a.created_at)
+  )
 
   recentSales.value = cashierSales.slice(0, 5)
-  totalTransactions.value = cashierSales.length
 
   const today = new Date().toDateString()
+  const todays = cashierSales.filter(sale => new Date(sale.created_at).toDateString() === today)
 
-  todaySales.value = cashierSales
-    .filter(sale => new Date(sale.created_at).toDateString() === today)
-    .reduce((sum, sale) => sum + Number(sale.total_amount || 0), 0)
+  todaySales.value = todays.reduce((sum, sale) => sum + Number(sale.total_amount || 0), 0)
+  totalTransactions.value = todays.length
 
-  totalProductsSold.value = cashierSales.reduce((sum, sale) => {
-    const qty = sale.sale_items?.reduce((itemSum, item) => {
+  totalProductsSold.value = todays.reduce((sum, sale) => {
+    const qty = (sale.sale_items || []).reduce((itemSum, item) => {
       return itemSum + Number(item.quantity || 0)
     }, 0)
 
@@ -275,7 +281,7 @@ async function fetchProducts() {
   })
 
   if (error) {
-    console.error(error)
+    errorMessage.value = error.message
     return
   }
 

@@ -23,26 +23,41 @@
       </p>
     </div>
 
-    <!-- CASHIER SUMMARY -->
-    <div v-if="selectedCashier" class="mb-6 grid gap-4 sm:grid-cols-3">
+    <!-- DATE FILTER: one row you can swipe on phones -->
+    <div class="-mx-1 mb-4 flex gap-2 overflow-x-auto px-1 pb-1">
+      <button
+        v-for="option in PERIODS"
+        :key="option.key"
+        class="shrink-0 whitespace-nowrap rounded-full px-4 py-2 text-sm font-bold transition"
+        :class="period === option.key
+          ? 'bg-red-600 text-white'
+          : 'bg-zinc-900 text-zinc-400 hover:bg-zinc-800 hover:text-white'"
+        @click="period = option.key"
+      >
+        {{ option.label }}
+      </button>
+    </div>
+
+    <!-- SUMMARY of what's shown (date filter + cashier) -->
+    <div class="mb-6 grid gap-4 sm:grid-cols-3">
       <div class="rounded-[24px] border border-white/10 bg-zinc-900 p-5">
         <p class="text-sm text-zinc-400">Total sales</p>
         <p class="mt-1 text-2xl font-extrabold text-red-400">
-          ₱{{ cashierTotal.toFixed(2) }}
+          ₱{{ summaryTotal.toFixed(2) }}
         </p>
       </div>
 
       <div class="rounded-[24px] border border-white/10 bg-zinc-900 p-5">
         <p class="text-sm text-zinc-400">Transactions</p>
         <p class="mt-1 text-2xl font-extrabold text-white">
-          {{ visibleSales.length }}
+          {{ filteredSales.length }}
         </p>
       </div>
 
       <div class="rounded-[24px] border border-white/10 bg-zinc-900 p-5">
         <p class="text-sm text-zinc-400">Items sold</p>
         <p class="mt-1 text-2xl font-extrabold text-white">
-          {{ cashierItems }}
+          {{ summaryItems }}
         </p>
       </div>
     </div>
@@ -104,11 +119,24 @@
         </tbody>
       </table>
 
-      <p
-        v-if="visibleSales.length === 0"
-        class="p-6 text-center text-zinc-500"
-      >
-        No sales records found.
+      <!-- the next sales load as this comes into view -->
+      <div v-if="remaining > 0" ref="listEnd" class="border-t border-white/10 py-5 text-center">
+        <button
+          class="rounded-xl bg-zinc-800 px-5 py-2 text-sm font-bold text-white hover:bg-zinc-700"
+          @click="showMore"
+        >
+          Show more ({{ remaining }} left)
+        </button>
+      </div>
+
+      <p v-if="loading && sales.length === 0" class="p-6 text-center text-zinc-500">
+        Loading sales...
+      </p>
+      <p v-else-if="errorMessage" class="p-6 text-center text-red-400">
+        Couldn't load the sales: {{ errorMessage }}
+      </p>
+      <p v-else-if="filteredSales.length === 0" class="p-6 text-center text-zinc-500">
+        {{ sales.length === 0 ? 'No sales records found.' : 'No sales in this period.' }}
       </p>
     </div>
 
@@ -215,13 +243,35 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { supabase } from '../../lib/supabase'
 import { printElement } from '../../lib/printReceipt'
+import { useShowMore } from '../../lib/useShowMore'
 
 const sales = ref([])
+const loading = ref(false)
+const errorMessage = ref('')
 const receiptSale = ref(null)
 const selectedCashier = ref(null) // { key, name } or null = show everyone
+
+// Date filter, by this computer's clock
+const PERIODS = [
+  { key: 'all', label: 'All' },
+  { key: 'today', label: 'Today' },
+  { key: 'week', label: 'Last 7 days' },
+  { key: 'month', label: 'This month' },
+]
+const period = ref('all')
+
+// Midnight at the start of the chosen period, or null for every sale.
+function periodStart(key) {
+  const now = new Date()
+
+  if (key === 'today') return new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  if (key === 'week') return new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6)
+  if (key === 'month') return new Date(now.getFullYear(), now.getMonth(), 1)
+  return null
+}
 
 function cashierName(sale) {
   return sale.profiles?.full_name || 'Unknown Cashier'
@@ -238,29 +288,52 @@ function cashierKey(sale) {
   )
 }
 
-const visibleSales = computed(() =>
-  selectedCashier.value
-    ? sales.value.filter((s) => cashierKey(s) === selectedCashier.value.key)
-    : sales.value
+// sales in the chosen period, of the chosen cashier (if any)
+const filteredSales = computed(() => {
+  const start = periodStart(period.value)
+
+  return sales.value.filter(
+    (s) =>
+      (!selectedCashier.value || cashierKey(s) === selectedCashier.value.key) &&
+      (!start || new Date(s.created_at) >= start)
+  )
+})
+
+const summaryTotal = computed(() =>
+  filteredSales.value.reduce((sum, s) => sum + Number(s.total_amount || 0), 0)
 )
 
-const cashierTotal = computed(() =>
-  visibleSales.value.reduce((sum, s) => sum + Number(s.total_amount || 0), 0)
-)
-
-const cashierItems = computed(() =>
-  visibleSales.value.reduce(
+const summaryItems = computed(() =>
+  filteredSales.value.reduce(
     (sum, s) =>
       sum + (s.sale_items || []).reduce((n, i) => n + Number(i.quantity || 0), 0),
     0
   )
 )
 
+// Long history: 40 rows at a time, more as you scroll (keeps phones fast).
+const {
+  visible: visibleSales,
+  remaining,
+  sentinel: listEnd,
+  showMore,
+  reset: resetList,
+} = useShowMore(filteredSales)
+
+// another period or cashier starts again at the top
+watch([period, selectedCashier], resetList)
+
 async function fetchSales() {
+  loading.value = true
+  errorMessage.value = ''
+
   const { data, error } = await supabase.rpc('list_all_sales')
 
+  loading.value = false
+
+  // a failed load used to look exactly like "No sales records found"
   if (error) {
-    console.error(error)
+    errorMessage.value = error.message
     return
   }
 

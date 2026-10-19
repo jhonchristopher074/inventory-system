@@ -22,7 +22,7 @@
 
         <tbody>
           <tr
-            v-for="sale in sales"
+            v-for="sale in visibleSales"
             :key="sale.id"
             class="cursor-pointer border-t border-white/10 transition hover:border-l-4 hover:border-l-blue-500 hover:bg-zinc-800/70"
             @click="openSale(sale)"
@@ -55,7 +55,23 @@
         </tbody>
       </table>
 
-      <p v-if="sales.length === 0" class="p-6 text-center text-zinc-500">
+      <!-- the next sales load as this comes into view -->
+      <div v-if="remaining > 0" ref="listEnd" class="border-t border-white/10 py-5 text-center">
+        <button
+          class="rounded-xl bg-zinc-800 px-5 py-2 text-sm font-bold text-white hover:bg-zinc-700"
+          @click="showMore"
+        >
+          Show more ({{ remaining }} left)
+        </button>
+      </div>
+
+      <p v-if="loading && sales.length === 0" class="p-6 text-center text-zinc-500">
+        Loading sales...
+      </p>
+      <p v-else-if="errorMessage" class="p-6 text-center text-red-400">
+        Couldn't load your sales: {{ errorMessage }}
+      </p>
+      <p v-else-if="sales.length === 0" class="p-6 text-center text-zinc-500">
         No sales found.
       </p>
     </div>
@@ -188,24 +204,28 @@
 import { onMounted, ref } from 'vue'
 import { supabase } from '../../lib/supabase'
 import { printElement } from '../../lib/printReceipt'
+import { useShowMore } from '../../lib/useShowMore'
 
 const sales = ref([])
+const loading = ref(false)
+const errorMessage = ref('')
 const selectedSale = ref(null)
 const receiptSale = ref(null)
 
+// Long history: 40 sales at a time, more as you scroll (keeps phones fast).
+const { visible: visibleSales, remaining, sentinel: listEnd, showMore } = useShowMore(sales)
+
 async function fetchSales() {
-  const {
-    data: { session },
-  } = await supabase.auth.getSession()
-
-  const userId = session?.user?.id
-
-  if (!userId) return
+  loading.value = true
+  errorMessage.value = ''
 
   const { data, error } = await supabase.rpc('list_my_sales')
 
+  loading.value = false
+
+  // a failed load used to look exactly like "No sales found"
   if (error) {
-    console.error(error)
+    errorMessage.value = error.message
     return
   }
 

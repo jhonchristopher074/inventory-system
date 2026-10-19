@@ -96,7 +96,13 @@
           class="users-scroll space-y-5 lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:pr-1"
           @scroll="closeMenu"
         >
-          <p v-if="!visibleGroups.length" class="py-6 text-center text-sm text-zinc-500">
+          <p v-if="usersError" class="rounded-xl bg-red-600/20 p-3 text-sm text-red-400">
+            Couldn't load the accounts: {{ usersError }}
+          </p>
+          <p v-else-if="loading && !users.length" class="py-6 text-center text-sm text-zinc-500">
+            Loading accounts...
+          </p>
+          <p v-else-if="!visibleGroups.length" class="py-6 text-center text-sm text-zinc-500">
             No accounts found.
           </p>
 
@@ -280,6 +286,7 @@ const showCreateForm = ref(false)
 const users = ref([])
 const userSearch = ref('')
 const loading = ref(false)
+const usersError = ref('')
 
 const filteredUsers = computed(() => {
   const q = userSearch.value.trim().toLowerCase()
@@ -402,11 +409,15 @@ const reveal = ref(null)        // { email, password, expiresAt }
 
 async function fetchUsers() {
   loading.value = true
+  usersError.value = ''
+
   const { data, error } = await supabase.rpc('admin_list_users')
+
   loading.value = false
 
+  // a failed load used to look exactly like "No accounts found"
   if (error) {
-    console.log(error)
+    usersError.value = error.message
     return
   }
 
