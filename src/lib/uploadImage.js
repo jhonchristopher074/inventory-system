@@ -26,13 +26,41 @@ function formatSize(bytes) {
 }
 
 /**
+ * Makes a smaller JPEG copy of an image: the longest side at most maxSide
+ * pixels. A phone photo of several MB becomes about 50–150 KB. Returns the
+ * original file if the browser can't read it (the normal checks then apply).
+ */
+async function shrinkImage(file, maxSide) {
+  try {
+    const bitmap = await createImageBitmap(file)
+    const scale = Math.min(1, maxSide / Math.max(bitmap.width, bitmap.height))
+    const canvas = document.createElement('canvas')
+    canvas.width = Math.round(bitmap.width * scale)
+    canvas.height = Math.round(bitmap.height * scale)
+
+    const ctx = canvas.getContext('2d')
+    ctx.fillStyle = '#18181b' // transparent parts of a PNG: dark, like the app
+    ctx.fillRect(0, 0, canvas.width, canvas.height)
+    ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height)
+    bitmap.close?.()
+
+    const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.85))
+    return blob ? new File([blob], 'photo.jpg', { type: 'image/jpeg' }) : file
+  } catch {
+    return file
+  }
+}
+
+/**
  * @param {File}   file              the picked file
  * @param {object} options
  * @param {string} options.bucket    storage bucket name ('products' | 'documents')
  * @param {string} [options.folder]  optional folder inside the bucket
+ * @param {number} [options.maxBytes]  largest file accepted (default 5 MB)
+ * @param {number} [options.maxSide]   shrink to at most this many pixels per side first
  * @returns {Promise<string>}        public URL of the uploaded image
  */
-export async function uploadImage(file, { bucket, folder = '' } = {}) {
+export async function uploadImage(file, { bucket, folder = '', maxBytes = MAX_BYTES, maxSide = 0 } = {}) {
   if (!file) {
     throw new Error('Please choose an image first.')
   }
@@ -50,9 +78,9 @@ export async function uploadImage(file, { bucket, folder = '' } = {}) {
   }
 
   // 2. size
-  if (file.size > MAX_BYTES) {
+  if (file.size > maxBytes) {
     throw new Error(
-      `That image is ${formatSize(file.size)}. Please use one under ${formatSize(MAX_BYTES)}.`
+      `That image is ${formatSize(file.size)}. Please use one under ${formatSize(maxBytes)}.`
     )
   }
 
@@ -60,11 +88,18 @@ export async function uploadImage(file, { bucket, folder = '' } = {}) {
     throw new Error('That file is empty. Please choose another image.')
   }
 
-  // 3. build our own filename — never trust the one from the device.
+  // 3. optional: a smaller copy (e.g. profile photos only show small)
+  let fileExtension = extension
+  if (maxSide > 0) {
+    file = await shrinkImage(file, maxSide)
+    fileExtension = ALLOWED_TYPES[file.type] || extension
+  }
+
+  // 4. build our own filename — never trust the one from the device.
   //    Timestamp keeps uploads roughly ordered, the random suffix stops
   //    two people uploading in the same millisecond from colliding.
   const unique = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
-  const path = folder ? `${folder}/${unique}.${extension}` : `${unique}.${extension}`
+  const path = folder ? `${folder}/${unique}.${fileExtension}` : `${unique}.${fileExtension}`
 
   const { error: uploadError } = await supabase.storage
     .from(bucket)

@@ -58,7 +58,14 @@ async function handleImageChange(event) {
   uploading.value = true
 
   try {
-    const imageUrl = await uploadImage(file, { bucket: 'documents', folder: 'avatars' })
+    // Any phone photo up to 10 MB; it's shrunk to 512 px first (it only
+    // shows small), so what's saved is about 50–150 KB.
+    const imageUrl = await uploadImage(file, {
+      bucket: 'documents',
+      folder: 'avatars',
+      maxBytes: 10 * 1024 * 1024,
+      maxSide: 512,
+    })
 
     const { error } = await supabase.rpc('update_my_avatar', {
       p_avatar_url: imageUrl,
@@ -118,6 +125,7 @@ onMounted(fetchProfile)
         >
           {{ uploading ? 'Uploading...' : 'Change Photo' }}
         </button>
+        <p class="mt-2 text-xs text-zinc-500">JPG, PNG, WEBP or GIF · up to 10 MB</p>
 
         <h2 class="mt-6 text-center text-3xl font-black text-white">
           {{ profile.full_name || 'No name' }}
