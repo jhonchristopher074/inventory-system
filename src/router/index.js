@@ -2,34 +2,37 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { supabase } from '../lib/supabase'
 
 import LoginView from '../views/auth/LoginView.vue'
-import ChangePasswordView from '../views/ChangePasswordView.vue'
-import ResetPasswordView from '../views/auth/ResetPasswordView.vue'
 import { isPasswordRecovery } from '../lib/passwordRecovery'
 import { getPasswordStatus, EXPIRED_MESSAGE } from '../lib/passwordStatus'
 import { isIdleExpired, markActivity, IDLE_MESSAGE } from '../lib/idleLogout'
 
-import DashboardView from '../views/admin/DashboardView.vue'
-import InventoryView from '../views/admin/InventoryView.vue'
-import CalendarView from '../views/admin/CalendarView.vue'
-import ApprovalView from '../views/admin/ApprovalView.vue'
-import DocumentationView from '../views/admin/DocumentationView.vue'
-import ArchivedView from '../views/admin/ArchivedView.vue'
-import ProfileView from '../views/admin/ProfileView.vue'
-import AdminPOSView from '../views/admin/AdminPOSView.vue'
-import AdminSalesHistoryView from '../views/admin/AdminSalesHistoryView.vue'
+// Every page except Login is downloaded only when it's first opened, so the
+// first load (the login screen) is much smaller, especially on phones.
+const ChangePasswordView = () => import('../views/ChangePasswordView.vue')
+const ResetPasswordView = () => import('../views/auth/ResetPasswordView.vue')
 
-import CashierDashboardView from '../views/cashier/CashierDashboardView.vue'
-import POSView from '../views/cashier/POSView.vue'
-import SalesHistoryView from '../views/cashier/SalesHistoryView.vue'
-import CashierProfileView from '../views/cashier/CashierProfileView.vue'
+const DashboardView = () => import('../views/admin/DashboardView.vue')
+const InventoryView = () => import('../views/admin/InventoryView.vue')
+const CalendarView = () => import('../views/admin/CalendarView.vue')
+const ApprovalView = () => import('../views/admin/ApprovalView.vue')
+const DocumentationView = () => import('../views/admin/DocumentationView.vue')
+const ArchivedView = () => import('../views/admin/ArchivedView.vue')
+const ProfileView = () => import('../views/admin/ProfileView.vue')
+const AdminPOSView = () => import('../views/admin/AdminPOSView.vue')
+const AdminSalesHistoryView = () => import('../views/admin/AdminSalesHistoryView.vue')
 
-import StaffDashboardView from '../views/staff/StaffDashboardView.vue'
-import StaffInventoryView from '../views/staff/StaffInventoryView.vue'
-import StaffCalendarView from '../views/staff/StaffCalendarView.vue'
-import StaffDocumentationView from '../views/staff/StaffDocumentationView.vue'
-import StaffProfileView from '../views/staff/StaffProfileView.vue'
+const CashierDashboardView = () => import('../views/cashier/CashierDashboardView.vue')
+const POSView = () => import('../views/cashier/POSView.vue')
+const SalesHistoryView = () => import('../views/cashier/SalesHistoryView.vue')
+const CashierProfileView = () => import('../views/cashier/CashierProfileView.vue')
 
-import SupplierDropBoxView from '../views/supplier/SupplierDropBoxView.vue'
+const StaffDashboardView = () => import('../views/staff/StaffDashboardView.vue')
+const StaffInventoryView = () => import('../views/staff/StaffInventoryView.vue')
+const StaffCalendarView = () => import('../views/staff/StaffCalendarView.vue')
+const StaffDocumentationView = () => import('../views/staff/StaffDocumentationView.vue')
+const StaffProfileView = () => import('../views/staff/StaffProfileView.vue')
+
+const SupplierDropBoxView = () => import('../views/supplier/SupplierDropBoxView.vue')
 
 const routes = [
   { path: '/login', name: 'login', component: LoginView },
@@ -139,6 +142,44 @@ router.beforeEach(async (to) => {
   if (to.path === '/login') return home
 
   if (to.meta.role && to.meta.role !== profile.role) return home
+})
+
+/* ------------------------------------------------------------------
+   After a new version is uploaded, a tab that was opened before still asks
+   for the old page files, which the upload removed. Instead of a page that
+   won't open, load the new version (once per address, so a really missing
+   file can't cause endless reloading).
+------------------------------------------------------------------ */
+const RELOAD_KEY = 'reloadedForNewVersion'
+
+function isOldFileError(error) {
+  return /dynamically imported module|Importing a module script failed|Unable to preload CSS/i.test(
+    String(error?.message || error)
+  )
+}
+
+function reloadForNewVersion(path) {
+  try {
+    if (sessionStorage.getItem(RELOAD_KEY) === path) return // already tried
+    sessionStorage.setItem(RELOAD_KEY, path)
+  } catch {
+    // storage disabled: reload anyway
+  }
+
+  window.location.assign(path)
+}
+
+router.onError((error, to) => {
+  if (isOldFileError(error)) reloadForNewVersion(to.fullPath)
+})
+
+// a page opened fine: allow the next new version to reload again
+router.afterEach(() => {
+  try {
+    sessionStorage.removeItem(RELOAD_KEY)
+  } catch {
+    // ignore
+  }
 })
 
 export default router
