@@ -31,10 +31,34 @@ watch(() => props.error, (value) => {
   }
 })
 
+// shown under the box when Confirm is pressed with something missing
+const missing = ref('')
+
+watch([password, text], () => {
+  missing.value = ''
+})
+
+// Reads the box itself, not only what was typed: a password the browser
+// filled in by itself (saved passwords) shows in the box, but the page only
+// gets it from the box. Before, the button stayed greyed out for it.
 function submit() {
-  if (!password.value || props.busy) return
-  if (props.textLabel && !text.value.trim()) return
-  emit('confirm', password.value, text.value.trim())
+  if (props.busy) return
+
+  const typed = password.value || input.value?.value || ''
+
+  if (props.textLabel && !text.value.trim()) {
+    missing.value = 'Type the ' + props.textLabel.toLowerCase() + ' first.'
+    nextTick(() => textInput.value?.focus())
+    return
+  }
+
+  if (!typed) {
+    missing.value = 'Type your password first.'
+    nextTick(() => input.value?.focus())
+    return
+  }
+
+  emit('confirm', typed, text.value.trim())
 }
 </script>
 
@@ -64,14 +88,12 @@ function submit() {
         </button>
       </div>
 
-      <p v-if="error" class="ap-error" role="alert">{{ error }}</p>
+      <p v-if="missing || error" class="ap-error" role="alert">{{ missing || error }}</p>
 
       <div class="ap-actions">
         <button type="button" class="ap-cancel" :disabled="busy" @click="emit('cancel')">Cancel</button>
-        <!-- greyed out until the password (and name) are typed: the hover note says why -->
-        <button type="submit" class="ap-confirm"
-                :disabled="!password || busy || (textLabel && !text.trim())"
-                :title="!password ? 'Type your password first' : (textLabel && !text.trim()) ? 'Type the ' + textLabel.toLowerCase() + ' first' : ''">
+        <!-- always pressable: if something is missing it says so under the box -->
+        <button type="submit" class="ap-confirm" :disabled="busy">
           {{ busy ? 'Checking…' : confirmLabel }}
         </button>
       </div>
