@@ -276,16 +276,27 @@
             />
           </div>
 
+          <p
+            v-if="detailMessage"
+            class="mt-4 w-full rounded-xl p-3 text-left text-sm"
+            :class="detailMessage.type === 'error' ? 'bg-red-600/20 text-red-400' : 'bg-emerald-600/15 text-emerald-300'"
+            :role="detailMessage.type === 'error' ? 'alert' : 'status'"
+          >
+            {{ detailMessage.text }}
+          </p>
+
           <div class="mt-5 flex w-full gap-3">
             <button
-              class="flex-1 rounded-2xl bg-red-600 py-4 text-lg font-bold text-white transition hover:bg-red-700"
+              class="flex-1 rounded-2xl bg-red-600 py-4 text-lg font-bold text-white transition hover:bg-red-700 disabled:opacity-50"
+              :disabled="detailBusy"
               @click="setInspectionDate"
             >
               Set Inspection Date
             </button>
 
             <button
-              class="flex-1 rounded-2xl bg-zinc-800 py-4 text-lg font-bold text-white transition hover:bg-zinc-700"
+              class="flex-1 rounded-2xl bg-zinc-800 py-4 text-lg font-bold text-white transition hover:bg-zinc-700 disabled:opacity-50"
+              :disabled="detailBusy"
               @click="reportProduct"
             >
               Report Product
@@ -705,6 +716,10 @@ const selectedProduct = ref(null)
 const draggedProduct = ref(null)
 const previewImage = ref(null)
 const inspectionDate = ref('')
+// result of "Set Inspection Date" / "Report Product", shown inside the
+// product window (these used to be the browser's plain alert boxes)
+const detailMessage = ref(null) // { type: 'error' | 'success', text }
+const detailBusy = ref(false)
 
 const loading = ref(false)
 const errorMessage = ref('')
@@ -841,6 +856,7 @@ async function fetchProducts() {
 function openModal(product) {
   selectedProduct.value = product
   inspectionDate.value = product.inspection_date || ''
+  detailMessage.value = null
 }
 
 function startDrag(product) {
@@ -1088,15 +1104,25 @@ async function saveEdit() {
 }
 
 async function setInspectionDate() {
-  if (!selectedProduct.value || !inspectionDate.value) return
+  if (!selectedProduct.value || detailBusy.value) return
+
+  if (!inspectionDate.value) {
+    detailMessage.value = { type: 'error', text: 'Choose a date first.' }
+    return
+  }
+
+  detailBusy.value = true
+  detailMessage.value = null
 
   const { error } = await supabase.rpc('set_inspection_date', {
     p_product_id: selectedProduct.value.id,
     p_date: inspectionDate.value,
   })
 
+  detailBusy.value = false
+
   if (error) {
-    alert(error.message)
+    detailMessage.value = { type: 'error', text: error.message }
     return
   }
 
@@ -1106,19 +1132,24 @@ async function setInspectionDate() {
 }
 
 async function reportProduct() {
-  if (!selectedProduct.value) return
+  if (!selectedProduct.value || detailBusy.value) return
+
+  detailBusy.value = true
+  detailMessage.value = null
 
   const { error } = await supabase.rpc('report_product_for_checking', {
     p_product_id: selectedProduct.value.id,
   })
 
+  detailBusy.value = false
+
   // it used to say "sent" even when it failed
   if (error) {
-    alert(error.message)
+    detailMessage.value = { type: 'error', text: error.message }
     return
   }
 
-  alert('Product report sent.')
+  detailMessage.value = { type: 'success', text: 'Product report sent.' }
 }
 
 onMounted(fetchProducts)
