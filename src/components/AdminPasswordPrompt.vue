@@ -12,6 +12,8 @@ const props = defineProps({
   busy: { type: Boolean, default: false },
   textLabel: { type: String, default: '' },
   textValue: { type: String, default: '' },
+  // 'email' for a new email address (phone keyboards show @)
+  textType: { type: String, default: 'text' },
 })
 const emit = defineEmits(['confirm', 'cancel'])
 
@@ -73,8 +75,9 @@ function submit() {
       <template v-if="textLabel">
         <label class="ap-label" for="ap-text">{{ textLabel }}</label>
         <div class="ap-field">
-          <input id="ap-text" ref="textInput" v-model="text" type="text"
-                 maxlength="80" autocomplete="off" />
+          <input id="ap-text" ref="textInput" v-model="text" :type="textType"
+                 :maxlength="textType === 'email' ? 254 : 80" autocomplete="off"
+                 autocapitalize="off" spellcheck="false" />
         </div>
       </template>
 

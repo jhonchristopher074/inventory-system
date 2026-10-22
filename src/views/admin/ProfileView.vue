@@ -213,6 +213,10 @@
             Rename
           </button>
 
+          <button class="menu-item" role="menuitem" @click="runMenu('email')">
+            Change email
+          </button>
+
           <template v-if="menu.user.role === 'admin'">
             <button class="menu-item" role="menuitem" @click="runMenu('own-password')">
               Change my password
@@ -249,6 +253,7 @@
       :confirm-label="prompt.confirmLabel"
       :text-label="prompt.textLabel"
       :text-value="prompt.textValue"
+      :text-type="prompt.textType"
       :error="promptError"
       :busy="promptBusy"
       @confirm="confirmPrompt"
@@ -370,7 +375,7 @@ function toggleMenu(user, event) {
   }
 
   const rect = event.currentTarget.getBoundingClientRect()
-  const menuHeight = user.role === 'admin' ? 84 : 132
+  const menuHeight = user.role === 'admin' ? 120 : 168
   const openUp = rect.bottom + menuHeight + 8 > window.innerHeight
 
   menu.value = {
@@ -399,6 +404,7 @@ function runMenu(action) {
 
   if (action === 'own-password') showOwnPassword.value = true
   else if (action === 'rename') onRename(user)
+  else if (action === 'email') onChangeEmail(user)
   else if (action === 'reset') onReset(user)
   else if (action === 'toggle') onToggle(user)
 }
@@ -496,6 +502,31 @@ function onRename(user) {
       await adminAction(supabase, 'rename', {
         user_id: user.id,
         full_name: newName,
+        admin_password: adminPassword,
+      })
+      await fetchUsers()
+    },
+  })
+}
+
+// Only the owner can change emails. The new email is their login from now
+// on (the old one stops working); the password stays the same.
+function onChangeEmail(user) {
+  ask({
+    title: 'Change email',
+    message: `New email for ${user.full_name}. They log in with it from now on (same password). Enter your password to confirm.`,
+    confirmLabel: 'Change email',
+    textLabel: 'New email',
+    textValue: user.email || '',
+    textType: 'email',
+    run: async (adminPassword, newEmail) => {
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmail)) {
+        throw new Error('Enter a valid email address.')
+      }
+
+      await adminAction(supabase, 'change_email', {
+        user_id: user.id,
+        email: newEmail,
         admin_password: adminPassword,
       })
       await fetchUsers()
