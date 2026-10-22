@@ -23,97 +23,21 @@
       </button>
     </div>
 
-    <p v-if="loading" class="text-sm text-zinc-400">Loading...</p>
+    <p v-if="loading && activeTab === 'delivery'" class="text-sm text-zinc-400">Loading...</p>
 
     <p v-if="errorMessage" class="mb-4 rounded-xl bg-red-600/20 p-4 text-red-400">
       {{ errorMessage }}
     </p>
 
-    <!-- INSPECTION -->
-    <div v-if="activeTab === 'inspection'" class="space-y-5">
-      <div
-        v-if="!loading && groupedInspectionDates.length === 0"
-        class="rounded-[24px] border border-white/10 bg-zinc-900 p-5 text-zinc-400"
-      >
-        No inspection schedules.
-      </div>
-
-      <div
-        v-for="group in groupedInspectionDates"
-        :key="group.date"
-        class="rounded-[24px] border border-white/10 bg-zinc-900 p-5"
-      >
-        <div class="mb-4">
-          <h2 class="text-2xl font-bold text-white">
-            {{ formatDate(group.date) }}
-          </h2>
-          <p class="text-sm text-zinc-400">
-            {{ group.items.length }} product(s)
-          </p>
-        </div>
-
-        <div class="grid grid-cols-1 gap-5 sm:grid-cols-[repeat(auto-fill,220px)]">
-          <div
-            v-for="item in group.items"
-            :key="item.id"
-            class="flex min-h-[390px] flex-col justify-between rounded-[22px] border border-white/10 bg-black p-4 shadow-xl"
-            :class="isOverdue(item) ? 'border-red-500/70 bg-red-950/30 shadow-red-500/20' : ''"
-          >
-            <div>
-              <h3 class="text-xl font-bold text-white">{{ item.name }}</h3>
-              <p class="mt-2 text-sm text-red-400">{{ item.category || 'Uncategorized' }}</p>
-              <p class="mt-2 text-sm text-zinc-300">Qty: {{ inspectionQty(item) }}</p>
-              <p class="mt-2 text-sm text-zinc-300">
-                Admin Approved: {{ adminApprovedQty(item) }} / {{ inspectionQty(item) }}
-              </p>
-              <p class="mt-1 text-sm text-lime-400">Saved: {{ savedQty(item) }}</p>
-              <p class="mt-1 text-sm text-yellow-400">Submitted: {{ submittedQty(item) }}</p>
-              <p class="mt-1 text-sm font-bold text-yellow-400">Remaining: {{ remainingInspectable(item) }}</p>
-
-              <div class="mt-3">
-                <div class="mb-1 flex justify-between text-xs">
-                  <span class="text-zinc-400">Inspection Progress</span>
-                  <span class="font-bold text-white">{{ totalProgressPercent(item) }}%</span>
-                </div>
-                <div class="flex h-2 w-full overflow-hidden rounded-full bg-zinc-800">
-                  <div class="h-full bg-red-600 transition-all" :style="{ width: approvedPercentByProduct(item) + '%' }"></div>
-                  <div class="h-full bg-lime-400 transition-all" :style="{ width: savedPercentByProduct(item) + '%' }"></div>
-                  <div class="h-full bg-yellow-400 transition-all" :style="{ width: submittedPercentByProduct(item) + '%' }"></div>
-                </div>
-                <div class="mt-2 flex flex-wrap gap-2 text-[10px]">
-                  <span class="text-red-400">Red: Approved</span>
-                  <span class="text-lime-400">Green: Saved</span>
-                  <span class="text-yellow-400">Yellow: Submitted</span>
-                </div>
-              </div>
-
-              <span
-                v-if="isOverdue(item)"
-                class="mt-3 inline-block rounded-full bg-red-600/20 px-3 py-1 text-xs font-bold text-red-400"
-              >
-                Overdue / Unfinished
-              </span>
-
-              <div class="mt-3 flex flex-wrap gap-2">
-                <span class="rounded-full bg-emerald-600/20 px-3 py-1 text-xs font-bold text-emerald-400">
-                  Approved: {{ item.approved_count || 0 }}
-                </span>
-                <span class="rounded-full bg-red-600/20 px-3 py-1 text-xs font-bold text-red-400">
-                  Return: {{ item.return_count || 0 }}
-                </span>
-              </div>
-            </div>
-
-            <button
-              class="mt-4 w-full rounded-xl bg-red-600 py-2 text-sm font-bold text-white hover:bg-red-700"
-              @click="openPanel(item)"
-            >
-              Open Product
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
+    <!-- INSPECTION: one table row per product; Inspect opens the form below -->
+    <InspectionTable
+      v-if="activeTab === 'inspection'"
+      :rows="inspectionRows"
+      :loading="loading"
+      action-label="Inspect"
+      storage-key="staffInspections"
+      @open="openPanel"
+    />
 
     <!-- DELIVERY -->
     <div v-if="activeTab === 'delivery'">
@@ -439,6 +363,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { supabase } from '../../lib/supabase'
 import PageHeader from '../../components/PageHeader.vue'
+import InspectionTable from '../../components/InspectionTable.vue'
 
 const activeTab = ref('inspection')
 
@@ -459,21 +384,24 @@ const editingApprovalId = ref(null)
 const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}')
 const currentStaffName = currentUser.full_name || currentUser.email || 'Staff'
 
-const groupedInspectionDates = computed(() => {
-  const grouped = {}
-
-  inspections.value.forEach(product => {
-    if (!product.inspection_date) return
-    if (!grouped[product.inspection_date]) {
-      grouped[product.inspection_date] = []
-    }
-    grouped[product.inspection_date].push(product)
-  })
-
-  return Object.keys(grouped)
-    .sort((a, b) => new Date(a) - new Date(b))
-    .map(date => ({ date, items: grouped[date] }))
-})
+// One row of the inspection table per product to inspect (see InspectionTable)
+const inspectionRows = computed(() =>
+  inspections.value.map(item => ({
+    item,
+    date: item.inspection_date,
+    qty: inspectionQty(item),
+    approved: adminApprovedQty(item),
+    approvedPct: approvedPercentByProduct(item),
+    savedPct: savedPercentByProduct(item),
+    submittedPct: submittedPercentByProduct(item),
+    totalPct: totalProgressPercent(item),
+    remaining: remainingInspectable(item),
+    started: adminApprovedQty(item) + savedQty(item) + submittedQty(item) > 0,
+    overdue: isOverdue(item),
+    waiting: productApprovals(item, 'submitted').length,
+    mine: productApprovals(item, 'saved').some(isMyApproval),
+  }))
+)
 
 const selectedProductSavedList = computed(() => {
   if (!selectedProduct.value) return []

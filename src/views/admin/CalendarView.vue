@@ -2,9 +2,9 @@
   <div>
     <PageHeader title="Calendar" subtitle="Products scheduled for inspection and delivery." />
 
-    <div class="mb-5 flex gap-3 rounded-[20px] border border-white/10 bg-zinc-900 p-2">
+    <div class="mb-5 flex flex-wrap gap-3 rounded-[20px] border border-white/10 bg-zinc-900 p-2">
       <button
-        class="rounded-2xl px-5 py-3 font-bold transition"
+        class="rounded-2xl px-4 py-3 font-bold transition sm:px-5"
         :class="activeTab === 'inspection' ? 'bg-red-600 text-white' : 'text-zinc-400 hover:bg-zinc-800 hover:text-white'"
         @click="activeTab = 'inspection'"
       >
@@ -12,130 +12,36 @@
       </button>
 
       <button
-        class="rounded-2xl px-5 py-3 font-bold transition"
+        class="rounded-2xl px-4 py-3 font-bold transition sm:px-5"
         :class="activeTab === 'delivery' ? 'bg-red-600 text-white' : 'text-zinc-400 hover:bg-zinc-800 hover:text-white'"
         @click="activeTab = 'delivery'"
       >
         Delivery
       </button>
+
+      <!-- here, not floating over the page: a floating button covered
+           the buttons of the table rows under it -->
+      <button
+        class="ml-auto rounded-2xl border border-red-500/40 bg-red-600/15 px-4 py-3 font-bold text-red-200 transition hover:bg-red-600 hover:text-white"
+        title="Add an inspection or delivery schedule"
+        @click="openAddModal"
+      >
+        + Add<span class="hidden sm:inline"> Schedule</span>
+      </button>
     </div>
 
-    <p v-if="loading" class="text-sm text-zinc-400">Loading...</p>
+    <p v-if="loading && activeTab === 'delivery'" class="text-sm text-zinc-400">Loading...</p>
     <p v-if="errorMessage" class="mb-4 rounded-xl bg-red-600/20 p-4 text-red-400">{{ errorMessage }}</p>
 
-    <!-- INSPECTION -->
-    <div v-if="activeTab === 'inspection'">
-      <div
-        v-if="!loading && groupedInspectionDates.length === 0"
-        class="rounded-[24px] border border-white/10 bg-zinc-900 p-5 text-zinc-400"
-      >
-        No inspection schedules.
-      </div>
-
-      <div v-else class="space-y-5">
-        <div
-          v-for="group in groupedInspectionDates"
-          :key="group.date"
-          class="rounded-[24px] border border-white/10 bg-zinc-900 p-5"
-        >
-          <div class="mb-4">
-            <h2 class="text-2xl font-bold text-white">{{ formatDate(group.date) }}</h2>
-            <p class="text-sm text-zinc-400">{{ group.items.length }} product(s)</p>
-          </div>
-
-          <div class="grid grid-cols-1 gap-5 sm:grid-cols-[repeat(auto-fill,220px)]">
-            <div
-              v-for="item in group.items"
-              :key="item.id"
-              class="flex min-h-[380px] flex-col justify-between rounded-[22px] border border-white/10 bg-black p-4 shadow-xl"
-              :class="isOverdue(item) ? 'border-red-500/70 bg-red-950/30 shadow-red-500/20' : ''"
-            >
-              <div>
-                <h3 class="text-xl font-bold text-white">{{ item.name }}</h3>
-
-                <p class="mt-2 text-sm text-red-400">
-                  {{ item.category || 'Uncategorized' }}
-                </p>
-
-                <p class="mt-2 text-sm text-zinc-300">
-                  Qty: {{ inspectionQty(item) }}
-                </p>
-
-                <p class="mt-2 text-sm text-zinc-300">
-                  Admin Approved: {{ adminApprovedQty(item) }} / {{ inspectionQty(item) }}
-                </p>
-
-                <p class="mt-1 text-sm text-lime-400">
-                  Saved: {{ savedQty(item) }}
-                </p>
-
-                <p class="mt-1 text-sm text-yellow-400">
-                  Submitted: {{ submittedQty(item) }}
-                </p>
-
-                <p class="mt-1 text-sm font-bold text-yellow-400">
-                  Remaining: {{ remainingItems(item) }}
-                </p>
-
-                <div class="mt-3">
-                  <div class="mb-1 flex justify-between text-xs">
-                    <span class="text-zinc-400">Inspection Progress</span>
-                    <span class="font-bold text-white">{{ totalProgressPercent(item) }}%</span>
-                  </div>
-
-                  <div class="flex h-2 w-full overflow-hidden rounded-full bg-zinc-800">
-                    <div
-                      class="h-full bg-red-600 transition-all"
-                      :style="{ width: approvedPercentByProduct(item) + '%' }"
-                    ></div>
-
-                    <div
-                      class="h-full bg-lime-400 transition-all"
-                      :style="{ width: savedPercentByProduct(item) + '%' }"
-                    ></div>
-
-                    <div
-                      class="h-full bg-yellow-400 transition-all"
-                      :style="{ width: submittedPercentByProduct(item) + '%' }"
-                    ></div>
-                  </div>
-
-                  <div class="mt-2 flex flex-wrap gap-2 text-[10px]">
-                    <span class="text-red-400">Red: Approved</span>
-                    <span class="text-lime-400">Green: Saved</span>
-                    <span class="text-yellow-400">Yellow: Submitted</span>
-                  </div>
-                </div>
-
-                <span
-                  v-if="isOverdue(item)"
-                  class="mt-3 inline-block rounded-full bg-red-600/20 px-3 py-1 text-xs font-bold text-red-400"
-                >
-                  Overdue / Unfinished
-                </span>
-
-                <div class="mt-3 flex flex-wrap gap-2">
-                  <span class="rounded-full bg-emerald-600/20 px-3 py-1 text-xs font-bold text-emerald-400">
-                    Approved: {{ item.approved_count || 0 }}
-                  </span>
-
-                  <span class="rounded-full bg-red-600/20 px-3 py-1 text-xs font-bold text-red-400">
-                    Return: {{ item.return_count || 0 }}
-                  </span>
-                </div>
-              </div>
-
-              <button
-                class="mt-4 w-full rounded-xl bg-red-600 py-2 text-sm font-bold text-white hover:bg-red-700"
-                @click="openPanel(item)"
-              >
-                Open Product
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
+    <!-- INSPECTION: one table row per product; Details opens the small window below -->
+    <InspectionTable
+      v-if="activeTab === 'inspection'"
+      :rows="inspectionRows"
+      :loading="loading"
+      action-label="Details"
+      storage-key="inspections"
+      @open="openPanel"
+    />
 
     <!-- DELIVERY -->
     <div v-if="activeTab === 'delivery'">
@@ -175,14 +81,6 @@
         </div>
       </div>
     </div>
-
-    <!-- PLUS BUTTON -->
-    <button
-      class="fixed bottom-10 right-10 z-40 flex h-14 w-14 items-center justify-center rounded-2xl bg-red-600 text-3xl font-extrabold text-white shadow-[0_0_25px_rgba(239,68,68,0.45)] transition hover:scale-105 hover:bg-red-700"
-      @click="openAddModal"
-    >
-      +
-    </button>
 
     <!-- ADD SCHEDULE MODAL -->
     <div
@@ -325,119 +223,98 @@
       </div>
     </div>
 
-    <!-- INSPECTION PANEL -->
+    <!-- INSPECTION DETAILS: only what the table row doesn't show
+         (who submitted or saved how much) -->
     <div
       v-if="selectedProduct"
       class="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4"
       @click.self="closePanel"
+      @keydown.esc="closePanel"
     >
-      <div class="max-h-[92vh] w-full max-w-sm overflow-y-auto rounded-2xl border border-white/10 bg-zinc-900 p-5">
-        <h2 class="mb-3 text-xl font-bold text-white">Product Inspection</h2>
-
-        <p class="text-sm text-zinc-300">
-          <b>Product:</b> {{ selectedProduct.name }}
-        </p>
-
-        <p class="text-sm text-zinc-300">
-          <b>Category:</b> {{ selectedProduct.category }}
-        </p>
-
-        <p class="text-sm text-zinc-300">
-          <b>Quantity:</b> {{ inspectionQty(selectedProduct) }}
-        </p>
-
-        <p class="text-sm text-zinc-300">
-          <b>Admin Approved:</b> {{ adminApprovedQty(selectedProduct) }}
-        </p>
-
-        <p class="text-sm text-lime-400">
-          <b>Saved:</b> {{ savedQty(selectedProduct) }}
-        </p>
-
-        <p class="text-sm text-yellow-400">
-          <b>Submitted:</b> {{ submittedQty(selectedProduct) }}
-        </p>
-
-        <p class="mb-4 text-sm font-bold text-yellow-400">
-          <b>Remaining:</b> {{ remainingItems(selectedProduct) }}
-        </p>
-
-        <div class="mb-3 rounded-xl border border-white/10 bg-black p-3">
-          <div class="mb-1 flex items-center justify-between">
-            <span class="text-xs text-zinc-400">Inspection Progress</span>
-            <span class="text-xs font-bold text-white">
-              {{ totalProgressPercent(selectedProduct) }}%
-            </span>
+      <div
+        class="max-h-[92vh] w-full max-w-md overflow-y-auto rounded-2xl border border-white/10 bg-zinc-900 p-5"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="inspection-title"
+      >
+        <div class="mb-4 flex items-start justify-between gap-3">
+          <div class="min-w-0">
+            <h2 id="inspection-title" class="text-xl font-bold text-white">
+              {{ selectedProduct.name }}
+            </h2>
+            <p class="text-sm text-zinc-400">
+              Inspection {{ formatDate(selectedProduct.inspection_date) }} ·
+              batch of {{ inspectionQty(selectedProduct) }}
+            </p>
           </div>
 
-          <div class="flex h-2 w-full overflow-hidden rounded-full bg-zinc-800">
-            <div
-              class="h-full bg-red-600"
-              :style="{ width: approvedPercentByProduct(selectedProduct) + '%' }"
-            ></div>
-
-            <div
-              class="h-full bg-lime-400"
-              :style="{ width: savedPercentByProduct(selectedProduct) + '%' }"
-            ></div>
-
-            <div
-              class="h-full bg-yellow-400"
-              :style="{ width: submittedPercentByProduct(selectedProduct) + '%' }"
-            ></div>
-          </div>
-
-          <div class="mt-2 flex flex-wrap gap-2 text-[10px]">
-            <span class="text-red-400">Red: Approved</span>
-            <span class="text-lime-400">Green: Saved</span>
-            <span class="text-yellow-400">Yellow: Submitted</span>
-          </div>
+          <button
+            ref="panelClose"
+            type="button"
+            class="shrink-0 rounded-full bg-zinc-800 px-3 py-1 text-white hover:bg-zinc-700"
+            aria-label="Close"
+            @click="closePanel"
+          >
+            ✕
+          </button>
         </div>
 
-        <div
-          v-if="selectedProductSubmittedList.length > 0"
-          class="mb-3 rounded-xl border border-yellow-500/20 bg-yellow-500/10 p-3"
-        >
-          <p class="mb-2 text-xs font-bold text-yellow-400">Submitted to Admin</p>
+        <!-- approved by the admin so far -->
+        <div class="mb-4 flex flex-wrap gap-2 text-xs font-bold">
+          <span class="rounded-full bg-emerald-600/20 px-3 py-1 text-emerald-400">
+            Approved: {{ selectedProduct.approved_count || 0 }}
+          </span>
+          <span class="rounded-full bg-red-600/20 px-3 py-1 text-red-400">
+            Return: {{ selectedProduct.return_count || 0 }}
+          </span>
+        </div>
 
-          <div
+        <h3 class="mb-2 text-xs font-bold uppercase tracking-wider text-yellow-400">
+          Waiting for your approval ({{ selectedProductSubmittedList.length }})
+        </h3>
+
+        <ul v-if="selectedProductSubmittedList.length > 0" class="mb-4 space-y-1.5">
+          <li
             v-for="approval in selectedProductSubmittedList"
             :key="approval.id"
-            class="mb-2 rounded-lg bg-black p-2 text-xs text-white"
+            class="flex items-center justify-between gap-3 rounded-lg bg-black px-3 py-2 text-sm"
           >
-            Approved: {{ approval.approved_qty }} |
-            Return: {{ approval.return_qty }}
-            <span class="text-zinc-400"> • {{ approval.requested_by || 'Staff' }}</span>
-          </div>
-        </div>
+            <span class="min-w-0 truncate text-white">{{ approval.requested_by || 'Staff' }}</span>
+            <span class="shrink-0 text-zinc-300">
+              Approved {{ approval.approved_qty }} · Return {{ approval.return_qty }}
+            </span>
+          </li>
+        </ul>
+        <p v-else class="mb-4 text-sm text-zinc-500">Nothing to approve.</p>
 
-        <div
-          v-if="selectedProductSavedList.length > 0"
-          class="mb-3 rounded-xl border border-lime-500/20 bg-lime-500/10 p-3"
-        >
-          <p class="mb-2 text-xs font-bold text-lime-400">Saved Not Submitted</p>
+        <h3 class="mb-2 text-xs font-bold uppercase tracking-wider text-lime-400">
+          Saved by staff, not submitted yet ({{ selectedProductSavedList.length }})
+        </h3>
 
-          <div
+        <ul v-if="selectedProductSavedList.length > 0" class="mb-5 space-y-1.5">
+          <li
             v-for="approval in selectedProductSavedList"
             :key="approval.id"
-            class="mb-2 rounded-lg bg-black p-2 text-xs text-white"
+            class="flex items-center justify-between gap-3 rounded-lg bg-black px-3 py-2 text-sm"
           >
-            Approved: {{ approval.approved_qty }} |
-            Return: {{ approval.return_qty }}
-            <span class="text-zinc-400"> • {{ approval.requested_by || 'Staff' }}</span>
-          </div>
-        </div>
+            <span class="min-w-0 truncate text-white">{{ approval.requested_by || 'Staff' }}</span>
+            <span class="shrink-0 text-zinc-300">
+              Approved {{ approval.approved_qty }} · Return {{ approval.return_qty }}
+            </span>
+          </li>
+        </ul>
+        <p v-else class="mb-5 text-sm text-zinc-500">None.</p>
 
-        <div class="flex flex-col gap-2">
+        <div class="flex flex-col gap-2 sm:flex-row">
           <button
-            class="w-full rounded-lg bg-yellow-600 py-2 text-sm font-semibold text-white hover:bg-yellow-700"
+            class="flex-1 rounded-xl bg-yellow-600 py-2.5 text-sm font-bold text-white hover:bg-yellow-700"
             @click="$router.push('/approval')"
           >
             Go to Approval Page
           </button>
 
           <button
-            class="w-full rounded-lg bg-zinc-800 py-2 text-sm font-semibold text-white hover:bg-zinc-700"
+            class="flex-1 rounded-xl bg-zinc-800 py-2.5 text-sm font-bold text-white hover:bg-zinc-700"
             @click="closePanel"
           >
             Close
@@ -449,9 +326,10 @@
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { supabase } from '../../lib/supabase'
 import PageHeader from '../../components/PageHeader.vue'
+import InspectionTable from '../../components/InspectionTable.vue'
 
 const activeTab = ref('inspection')
 
@@ -480,26 +358,25 @@ const panelError = ref('')
 const productSearch = ref('')
 const showProductDropdown = ref(false)
 
-const groupedInspectionDates = computed(() => {
-  const grouped = {}
-
-  products.value.forEach(product => {
-    if (!product.inspection_date) return
-
-    if (!grouped[product.inspection_date]) {
-      grouped[product.inspection_date] = []
-    }
-
-    grouped[product.inspection_date].push(product)
-  })
-
-  return Object.keys(grouped)
-    .sort((a, b) => new Date(a) - new Date(b))
-    .map(date => ({
-      date,
-      items: grouped[date],
-    }))
-})
+// One row of the inspection table per scheduled product (see InspectionTable)
+const inspectionRows = computed(() =>
+  products.value.map(item => ({
+    item,
+    date: item.inspection_date,
+    qty: inspectionQty(item),
+    approved: adminApprovedQty(item),
+    approvedPct: approvedPercentByProduct(item),
+    savedPct: savedPercentByProduct(item),
+    submittedPct: submittedPercentByProduct(item),
+    totalPct: totalProgressPercent(item),
+    remaining: remainingItems(item),
+    started: adminApprovedQty(item) + savedQty(item) + submittedQty(item) > 0,
+    overdue: isOverdue(item),
+    waiting: approvals.value.filter(
+      approval => approval.product_id === item.id && approval.status === 'submitted'
+    ).length,
+  }))
+)
 
 const filteredAllProducts = computed(() => {
   const search = productSearch.value.toLowerCase().trim()
@@ -824,9 +701,15 @@ function formatDate(date) {
   })
 }
 
-function openPanel(product) {
+const panelClose = ref(null)
+
+async function openPanel(product) {
   selectedProduct.value = product
   panelError.value = ''
+
+  // focus inside the window, so Esc closes it
+  await nextTick()
+  panelClose.value?.focus()
 }
 
 function closePanel() {
