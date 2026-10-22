@@ -69,13 +69,21 @@
     <!-- CHART + BEST SELLERS of what's shown -->
     <SalesInsights :sales="filteredSales" :range="range" />
 
-    <!-- what the list shows, and download it for Excel -->
-    <div class="mb-3 flex items-center justify-between gap-3">
+    <!-- what the list shows, and download it: a PDF to read or print, CSV for Excel -->
+    <div class="mb-3 flex flex-wrap items-center justify-between gap-3">
       <p class="text-sm text-zinc-400">
         {{ filteredSales.length }} sale{{ filteredSales.length === 1 ? '' : 's' }}
       </p>
 
-      <div class="flex gap-2">
+      <div class="flex flex-wrap gap-2">
+        <button
+          class="rounded-xl bg-red-600 px-4 py-2 text-sm font-bold text-white transition hover:bg-red-700 disabled:opacity-50"
+          :disabled="filteredSales.length === 0 || pdfBusy"
+          title="A table of the sales shown, easy to read and print"
+          @click="exportPdf"
+        >
+          {{ pdfBusy ? 'Making PDF…' : '⬇ PDF' }}
+        </button>
         <button
           class="rounded-xl border border-white/10 bg-zinc-900 px-4 py-2 text-sm font-bold text-white transition hover:bg-zinc-800 disabled:opacity-50"
           :disabled="filteredSales.length === 0"
@@ -94,6 +102,10 @@
         </button>
       </div>
     </div>
+
+    <p v-if="pdfError" class="mb-3 rounded-xl bg-red-600/20 p-3 text-sm text-red-400" role="alert">
+      {{ pdfError }}
+    </p>
 
     <!-- TABLE -->
     <div class="overflow-hidden rounded-[24px] border border-white/10 bg-zinc-900">
@@ -280,6 +292,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { supabase } from '../../lib/supabase'
 import { printElement } from '../../lib/printReceipt'
 import { useShowMore } from '../../lib/useShowMore'
+import { downloadSalesPdf } from '../../lib/salesPdf'
 import SalesPeriodFilter from '../../components/SalesPeriodFilter.vue'
 import SalesInsights from '../../components/SalesInsights.vue'
 
@@ -431,6 +444,44 @@ function exportCsv(kind) {
   link.click()
   link.remove()
   URL.revokeObjectURL(url)
+}
+
+// Downloads the sales shown (date filter + cashier) as a PDF with a table,
+// easy to read and print (see lib/salesPdf.js).
+const pdfBusy = ref(false)
+const pdfError = ref('')
+
+// whose sales are shown, for the PDF's heading and file name ('' = everyone)
+function cashiersShown() {
+  if (selectedCashier.value) return selectedCashier.value.name
+  if (!cashierSearch.value.trim()) return ''
+
+  const names = [...new Set(filteredSales.value.map(cashierName))]
+  return names.length <= 3
+    ? names.join(', ')
+    : `${names.slice(0, 3).join(', ')} and ${names.length - 3} more`
+}
+
+async function exportPdf() {
+  if (pdfBusy.value || filteredSales.value.length === 0) return
+
+  pdfBusy.value = true
+  pdfError.value = ''
+
+  try {
+    await downloadSalesPdf({
+      sales: filteredSales.value,
+      range: range.value,
+      who: cashiersShown(),
+      cashierOf: cashierName,
+    })
+  } catch (err) {
+    // e.g. no connection, or the site was updated since this page opened
+    console.error(err)
+    pdfError.value = "Couldn't make the PDF. Reload the page and try again."
+  } finally {
+    pdfBusy.value = false
+  }
 }
 
 async function fetchSales() {
