@@ -204,7 +204,7 @@
           <div class="text-sm">
             <p><strong>Sale No:</strong> #{{ receipt.id }}</p>
             <p><strong>Date:</strong> {{ formatDate(receipt.created_at) }}</p>
-            <p><strong>Cashier:</strong> {{ cashierEmail }}</p>
+            <p><strong>Cashier:</strong> {{ receiptCashier }}</p>
           </div>
 
           <div class="my-4 border-t border-dashed border-black"></div>
@@ -284,6 +284,14 @@ const cartCount = computed(() =>
   cart.value.reduce((count, item) => count + Number(item.cartQty || 0), 0)
 )
 const cashierEmail = ref('')
+
+// The seller's name on the receipt, as the sale saved it (the account's
+// name; the sale falls back to the email when no name is set, so then
+// just "Admin").
+const receiptCashier = computed(() => {
+  const name = String(receipt.value?.cashier_name || '').trim()
+  return name && !name.includes('@') ? name : 'Admin'
+})
 
 const filteredProducts = computed(() => {
   const search = searchQuery.value.toLowerCase().trim()
