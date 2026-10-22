@@ -78,7 +78,9 @@
           aria-labelledby="logout-title"
           aria-describedby="logout-text"
         >
-          <h2 id="logout-title" class="text-xl font-bold text-white">Log out?</h2>
+          <h2 id="logout-title" class="text-xl font-bold text-white">
+            Are you sure you want to log out?
+          </h2>
 
           <p id="logout-text" class="mt-2 text-sm leading-relaxed text-zinc-400">
             You will need your email and password to log in again.
@@ -324,7 +326,7 @@ const NAV = {
 const navGroups = computed(() => NAV[role.value] || [])
 
 /* ------------------------------------------------------------------
-   Session: Logout asks "Log out?" first
+   Session: Logout asks "Are you sure you want to log out?" first
 ------------------------------------------------------------------ */
 const confirmingLogout = ref(false)
 const loggingOut = ref(false)
