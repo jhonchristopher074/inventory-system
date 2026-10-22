@@ -38,7 +38,7 @@
         <div class="flex items-start gap-4">
           <img
             v-if="isImage(upload.file_name)"
-            :src="upload.file_url"
+            :src="fileUrl(upload)"
             :alt="upload.file_name"
             class="h-20 w-20 flex-shrink-0 rounded-xl object-cover"
           />
@@ -51,7 +51,7 @@
 
           <div class="min-w-0 flex-1">
             <a
-              :href="upload.file_url"
+              :href="fileUrl(upload)"
               target="_blank"
               rel="noopener"
               class="block truncate text-lg font-bold text-white hover:text-red-400"
@@ -275,7 +275,7 @@
         >
           <div class="min-w-0">
             <a
-              :href="upload.file_url"
+              :href="fileUrl(upload)"
               target="_blank"
               rel="noopener"
               class="block truncate font-bold text-white hover:text-red-400"
@@ -364,14 +364,16 @@
 
         <div class="mt-5 flex gap-3">
           <button
-            class="rounded-2xl bg-emerald-600 px-6 py-3 font-bold text-white hover:bg-emerald-700"
+            class="rounded-2xl bg-emerald-600 px-6 py-3 font-bold text-white hover:bg-emerald-700 disabled:opacity-50"
+            :disabled="decidingIds.has(approval.id)"
             @click="approveInspection(approval)"
           >
-            Approve
+            {{ decidingIds.has(approval.id) ? 'Working...' : 'Approve' }}
           </button>
 
           <button
-            class="rounded-2xl bg-red-600 px-6 py-3 font-bold text-white hover:bg-red-700"
+            class="rounded-2xl bg-red-600 px-6 py-3 font-bold text-white hover:bg-red-700 disabled:opacity-50"
+            :disabled="decidingIds.has(approval.id)"
             @click="rejectInspection(approval)"
           >
             Reject
@@ -409,7 +411,7 @@
               @click="openZoom"
             >
               <img
-                :src="review.upload.file_url"
+                :src="fileUrl(review.upload)"
                 :alt="review.upload.file_name"
                 class="max-h-[40vh] w-full object-contain"
               />
@@ -420,12 +422,12 @@
 
             <div v-else class="overflow-hidden rounded-xl bg-black">
               <iframe
-                :src="review.upload.file_url"
+                :src="fileUrl(review.upload)"
                 class="h-[40vh] w-full"
                 title="Receipt preview"
               ></iframe>
               <a
-                :href="review.upload.file_url"
+                :href="fileUrl(review.upload)"
                 target="_blank"
                 rel="noopener"
                 class="block py-2 text-center text-sm font-bold text-red-400 hover:underline"
@@ -544,7 +546,7 @@
         <!-- scroll to move around while zoomed in; click the picture to zoom in / out -->
         <div class="flex-1 overflow-auto p-2">
           <img
-            :src="review.upload.file_url"
+            :src="fileUrl(review.upload)"
             :alt="review.upload.file_name"
             class="mx-auto block max-w-none cursor-zoom-in select-none"
             :class="zoom > 1 ? 'cursor-zoom-out' : ''"
@@ -696,41 +698,46 @@ async function fetchApprovals() {
   loading.value = false
 }
 
-async function approveInspection(approval) {
+// Inspections being approved / rejected right now: their buttons are
+// greyed out, so a double tap can't send the decision twice (the second
+// one used to show 'already reviewed' after the first had worked).
+const decidingIds = ref(new Set())
+
+async function decideInspection(approval, rpc, params, doneText) {
+  if (decidingIds.value.has(approval.id)) return
+
   errorMessage.value = ''
   successMessage.value = ''
+  decidingIds.value.add(approval.id)
 
-  const { error } = await supabase.rpc('approve_inspection', {
-    p_approval_id: approval.id,
-    p_approved_qty: Number(approval.approved_qty || 0),
-    p_return_qty: Number(approval.return_qty || 0),
-  })
+  const { error } = await supabase.rpc(rpc, params)
 
   if (error) {
+    decidingIds.value.delete(approval.id)
     // e.g. "Approved + Return cannot exceed product quantity"
     errorMessage.value = error.message
     return
   }
 
-  successMessage.value = 'Inspection approved successfully.'
+  // refresh first: fetchApprovals clears the messages when it starts, so
+  // a message set before it used to vanish straight away
   await fetchApprovals()
+  decidingIds.value.delete(approval.id)
+  successMessage.value = doneText
 }
 
-async function rejectInspection(approval) {
-  errorMessage.value = ''
-  successMessage.value = ''
-
-  const { error } = await supabase.rpc('reject_inspection', {
+function approveInspection(approval) {
+  return decideInspection(approval, 'approve_inspection', {
     p_approval_id: approval.id,
-  })
+    p_approved_qty: Number(approval.approved_qty || 0),
+    p_return_qty: Number(approval.return_qty || 0),
+  }, 'Inspection approved successfully.')
+}
 
-  if (error) {
-    errorMessage.value = error.message
-    return
-  }
-
-  successMessage.value = 'Inspection rejected.'
-  await fetchApprovals()
+function rejectInspection(approval) {
+  return decideInspection(approval, 'reject_inspection', {
+    p_approval_id: approval.id,
+  }, 'Inspection rejected.')
 }
 
 /* ------------------------------------------------------------------
@@ -747,6 +754,15 @@ async function rejectInspection(approval) {
    "Approved but not sent" until "Send again" gets it through.
 ------------------------------------------------------------------ */
 const BUCKET = 'supplierReceipt'
+
+// A receipt's link, always built from its place in the receipt storage.
+// The link saved with the upload is never used: a supplier calling the
+// database directly could have saved any website there, and this page
+// opens it (preview, download, approve).
+function fileUrl(upload) {
+  if (!upload?.file_path) return ''
+  return supabase.storage.from(BUCKET).getPublicUrl(upload.file_path).data.publicUrl
+}
 
 // Approved receipts are copied here. Anything that lands in this bucket
 // triggers the n8n workflow (set up as a Database Webhook in Supabase).
@@ -886,8 +902,10 @@ async function fetchSupplierUploads({ silent = false } = {}) {
 }
 
 // Reads a file from storage into memory.
-async function fetchFile(fileUrl) {
-  const response = await fetch(fileUrl)
+async function fetchFile(url) {
+  if (!url) throw new Error('This upload has no file.')
+
+  const response = await fetch(url)
 
   if (!response.ok) {
     throw new Error('Could not download the file.')
@@ -898,8 +916,8 @@ async function fetchFile(fileUrl) {
 
 // Saves the file to this device before it's deleted from storage —
 // once deleted there's no other way to get it back.
-async function downloadToDevice(fileUrl, fileName) {
-  const blob = await fetchFile(fileUrl)
+async function downloadToDevice(url, fileName) {
+  const blob = await fetchFile(url)
   const objectUrl = URL.createObjectURL(blob)
 
   const link = document.createElement('a')
@@ -924,10 +942,11 @@ async function approveSupplierUpload(upload, profitPercent) {
   supplierSuccess.value = ''
   busyIds.value.add(upload.id)
   preparing.value += 1
+  showProcessing()
 
   try {
     // 1. save a copy locally before anything is deleted
-    const blob = await downloadToDevice(upload.file_url, upload.file_name)
+    const blob = await downloadToDevice(fileUrl(upload), upload.file_name)
 
     // 2. mark approved
     const { data: approved, error } = await supabase.rpc('admin_approve_supplier_upload', {
@@ -1055,7 +1074,7 @@ async function sendQueued(item) {
   const { upload, mode } = item
 
   try {
-    const blob = item.blob || (await fetchFile(upload.file_url))
+    const blob = item.blob || (await fetchFile(fileUrl(upload)))
     const { deleteFailed, newlySent } = await forwardReceipt(upload, blob, item.percent)
 
     if (newlySent) startScanning(upload)
@@ -1195,6 +1214,7 @@ async function resendSupplierUpload(upload, profitPercent) {
   busyIds.value.add(upload.id)
 
   enqueueSend({ upload, blob: null, percent: profitPercent, mode: 'send' })
+  showProcessing()
 
   supplierSuccess.value = `"${upload.file_name}" is in line to be sent to the receipt scanner.`
 }
@@ -1412,13 +1432,12 @@ const processingList = computed(() => {
   return list
 })
 
-// show the full screen again whenever another receipt joins
-watch(
-  () => preparing.value + sendQueue.value.length + scanning.value.length,
-  (now, before) => {
-    if (now > before) overlayHidden.value = false
-  }
-)
+// The full-screen view comes back only when the owner adds a receipt
+// (approve / Send again: showProcessing below). Before, it came back on
+// every send of a receipt already in line, after 'Continue in background'.
+function showProcessing() {
+  overlayHidden.value = false
+}
 
 // cost + the percentage chosen for the receipt (null when the cost is unknown;
 // promo items at 0.01 or less keep their price)
