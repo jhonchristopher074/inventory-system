@@ -3,7 +3,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { supabase } from '../lib/supabase'
 
 import LoginView from '../views/auth/LoginView.vue'
-import { isPasswordRecovery } from '../lib/passwordRecovery'
+import { isPasswordRecovery, endPasswordRecovery } from '../lib/passwordRecovery'
 import { getPasswordStatus, EXPIRED_MESSAGE } from '../lib/passwordStatus'
 import { isIdleExpired, markActivity, IDLE_MESSAGE } from '../lib/idleLogout'
 
@@ -118,6 +118,12 @@ router.beforeEach(async (to) => {
 
   markActivity()
 
+  // Came from a "Forgot password?" email: the reset page opens even for an
+  // account that still has a temporary password (finishing the reset
+  // clears it). Before, the rule below sent those accounts away first, so
+  // an employee whose temporary password had expired could never reset it.
+  if (to.path === '/reset-password' && isPasswordRecovery()) return
+
   // Temporary-password rule (applies to every role):
   // expired -> sign out; still temporary -> only the Change password page is allowed.
   const passwordStatus = getPasswordStatus(user)
@@ -187,13 +193,18 @@ router.onError((error, to) => {
   if (isOldFileError(error)) reloadForNewVersion(to.fullPath)
 })
 
-// a page opened fine: allow the next new version to reload again
-router.afterEach(() => {
+router.afterEach((to, from, failure) => {
+  // a page opened fine: allow the next new version to reload again
   try {
     sessionStorage.removeItem(RELOAD_KEY)
   } catch {
     // ignore
   }
+
+  // The reset-password permission is for the reset page only: leaving it
+  // ends it, so it can't be used later in this tab (e.g. by the next
+  // person on a shared computer).
+  if (!failure && to.path !== '/reset-password') endPasswordRecovery()
 })
 
 export default router

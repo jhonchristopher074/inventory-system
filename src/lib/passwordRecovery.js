@@ -1,14 +1,20 @@
 import { supabase } from './supabase'
 
 /**
- * Remembers that the app was opened from a "Forgot password?" email link.
+ * Remembers that the person proved, through the "Forgot password?" email,
+ * that the account is theirs (the link in it, or the 6-digit code).
  *
  * Only then may /reset-password set a new password without asking for the
  * current one. Otherwise anyone at an unattended, logged-in computer could
  * open that page and change the password.
  *
- * Imported first in main.js, so it runs before Supabase reads the link
- * (and removes it from the address bar).
+ * The permission comes only from Supabase's PASSWORD_RECOVERY event, which
+ * it sends after the server has checked the link or code. (Before, any
+ * address ending in #type=recovery switched it on, even typed by hand.)
+ * It ends when the person leaves the reset page (router/index.js) or the
+ * session ends (below), so it can't be used later in the same tab.
+ *
+ * Imported first in main.js, so it listens before Supabase reads the link.
  */
 
 const KEY = 'passwordRecovery'
@@ -28,14 +34,11 @@ function remember() {
   }
 }
 
-// The reset link arrives as ...#access_token=...&type=recovery
-if (typeof window !== 'undefined' && /(^|[#&])type=recovery(&|$)/.test(window.location.hash)) {
-  remember()
-}
-
-// Supabase also announces it once it has read the link.
 supabase.auth.onAuthStateChange((event) => {
   if (event === 'PASSWORD_RECOVERY') remember()
+
+  // logout, auto-logout...: the permission ends with the session
+  if (event === 'SIGNED_OUT') endPasswordRecovery()
 })
 
 export function isPasswordRecovery() {
