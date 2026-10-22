@@ -1,185 +1,146 @@
 <template>
-  <div class="flex flex-col items-start gap-5 md:flex-row">
-    <div class="w-full min-w-0 flex-1">
-      <PageHeader
-        title="Archived Products"
-        subtitle="Products that were moved to the archive."
-      />
+  <div>
+    <PageHeader
+      title="Archived Products"
+      subtitle="Products that were moved to the archive."
+    />
 
-      <div class="mb-5 card p-5">
-        <div class="grid gap-4 md:grid-cols-[1fr_220px]">
-          <input
-            v-model="search"
-            type="text"
-            placeholder="Search product..."
-            class="input"
-          />
+    <div class="mb-5 card p-5">
+      <div class="grid gap-4 md:grid-cols-[1fr_220px]">
+        <input
+          v-model="search"
+          type="text"
+          placeholder="Search product..."
+          class="input"
+        />
 
-          <select v-model="selectedCategory" class="input">
-            <option value="All">All Categories</option>
-            <option
-              v-for="category in categories"
-              :key="category"
-              :value="category"
-            >
-              {{ category }}
-            </option>
-          </select>
-        </div>
-      </div>
-
-      <p v-if="loading" class="text-sm text-zinc-400">Loading products...</p>
-
-      <p
-        v-if="errorMessage"
-        class="mb-4 rounded-xl bg-red-600/20 p-4 text-red-400"
-      >
-        {{ errorMessage }}
-      </p>
-
-      <div
-        v-if="!loading && filteredProducts.length === 0"
-        class="mb-4 card p-5 text-zinc-400"
-      >
-        No archived products.
-      </div>
-
-      <div class="card overflow-hidden">
-        <div class="list-head list-head--staff">
-          <span>Product</span>
-          <span class="text-right">Price</span>
-          <span class="text-right">Stock</span>
-          <span>Inspection</span>
-          <span></span>
-        </div>
-
-        <div
-          v-for="product in visibleProducts"
-          :key="product.id"
-          draggable="true"
-          class="list-row list-row--staff cursor-grab active:cursor-grabbing"
-          :class="draggedProduct?.id === product.id && isDragging ? 'opacity-50' : ''"
-          @dragstart="startDrag(product)"
-          @dragend="endDrag"
-        >
-          <div class="flex min-w-0 items-center gap-3">
-            <img
-              v-if="product.image_url"
-              :src="product.image_url"
-              :alt="product.name"
-              class="list-thumb"
-              draggable="false"
-              loading="lazy"
-            />
-            <span
-              v-else
-              class="list-thumb grid place-items-center text-[0.6rem] text-zinc-500"
-            >
-              No Image
-            </span>
-
-            <div class="min-w-0">
-              <p class="truncate font-bold text-white">{{ product.name }}</p>
-              <p class="truncate text-xs text-red-400">
-                {{ product.category || 'Uncategorized' }}
-              </p>
-            </div>
-          </div>
-
-          <p class="text-right text-sm font-bold text-white">
-            ₱{{ Number(product.price || 0).toLocaleString() }}
-          </p>
-
-          <p class="text-right text-sm font-bold">
-            <span :class="Number(product.quantity || 0) <= 10 ? 'text-red-400' : 'text-white'">
-              {{ product.quantity }}
-            </span>
-            <span
-              v-if="Number(product.quantity || 0) <= 10"
-              class="ml-1 text-[0.6rem] uppercase tracking-wide text-red-400"
-              >low</span
-            >
-          </p>
-
-          <p class="truncate text-xs text-zinc-400">
-            {{ product.inspection_date ? formatDate(product.inspection_date) : 'None' }}
-          </p>
-
-          <div class="row-actions">
-            <button
-              class="desktop-only rounded-lg bg-red-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-red-700"
-              @click="openReportModal(product)"
-            >
-              Report
-            </button>
-
-            <!-- phones: Restore / Report / Delete (drag & drop doesn't work
-                 on touch screens) -->
-            <button
-              class="phone-only rounded-lg bg-red-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-red-700"
-              @click="manageProduct = product"
-            >
-              Manage
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <!-- the next products load as this comes into view -->
-      <div v-if="remaining > 0" ref="listEnd" class="py-5 text-center">
-        <button
-          class="rounded-xl bg-zinc-800 px-5 py-2 text-sm font-bold text-white hover:bg-zinc-700"
-          @click="showMore"
-        >
-          Show more ({{ remaining }} left)
-        </button>
+        <select v-model="selectedCategory" class="input">
+          <option value="All">All Categories</option>
+          <option
+            v-for="category in categories"
+            :key="category"
+            :value="category"
+          >
+            {{ category }}
+          </option>
+        </select>
       </div>
     </div>
 
-    <ActionSheet
-      v-if="manageProduct"
-      :title="manageProduct.name"
-      :subtitle="`Archived · Stock: ${manageProduct.quantity}`"
-      :actions="manageActions"
-      @select="onManageAction"
-      @close="manageProduct = null"
-    />
+    <p
+      v-if="errorMessage"
+      class="mb-4 rounded-xl bg-red-600/20 p-4 text-red-400"
+    >
+      {{ errorMessage }}
+    </p>
 
-    <!-- ACTION BOX (restore / delete by drag & drop; computers only) -->
-    <aside class="archive-box desktop-only w-full md:w-[280px]">
-      <div class="card p-5 shadow-2xl">
-        <h2 class="text-2xl font-bold text-white">Action Box</h2>
-        <p class="mb-4 text-sm text-zinc-400">Drag a product here</p>
+    <!-- ARCHIVED TABLE: 10 or 15 products a page -->
+    <div ref="tableTop" class="card overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="data-table resp-table">
+          <thead>
+            <tr>
+              <th>Product</th>
+              <th>Category</th>
+              <th class="num">Price</th>
+              <th class="num">Stock</th>
+              <th>Inspection</th>
+              <th class="text-right">Actions</th>
+            </tr>
+          </thead>
 
-        <!-- RESTORE ZONE -->
-        <div
-          class="mb-4 flex min-h-[150px] items-center justify-center rounded-[20px] border-2 border-dashed border-emerald-500 bg-emerald-500/10 p-4 text-center transition"
-          :class="dragOverZone === 'restore' ? 'scale-[1.02] bg-emerald-500/20' : ''"
-          @dragover.prevent="dragOverZone = 'restore'"
-          @dragleave="dragOverZone = null"
-          @drop.prevent="openActionModal('restore')"
-        >
-          <div class="pointer-events-none">
-            <strong class="mb-1 block text-xl text-white">↩ Restore</strong>
-            <span class="text-sm text-emerald-200">Move back to Inventory</span>
-          </div>
-        </div>
+          <tbody>
+            <tr v-for="product in visibleProducts" :key="product.id">
+              <td class="cell-main">
+                <div class="flex min-w-0 items-center gap-3">
+                  <img
+                    v-if="product.image_url"
+                    :src="product.image_url"
+                    :alt="product.name"
+                    class="list-thumb"
+                    loading="lazy"
+                  />
+                  <span
+                    v-else
+                    class="list-thumb grid place-items-center text-[0.6rem] text-zinc-500"
+                  >
+                    No Image
+                  </span>
 
-        <!-- DELETE ZONE -->
-        <div
-          class="flex min-h-[150px] items-center justify-center rounded-[20px] border-2 border-dashed border-red-500 bg-red-500/10 p-4 text-center transition"
-          :class="dragOverZone === 'delete' ? 'scale-[1.02] bg-red-500/20' : ''"
-          @dragover.prevent="dragOverZone = 'delete'"
-          @dragleave="dragOverZone = null"
-          @drop.prevent="openActionModal('delete')"
-        >
-          <div class="pointer-events-none">
-            <strong class="mb-1 block text-xl text-white">🗑 Delete</strong>
-            <span class="text-sm text-red-200">Remove product</span>
-          </div>
-        </div>
+                  <p class="min-w-0 font-bold text-white">{{ product.name }}</p>
+                </div>
+              </td>
+
+              <td data-label="Category" class="text-sm text-zinc-400">
+                {{ product.category || 'Uncategorized' }}
+              </td>
+
+              <td data-label="Price" class="num text-sm font-bold text-white">
+                ₱{{ Number(product.price || 0).toLocaleString() }}
+              </td>
+
+              <td data-label="Stock" class="num text-sm font-bold">
+                <!-- one piece, so on phones "low" stays next to the number -->
+                <span :class="Number(product.quantity || 0) <= 10 ? 'text-red-400' : 'text-white'">
+                  {{ product.quantity }}
+                  <span
+                    v-if="Number(product.quantity || 0) <= 10"
+                    class="ml-1 text-[0.6rem] uppercase tracking-wide"
+                    >low</span
+                  >
+                </span>
+              </td>
+
+              <td data-label="Inspection" class="whitespace-nowrap text-xs text-zinc-400">
+                {{ product.inspection_date ? formatDate(product.inspection_date) : 'None' }}
+              </td>
+
+              <td class="cell-actions">
+                <div class="row-actions">
+                  <button
+                    class="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-700"
+                    title="Move back to Inventory"
+                    @click="openActionModal('restore', product)"
+                  >
+                    Restore
+                  </button>
+
+                  <button
+                    class="rounded-lg bg-zinc-800 px-3 py-1.5 text-xs font-bold text-zinc-200 hover:bg-zinc-700"
+                    title="Report a problem with this product"
+                    @click="openReportModal(product)"
+                  >
+                    Report
+                  </button>
+
+                  <button
+                    class="rounded-lg bg-red-600/15 px-3 py-1.5 text-xs font-bold text-red-300 hover:bg-red-600/30 hover:text-white"
+                    title="Remove it from Inventory and Archived"
+                    @click="openActionModal('delete', product)"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </td>
+            </tr>
+
+            <tr v-if="filteredProducts.length === 0">
+              <td colspan="6" class="cell-main p-6 text-center text-zinc-500">
+                {{ loading ? 'Loading products...' : 'No archived products.' }}
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </div>
-    </aside>
+
+      <TablePager
+        v-if="filteredProducts.length > 0"
+        v-model:page="page"
+        v-model:page-size="pageSize"
+        :total="filteredProducts.length"
+        noun="products"
+      />
+    </div>
 
     <!-- RESTORE / DELETE CONFIRM MODAL -->
     <div
@@ -193,7 +154,7 @@
         </h2>
 
         <p class="mb-2 text-sm text-zinc-300">
-          <b>Product:</b> {{ draggedProduct?.name }}
+          <b>Product:</b> {{ actionProduct?.name }}
         </p>
 
         <p v-if="actionType === 'restore'" class="mb-4 text-sm text-zinc-300">
@@ -311,9 +272,9 @@
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue'
 import { supabase } from '../../lib/supabase'
-import { useShowMore } from '../../lib/useShowMore'
+import { usePagination } from '../../lib/usePagination'
 import PageHeader from '../../components/PageHeader.vue'
-import ActionSheet from '../../components/ActionSheet.vue'
+import TablePager from '../../components/TablePager.vue'
 
 const products = ref([])
 const loading = ref(false)
@@ -329,10 +290,8 @@ const modalError = ref('')
 const modalSuccess = ref('')
 const reportSaving = ref(false)
 
-// ----- Drag & drop (restore / delete) -----
-const draggedProduct = ref(null)
-const isDragging = ref(false)
-const dragOverZone = ref(null) // 'restore' | 'delete' | null
+// ----- Restore / Delete buttons (asked to confirm first) -----
+const actionProduct = ref(null)
 const actionType = ref(null) // 'restore' | 'delete' | null
 const actionError = ref('')
 const actionSaving = ref(false)
@@ -395,58 +354,22 @@ const filteredProducts = computed(() => {
   })
 })
 
-// Long lists: 40 rows at a time, more as you scroll (keeps phones fast).
-const {
-  visible: visibleProducts,
-  remaining,
-  sentinel: listEnd,
-  showMore,
-  reset: resetList,
-} = useShowMore(filteredProducts)
+// The table shows 10 or 15 products a page, with page buttons under it.
+const tableTop = ref(null)
 
-// a new search or category starts again at the top
+const {
+  page,
+  pageSize,
+  visible: visibleProducts,
+  reset: resetList,
+} = usePagination(filteredProducts, { storageKey: 'archived', scrollTarget: tableTop })
+
+// a new search or category starts again at page 1
 watch([search, selectedCategory], resetList)
 
-// ----- Phones: the "Manage" menu of a product -----
-// Drag & drop to the Action Box doesn't work on touch screens.
-const manageProduct = ref(null)
-
-const manageActions = [
-  { key: 'restore', label: '↩ Restore to Inventory', tone: 'success' },
-  { key: 'report', label: 'Report a problem' },
-  { key: 'delete', label: '🗑 Delete product', hint: 'It will no longer appear in Inventory or Archived', tone: 'danger' },
-]
-
-function onManageAction(key) {
-  const product = manageProduct.value
-  manageProduct.value = null
-  if (!product) return
-
-  if (key === 'report') {
-    openReportModal(product)
-    return
-  }
-
-  // same confirmation as dropping it on Restore / Delete
-  draggedProduct.value = product
-  openActionModal(key)
-}
-
-function startDrag(product) {
-  draggedProduct.value = product
-  isDragging.value = true
-}
-
-function endDrag() {
-  isDragging.value = false
-  dragOverZone.value = null
-}
-
-function openActionModal(type) {
-  dragOverZone.value = null
-
-  if (!draggedProduct.value) return
-
+// type: 'restore' | 'delete'
+function openActionModal(type, product) {
+  actionProduct.value = product
   actionError.value = ''
   actionType.value = type
 }
@@ -456,11 +379,11 @@ function closeActionModal() {
 
   actionType.value = null
   actionError.value = ''
-  draggedProduct.value = null
+  actionProduct.value = null
 }
 
 async function confirmAction() {
-  if (!draggedProduct.value || !actionType.value) return
+  if (!actionProduct.value || !actionType.value || actionSaving.value) return
 
   actionSaving.value = true
   actionError.value = ''
@@ -468,7 +391,7 @@ async function confirmAction() {
   const rpcName = actionType.value === 'restore' ? 'restore_product' : 'soft_delete_product'
 
   const { error } = await supabase.rpc(rpcName, {
-    p_product_id: draggedProduct.value.id,
+    p_product_id: actionProduct.value.id,
   })
 
   actionSaving.value = false
@@ -479,11 +402,11 @@ async function confirmAction() {
   }
 
   // Remove it from the list right away, then refresh from the database
-  const movedId = draggedProduct.value.id
+  const movedId = actionProduct.value.id
   products.value = products.value.filter(product => product.id !== movedId)
 
   actionType.value = null
-  draggedProduct.value = null
+  actionProduct.value = null
 
   await fetchProducts()
 }

@@ -27,8 +27,6 @@
       </div>
     </div>
 
-    <p v-if="loading" class="text-sm text-zinc-400">Loading products...</p>
-
     <p
       v-if="errorMessage"
       class="mb-4 rounded-xl bg-red-600/20 p-4 text-red-400"
@@ -36,86 +34,95 @@
       {{ errorMessage }}
     </p>
 
-    <div
-      v-if="!loading && filteredProducts.length === 0"
-      class="card p-5 text-zinc-400"
-    >
-      No products found.
-    </div>
+    <!-- PRODUCT TABLE: 10 or 15 products a page -->
+    <div ref="tableTop" class="card overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="data-table resp-table">
+          <thead>
+            <tr>
+              <th>Product</th>
+              <th>Category</th>
+              <th class="num">Price</th>
+              <th class="num">Stock</th>
+              <th>Inspection</th>
+              <th class="text-right">Action</th>
+            </tr>
+          </thead>
 
-    <div class="card overflow-hidden">
-      <div class="list-head list-head--staff">
-        <span>Product</span>
-        <span class="text-right">Price</span>
-        <span class="text-right">Stock</span>
-        <span>Inspection</span>
-        <span></span>
+          <tbody>
+            <tr v-for="product in visibleProducts" :key="product.id">
+              <td class="cell-main">
+                <div class="flex min-w-0 items-center gap-3">
+                  <img
+                    v-if="product.image_url"
+                    :src="product.image_url"
+                    :alt="product.name"
+                    class="list-thumb"
+                    loading="lazy"
+                  />
+                  <span
+                    v-else
+                    class="list-thumb grid place-items-center text-[0.6rem] text-zinc-500"
+                  >
+                    No Image
+                  </span>
+
+                  <p class="min-w-0 font-bold text-white">{{ product.name }}</p>
+                </div>
+              </td>
+
+              <td data-label="Category" class="text-sm text-zinc-400">
+                {{ product.category || 'Uncategorized' }}
+              </td>
+
+              <td data-label="Price" class="num text-sm font-bold text-white">
+                ₱{{ Number(product.price || 0).toLocaleString() }}
+              </td>
+
+              <td data-label="Stock" class="num text-sm font-bold">
+                <!-- one piece, so on phones "low" stays next to the number -->
+                <span :class="Number(product.quantity || 0) <= 10 ? 'text-red-400' : 'text-white'">
+                  {{ product.quantity }}
+                  <span
+                    v-if="Number(product.quantity || 0) <= 10"
+                    class="ml-1 text-[0.6rem] uppercase tracking-wide"
+                    >low</span
+                  >
+                </span>
+              </td>
+
+              <td data-label="Inspection" class="whitespace-nowrap text-xs text-zinc-400">
+                {{ product.inspection_date ? formatDate(product.inspection_date) : 'None' }}
+              </td>
+
+              <td class="cell-actions">
+                <div class="row-actions">
+                  <button
+                    class="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-red-700"
+                    @click="openReportModal(product)"
+                  >
+                    Report
+                  </button>
+                </div>
+              </td>
+            </tr>
+
+            <tr v-if="filteredProducts.length === 0">
+              <td colspan="6" class="cell-main p-6 text-center text-zinc-500">
+                {{ loading ? 'Loading products...' : 'No products found.' }}
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </div>
 
-      <div
-        v-for="product in visibleProducts"
-        :key="product.id"
-        class="list-row list-row--staff"
-      >
-        <div class="flex min-w-0 items-center gap-3">
-          <img
-            v-if="product.image_url"
-            :src="product.image_url"
-            :alt="product.name"
-            class="list-thumb"
-            loading="lazy"
-          />
-          <span
-            v-else
-            class="list-thumb grid place-items-center text-[0.6rem] text-zinc-500"
-          >
-            No Image
-          </span>
-
-          <div class="min-w-0">
-            <p class="truncate font-bold text-white">{{ product.name }}</p>
-            <p class="truncate text-xs text-red-400">
-              {{ product.category || 'Uncategorized' }}
-            </p>
-          </div>
-        </div>
-
-        <p class="text-right text-sm font-bold text-white">
-          ₱{{ Number(product.price || 0).toLocaleString() }}
-        </p>
-
-        <p class="text-right text-sm font-bold">
-          <span :class="Number(product.quantity || 0) <= 10 ? 'text-red-400' : 'text-white'">
-            {{ product.quantity }}
-          </span>
-          <span
-            v-if="Number(product.quantity || 0) <= 10"
-            class="ml-1 text-[0.6rem] uppercase tracking-wide text-red-400"
-            >low</span
-          >
-        </p>
-
-        <p class="truncate text-xs text-zinc-400">
-          {{ product.inspection_date ? formatDate(product.inspection_date) : 'None' }}
-        </p>
-
-        <button
-          class="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-red-700"
-          @click="openReportModal(product)"
-        >
-          Report
-        </button>
-      </div>
-    </div>
-
-    <!-- the next products load as this comes into view -->
-    <div v-if="remaining > 0" ref="listEnd" class="py-5 text-center">
-      <button
-        class="rounded-xl bg-zinc-800 px-5 py-2 text-sm font-bold text-white hover:bg-zinc-700"
-        @click="showMore"
-      >
-        Show more ({{ remaining }} left)
-      </button>
+      <TablePager
+        v-if="filteredProducts.length > 0"
+        v-model:page="page"
+        v-model:page-size="pageSize"
+        :total="filteredProducts.length"
+        noun="products"
+      />
     </div>
 
     <!-- REPORT MODAL -->
@@ -194,8 +201,9 @@
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue'
 import { supabase } from '../../lib/supabase'
-import { useShowMore } from '../../lib/useShowMore'
+import { usePagination } from '../../lib/usePagination'
 import PageHeader from '../../components/PageHeader.vue'
+import TablePager from '../../components/TablePager.vue'
 
 const products = ref([])
 const loading = ref(false)
@@ -262,16 +270,17 @@ const filteredProducts = computed(() => {
   })
 })
 
-// Long lists: 40 rows at a time, more as you scroll (keeps phones fast).
-const {
-  visible: visibleProducts,
-  remaining,
-  sentinel: listEnd,
-  showMore,
-  reset: resetList,
-} = useShowMore(filteredProducts)
+// The table shows 10 or 15 products a page, with page buttons under it.
+const tableTop = ref(null)
 
-// a new search or category starts again at the top
+const {
+  page,
+  pageSize,
+  visible: visibleProducts,
+  reset: resetList,
+} = usePagination(filteredProducts, { storageKey: 'staffInventory', scrollTarget: tableTop })
+
+// a new search or category starts again at page 1
 watch([search, selectedCategory], resetList)
 
 function openReportModal(product) {

@@ -1,7 +1,7 @@
 <script setup>
 // A list of actions for one item: slides up from the bottom on phones,
-// centered on bigger screens. Used on phones instead of drag & drop, which
-// phone browsers don't support.
+// centered on bigger screens. Used when a table row has no room for all of
+// its buttons (phones, narrower windows).
 defineProps({
   title: { type: String, required: true },
   subtitle: { type: String, default: '' },
