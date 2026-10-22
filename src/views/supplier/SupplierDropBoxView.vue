@@ -221,7 +221,12 @@
   // fingerprint is already pending or approved, so the same receipt can't
   // reach the receipt scanner twice (which would add its stock twice).
   async function fileFingerprint(file) {
-    if (!globalThis.crypto?.subtle) return null // very old browser: skip the check
+    // Browsers only offer this on secure (https://) pages. Without it the
+    // duplicate check can't run, so the upload is refused instead of
+    // letting the same receipt in twice (the server also requires it).
+    if (!globalThis.crypto?.subtle) {
+      throw new Error('Please open the site with https:// to upload receipts.')
+    }
 
     const digest = await crypto.subtle.digest('SHA-256', await file.arrayBuffer())
 
@@ -242,9 +247,20 @@
     })
 
     if (error) {
-      // the row wasn't recorded, so don't leave the file behind either
-      await supabase.storage.from(BUCKET).remove([path]).catch(() => {})
-      throw new Error(error.message)
+      // A refusal from the database (e.g. "already uploaded") comes with a
+      // 5-character error code: nothing was saved, so the file goes too.
+      if (/^[0-9A-Z]{5}$/.test(error.code || '')) {
+        await supabase.storage.from(BUCKET).remove([path]).catch(() => {})
+        throw new Error(error.message)
+      }
+
+      // No code: the request may not have finished (e.g. the connection
+      // dropped on the way back), so the upload may well be saved. Its file
+      // is kept. Deleting it used to leave a saved upload with no file,
+      // which couldn't be approved or uploaded again.
+      throw new Error(
+        "We couldn't confirm the upload (connection problem). Check My uploads before uploading it again."
+      )
     }
 
     return data
@@ -266,7 +282,9 @@
   const decisionAlert = ref(null) // { status: 'approved' | 'rejected', fileName }
 
   function pickFile(file) {
-    if (!file) return
+    // not during an upload: the file on screen must be the one being sent
+    // (a file dropped mid-upload used to replace it, then vanish unsent)
+    if (!file || uploading.value) return
 
     errorMessage.value = ''
     successMessage.value = ''
@@ -299,16 +317,21 @@
     successMessage.value = ''
     decisionAlert.value = null
 
+    const file = selectedFile.value
+
     try {
-      await submitSupplierUpload(selectedFile.value)
+      await submitSupplierUpload(file)
 
       successMessage.value = 'Uploaded. The admin has been notified.'
-      selectedFile.value = null
-      if (fileInput.value) fileInput.value.value = ''
-      fetchMyUploads()
+      if (selectedFile.value === file) {
+        selectedFile.value = null
+        if (fileInput.value) fileInput.value.value = ''
+      }
     } catch (err) {
       errorMessage.value = err.message || 'Upload failed. Please try again.'
     } finally {
+      // also after a failure: it may have been saved after all
+      fetchMyUploads()
       uploading.value = false
     }
   }
@@ -332,8 +355,16 @@
   // upload id -> last status seen, so the approved / denied banner shows once
   const knownStatus = new Map()
 
+  // Several refreshes can overlap (realtime, the 20 s check, after an
+  // upload). Only the newest answer is used: an older one arriving last
+  // used to bring back an earlier list, and a banner already closed.
+  let fetchSeq = 0
+
   async function fetchMyUploads() {
+    const seq = ++fetchSeq
     const { data, error } = await supabase.rpc('supplier_list_my_uploads', { p_limit: 50 })
+
+    if (seq !== fetchSeq) return
 
     if (error) {
       // e.g. the 2026-10-19 supplier_send_timer SQL wasn't run yet: no list
