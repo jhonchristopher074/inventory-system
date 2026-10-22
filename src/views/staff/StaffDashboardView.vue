@@ -51,7 +51,7 @@
           <div>
             <div class="mb-1 flex justify-between text-sm">
               <span class="text-zinc-400">Saved Not Submitted</span>
-              <span class="font-bold text-lime-400">{{ savedApprovals.length }}</span>
+              <span class="font-bold text-lime-400">{{ savedPieces }} pcs</span>
             </div>
             <div class="h-2 overflow-hidden rounded-full bg-zinc-800">
               <div
@@ -64,7 +64,7 @@
           <div>
             <div class="mb-1 flex justify-between text-sm">
               <span class="text-zinc-400">Submitted to Admin</span>
-              <span class="font-bold text-yellow-400">{{ submittedApprovals.length }}</span>
+              <span class="font-bold text-yellow-400">{{ submittedPieces }} pcs</span>
             </div>
             <div class="h-2 overflow-hidden rounded-full bg-zinc-800">
               <div
@@ -77,7 +77,7 @@
           <div>
             <div class="mb-1 flex justify-between text-sm">
               <span class="text-zinc-400">Approved by Admin</span>
-              <span class="font-bold text-red-400">{{ approvedProductCount }}</span>
+              <span class="font-bold text-red-400">{{ approvedProductCount }} pcs</span>
             </div>
             <div class="h-2 overflow-hidden rounded-full bg-zinc-800">
               <div
@@ -305,20 +305,32 @@ const approvedProductCount = computed(() => {
   }, 0)
 })
 
-const totalApprovalRecords = computed(() => {
-  return savedApprovals.value.length + submittedApprovals.value.length + approvedProductCount.value
+// Inspection Status: all three bars count pieces. Before, saved and
+// submitted counted records while approved counted pieces, against one
+// total, so e.g. 5 waiting records next to 400 approved pieces showed ~1%.
+function piecesIn(list) {
+  return list.reduce((sum, item) => {
+    return sum + Number(item.approved_qty || 0) + Number(item.return_qty || 0)
+  }, 0)
+}
+
+const savedPieces = computed(() => piecesIn(savedApprovals.value))
+const submittedPieces = computed(() => piecesIn(submittedApprovals.value))
+
+const totalPieces = computed(() => {
+  return savedPieces.value + submittedPieces.value + approvedProductCount.value
 })
 
 const savedPercent = computed(() => {
-  return percent(savedApprovals.value.length, totalApprovalRecords.value)
+  return percent(savedPieces.value, totalPieces.value)
 })
 
 const submittedPercent = computed(() => {
-  return percent(submittedApprovals.value.length, totalApprovalRecords.value)
+  return percent(submittedPieces.value, totalPieces.value)
 })
 
 const approvedPercent = computed(() => {
-  return percent(approvedProductCount.value, totalApprovalRecords.value)
+  return percent(approvedProductCount.value, totalPieces.value)
 })
 
 const upcomingInspections = computed(() => {

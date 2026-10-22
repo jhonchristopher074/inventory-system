@@ -774,7 +774,8 @@ const filteredProducts = computed(() => {
   }
 
   if (searchQuery.value.trim()) {
-    const search = searchQuery.value.toLowerCase()
+    // trim: phone keyboards add a space after a word, which matched nothing
+    const search = searchQuery.value.trim().toLowerCase()
 
     result = result.filter(product => {
       const name = product.name || ''

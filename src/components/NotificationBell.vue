@@ -1,5 +1,5 @@
 <template>
-  <div class="relative">
+  <div ref="root" class="relative">
     <button
       class="relative flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-zinc-900 text-lg text-white transition hover:bg-zinc-800"
       @click="toggleList"
@@ -75,11 +75,12 @@
 </template>
 
 <script setup>
-import { computed, onMounted, onUnmounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { supabase, uniqueChannelName } from '../lib/supabase'
 
 const router = useRouter()
+const route = useRoute()
 
 const notifications = ref([])
 const showList = ref(false)
@@ -104,6 +105,26 @@ async function fetchUnreadCount() {
 function toggleList() {
   showList.value = !showList.value
 }
+
+// The open list closes on a click or tap anywhere else, on Esc and on a
+// page change. Before, it stayed open above popups opened after it,
+// covering their buttons, while the bell to close it sat under the popup.
+const root = ref(null)
+
+function onPointerDownAnywhere(event) {
+  if (showList.value && root.value && !root.value.contains(event.target)) showList.value = false
+}
+
+function onKeyAnywhere(event) {
+  if (event.key === 'Escape') showList.value = false
+}
+
+watch(
+  () => route.fullPath,
+  () => {
+    showList.value = false
+  }
+)
 
 async function fetchRole() {
   const { data } = await supabase.rpc('get_my_role')
@@ -143,15 +164,32 @@ let audio = null
 // once: after that, notifications can play it whenever they arrive.
 // soundBlocked shows a hint on the bell when a sound was refused.
 const soundBlocked = ref(false)
-const UNLOCK_EVENTS = ['pointerdown', 'keydown', 'touchend']
+// Events browsers (iPhones especially) count as a real tap, which is what
+// allows sound. pointerdown isn't one of them on iPhones.
+const UNLOCK_EVENTS = ['click', 'touchend', 'keydown']
+let unlocked = false
+let unlocking = false
+
+function listenForUnlock(on) {
+  UNLOCK_EVENTS.forEach((name) =>
+    on
+      ? window.addEventListener(name, unlockSound, true)
+      : window.removeEventListener(name, unlockSound, true)
+  )
+}
 
 function getAudio() {
   if (!audio) audio = new Audio('/notif.mp3')
   return audio
 }
 
+// Keeps listening until playing really works: if a tap isn't accepted, the
+// next one tries again. Before, it stopped listening after the first try,
+// so when that failed (often on iPhones) the 🔇 hint's "tap the page" did
+// nothing until the page was reloaded.
 function unlockSound() {
-  UNLOCK_EVENTS.forEach((name) => window.removeEventListener(name, unlockSound, true))
+  if (unlocked || unlocking) return
+  unlocking = true
 
   const sound = getAudio()
   sound.muted = true
@@ -160,11 +198,14 @@ function unlockSound() {
     .then(() => {
       sound.pause()
       sound.currentTime = 0
+      unlocked = true
       soundBlocked.value = false
+      listenForUnlock(false)
     })
     .catch(() => {})
     .finally(() => {
       sound.muted = false
+      unlocking = false
     })
 }
 
@@ -174,7 +215,13 @@ function playSound() {
   sound.currentTime = 0
   sound.play().then(
     () => (soundBlocked.value = false),
-    () => (soundBlocked.value = true)
+    () => {
+      // refused (e.g. the phone took the permission back): listen for the
+      // next tap again
+      soundBlocked.value = true
+      unlocked = false
+      listenForUnlock(true)
+    }
   )
 }
 
@@ -320,7 +367,9 @@ function formatDate(date) {
 let unmounted = false
 
 onMounted(async () => {
-  UNLOCK_EVENTS.forEach((name) => window.addEventListener(name, unlockSound, true))
+  listenForUnlock(true)
+  document.addEventListener('pointerdown', onPointerDownAnywhere)
+  document.addEventListener('keydown', onKeyAnywhere)
   document.addEventListener('visibilitychange', onVisible)
 
   await fetchRole()
@@ -330,7 +379,9 @@ onMounted(async () => {
 
 onUnmounted(() => {
   unmounted = true
-  UNLOCK_EVENTS.forEach((name) => window.removeEventListener(name, unlockSound, true))
+  listenForUnlock(false)
+  document.removeEventListener('pointerdown', onPointerDownAnywhere)
+  document.removeEventListener('keydown', onKeyAnywhere)
   document.removeEventListener('visibilitychange', onVisible)
   cleanupRealtime()
 })

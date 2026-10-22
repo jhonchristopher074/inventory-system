@@ -194,7 +194,7 @@
     <div
       v-if="selectedDocument"
       class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-3 sm:p-4"
-      @click.self="selectedDocument = null"
+      @click.self="closeDocument"
     >
       <!-- same size for every document and never taller than the screen, so
            it doesn't scroll: the picture takes the space that's left (always
@@ -219,7 +219,7 @@
           <button
             class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/10 text-xl text-white transition hover:bg-white/20"
             aria-label="Close"
-            @click="selectedDocument = null"
+            @click="closeDocument"
           >
             ×
           </button>
@@ -291,7 +291,7 @@
           </button>
           <button
             class="rounded-xl bg-zinc-800 py-3 text-sm font-bold text-white transition hover:bg-zinc-700"
-            @click="selectedDocument = null"
+            @click="closeDocument"
           >
             Close
           </button>
@@ -377,7 +377,7 @@ const filteredProducts = computed(() => {
   return products.value.filter(product =>
     product.name
       ?.toLowerCase()
-      .includes(productSearch.value.toLowerCase())
+      .includes(productSearch.value.trim().toLowerCase())
   )
 })
 
@@ -449,15 +449,19 @@ async function saveDocument() {
   try {
     const imageUrl = await uploadImage(selectedFile.value)
 
-    const selectedProduct = products.value.find(
-      p => p.id === newDoc.value.product_id
-    )
+    // Only a Product Report is about a product (the picker shows only for
+    // it). A product picked before switching the type away used to stay
+    // attached to the document.
+    const forProduct = newDoc.value.type === 'Product Report'
+    const selectedProduct = forProduct
+      ? products.value.find(p => p.id === newDoc.value.product_id)
+      : null
 
     const { error } = await supabase.rpc('create_documentation', {
       p_title: newDoc.value.title,
       p_type: newDoc.value.type,
       p_description: newDoc.value.description,
-      p_product_id: newDoc.value.product_id || null,
+      p_product_id: forProduct ? newDoc.value.product_id || null : null,
       p_product_name: selectedProduct?.name || null,
       p_created_by: currentStaffName,
       p_image_url: imageUrl || null,
@@ -482,6 +486,13 @@ function openDocument(doc) {
   selectedDocument.value = doc
   confirmingDelete.value = false
   viewError.value = ''
+  // a photo picked for another document must not be saved onto this one
+  updatePhotoFile.value = null
+}
+
+function closeDocument() {
+  selectedDocument.value = null
+  updatePhotoFile.value = null
 }
 
 function handleUpdatePhoto(event) {
