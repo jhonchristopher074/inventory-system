@@ -49,7 +49,7 @@
 
             <button
               class="mt-3 w-full shrink-0 rounded-xl bg-red-600 py-2 font-bold text-white hover:bg-red-700 disabled:opacity-50"
-              :disabled="product.quantity <= 0"
+              :disabled="product.quantity <= 0 || checkingOut"
               @click="addToCart(product)"
             >
               {{ product.quantity <= 0 ? 'Out of Stock' : 'Add to Cart' }}
@@ -112,7 +112,7 @@
             </div>
 
             <div class="mt-3 flex items-center gap-2">
-              <button class="qty-btn" @click="decreaseQty(item.id)">-</button>
+              <button class="qty-btn" :disabled="checkingOut" @click="decreaseQty(item.id)">-</button>
 
               <input
                 v-model.number="item.cartQty"
@@ -120,11 +120,12 @@
                 min="1"
                 step="1"
                 :max="item.quantity"
-                class="w-16 rounded-lg bg-zinc-800 py-1 text-center text-white"
+                class="w-16 rounded-lg bg-zinc-800 py-1 text-center text-white disabled:opacity-50"
+                :disabled="checkingOut"
                 @change="validateQty(item)"
               />
 
-              <button class="qty-btn" @click="increaseQty(item.id)">+</button>
+              <button class="qty-btn" :disabled="checkingOut" @click="increaseQty(item.id)">+</button>
             </div>
 
             <p class="mt-2 text-sm text-zinc-300">
@@ -268,6 +269,8 @@ const cart = ref([])
 
 const searchQuery = ref('')
 const loading = ref(false)
+// While a sale is being processed the cart is locked: changes made in that
+// moment were wiped when the sale finished, without being sold.
 const checkingOut = ref(false)
 
 const errorMessage = ref('')
@@ -331,6 +334,8 @@ async function fetchProducts() {
 }
 
 function addToCart(product) {
+  if (checkingOut.value) return // cart locked while the sale is processed
+
   errorMessage.value = ''
   successMessage.value = ''
 
@@ -359,10 +364,14 @@ function addToCart(product) {
 }
 
 function removeFromCart(productId) {
+  if (checkingOut.value) return // cart locked while the sale is processed
+
   cart.value = cart.value.filter(item => item.id !== productId)
 }
 
 function increaseQty(productId) {
+  if (checkingOut.value) return // cart locked while the sale is processed
+
   const item = cart.value.find(item => item.id === productId)
   if (!item) return
 
@@ -375,6 +384,8 @@ function increaseQty(productId) {
 }
 
 function decreaseQty(productId) {
+  if (checkingOut.value) return // cart locked while the sale is processed
+
   const item = cart.value.find(item => item.id === productId)
   if (!item) return
 
@@ -387,6 +398,8 @@ function decreaseQty(productId) {
 }
 
 function validateQty(item) {
+  if (checkingOut.value) return
+
   // whole items only: 1.5 used to reach checkout and fail there
   item.cartQty = Math.floor(Number(item.cartQty) || 0)
   if (item.cartQty < 1) item.cartQty = 1
@@ -398,6 +411,8 @@ function validateQty(item) {
 }
 
 function clearCart() {
+  if (checkingOut.value) return // cart locked while the sale is processed
+
   cart.value = []
   errorMessage.value = ''
   successMessage.value = ''
@@ -477,5 +492,10 @@ onMounted(fetchProducts)
 
 .qty-btn:hover {
   background: rgb(63 63 70);
+}
+
+.qty-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
 }
 </style>

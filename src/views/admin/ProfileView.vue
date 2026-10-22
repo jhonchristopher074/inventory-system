@@ -451,7 +451,11 @@ async function confirmPrompt(adminPassword, text) {
   }
 }
 
+// Not while the action is running: it would still finish on the server,
+// with the window gone (and its result landing on the next window).
 function cancelPrompt() {
+  if (promptBusy.value) return
+
   prompt.value?.onCancel?.()
   prompt.value = null
   promptError.value = ''

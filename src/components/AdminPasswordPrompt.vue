@@ -65,7 +65,7 @@ function submit() {
 <template>
   <Teleport to="body">
   <div class="ap-backdrop" role="dialog" aria-modal="true" aria-labelledby="ap-title"
-       @keydown.esc="emit('cancel')">
+       @keydown.esc="!busy && emit('cancel')">
     <form class="ap-card" @submit.prevent="submit">
       <h2 id="ap-title">{{ title }}</h2>
       <p v-if="message" class="ap-message">{{ message }}</p>

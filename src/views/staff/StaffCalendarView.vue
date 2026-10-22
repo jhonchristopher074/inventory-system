@@ -321,10 +321,11 @@
             <!-- ACTION BUTTONS -->
             <div class="flex flex-col gap-2">
               <button
-                class="w-full rounded-lg bg-red-600 py-3 text-sm font-semibold text-white hover:bg-red-700"
+                class="w-full rounded-lg bg-red-600 py-3 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50"
+                :disabled="panelBusy"
                 @click="saveInspection"
               >
-                {{ editingApprovalId ? 'Update My Saved Inspection' : 'Save Inspection' }}
+                {{ panelBusy ? 'Saving...' : editingApprovalId ? 'Update My Saved Inspection' : 'Save Inspection' }}
               </button>
               <button
                 class="w-full rounded-lg bg-zinc-800 py-3 text-sm font-semibold text-white hover:bg-zinc-700"
@@ -364,13 +365,15 @@
                   </div>
                   <div v-if="isMyApproval(approval)" class="flex gap-2 mt-3">
                     <button
-                      class="flex-1 rounded-lg bg-yellow-500 py-2 text-xs font-bold text-black hover:bg-yellow-400"
+                      class="flex-1 rounded-lg bg-yellow-500 py-2 text-xs font-bold text-black hover:bg-yellow-400 disabled:opacity-50"
+                      :disabled="panelBusy"
                       @click="submitSavedApproval(approval)"
                     >
                       Submit
                     </button>
                     <button
-                      class="flex-1 rounded-lg bg-red-600 py-2 text-xs font-bold text-white hover:bg-red-700"
+                      class="flex-1 rounded-lg bg-red-600 py-2 text-xs font-bold text-white hover:bg-red-700 disabled:opacity-50"
+                      :disabled="panelBusy"
                       @click="removeSavedInspection(approval)"
                     >
                       Remove
@@ -807,7 +810,13 @@ function limitReturn() {
   returnQty.value = Math.max(returned, 0)
 }
 
+// true while Save / Submit / Remove is running: the buttons are greyed out
+// (a double click on Save used to create two drafts for the same items)
+const panelBusy = ref(false)
+
 async function saveInspection() {
+  if (panelBusy.value) return
+
   panelError.value = ''
   panelMessage.value = ''
 
@@ -832,6 +841,15 @@ async function saveInspection() {
 
   const isEditing = Boolean(editingApprovalId.value)
 
+  panelBusy.value = true
+  try {
+    await saveDraft(approved, returned, isEditing)
+  } finally {
+    panelBusy.value = false
+  }
+}
+
+async function saveDraft(approved, returned, isEditing) {
   const { error } = await supabase.rpc('save_inspection_draft', {
     p_approval_id: editingApprovalId.value || null,
     p_product_id: selectedProduct.value.id,
@@ -852,6 +870,9 @@ async function saveInspection() {
 
   await fetchAll()
 
+  // the window may have been closed while saving
+  if (!selectedProduct.value) return
+
   const latestMine = approvals.value.find(item =>
     item.product_id === selectedProduct.value.id &&
     item.status === 'saved' &&
@@ -866,29 +887,38 @@ async function saveInspection() {
 }
 
 async function submitSavedApproval(approval) {
+  if (panelBusy.value) return
+
   if (!isMyApproval(approval)) {
     panelError.value = 'You can only submit your own inspection.'
     return
   }
 
-  const { error } = await supabase.rpc('submit_inspection_approval', {
-    p_approval_id: approval.id,
-  })
+  panelBusy.value = true
+  try {
+    const { error } = await supabase.rpc('submit_inspection_approval', {
+      p_approval_id: approval.id,
+    })
 
-  if (error) {
-    panelError.value = error.message
-    return
+    if (error) {
+      panelError.value = error.message
+      return
+    }
+
+    panelMessage.value = 'Submitted to admin approval.'
+    approvedQty.value = 0
+    returnQty.value = 0
+    editingApprovalId.value = null
+
+    await fetchAll()
+  } finally {
+    panelBusy.value = false
   }
-
-  panelMessage.value = 'Submitted to admin approval.'
-  approvedQty.value = 0
-  returnQty.value = 0
-  editingApprovalId.value = null
-
-  await fetchAll()
 }
 
 async function removeSavedInspection(approval) {
+  if (panelBusy.value) return
+
   if (!isMyApproval(approval)) {
     panelError.value = 'You can only remove your own inspection.'
     return
@@ -897,21 +927,26 @@ async function removeSavedInspection(approval) {
   const confirmDelete = confirm('Remove this saved inspection?')
   if (!confirmDelete) return
 
-  const { error } = await supabase.rpc('delete_inspection_draft', {
-    p_approval_id: approval.id,
-  })
+  panelBusy.value = true
+  try {
+    const { error } = await supabase.rpc('delete_inspection_draft', {
+      p_approval_id: approval.id,
+    })
 
-  if (error) {
-    panelError.value = error.message
-    return
+    if (error) {
+      panelError.value = error.message
+      return
+    }
+
+    panelMessage.value = 'Saved inspection removed.'
+    approvedQty.value = 0
+    returnQty.value = 0
+    editingApprovalId.value = null
+
+    await fetchAll()
+  } finally {
+    panelBusy.value = false
   }
-
-  panelMessage.value = 'Saved inspection removed.'
-  approvedQty.value = 0
-  returnQty.value = 0
-  editingApprovalId.value = null
-
-  await fetchAll()
 }
 
 function formatDate(date) {
