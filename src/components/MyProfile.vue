@@ -1,10 +1,9 @@
 <script setup>
-// Profile shared by the staff and cashier pages: photo, account details
+// Profile shared by the staff and cashier pages: account details
 // (read-only — only the administrator can change a name or email) and
 // password change. Role-specific numbers go in the "stats" slot.
-import { computed, onMounted, ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import { supabase } from '../lib/supabase'
-import { uploadImage, removeUploadedImage } from '../lib/uploadImage'
 import ChangeOwnPasswordModal from './ChangeOwnPasswordModal.vue'
 
 defineProps({
@@ -16,25 +15,11 @@ const profile = ref({
   email: '',
   role: '',
   is_active: true,
-  avatar_url: '',
 })
 
-const fileInput = ref(null)
-const uploading = ref(false)
 const showOwnPassword = ref(false)
 
-const successMessage = ref('')
 const errorMessage = ref('')
-
-const initials = computed(() =>
-  String(profile.value.full_name || profile.value.email || '?')
-    .trim()
-    .split(/\s+/)
-    .map((word) => word[0])
-    .join('')
-    .slice(0, 2)
-    .toUpperCase()
-)
 
 async function fetchProfile() {
   const { data, error } = await supabase.rpc('get_my_profile')
@@ -47,46 +32,6 @@ async function fetchProfile() {
   if (data) profile.value = data
 }
 
-async function handleImageChange(event) {
-  const file = event.target.files?.[0]
-  event.target.value = '' // so picking the same file again still works
-
-  if (!file) return
-
-  successMessage.value = ''
-  errorMessage.value = ''
-  uploading.value = true
-
-  try {
-    // Any phone photo up to 10 MB; it's shrunk to 512 px first (it only
-    // shows small), so what's saved is about 50–150 KB.
-    const imageUrl = await uploadImage(file, {
-      bucket: 'documents',
-      folder: 'avatars',
-      maxBytes: 10 * 1024 * 1024,
-      maxSide: 512,
-    })
-
-    const { error } = await supabase.rpc('update_my_avatar', {
-      p_avatar_url: imageUrl,
-    })
-
-    if (error) {
-      // the row didn't save, so don't leave the file orphaned in the bucket
-      await removeUploadedImage(imageUrl, 'documents')
-      errorMessage.value = error.message
-      return
-    }
-
-    profile.value.avatar_url = imageUrl
-    successMessage.value = 'Profile photo updated.'
-  } catch (err) {
-    errorMessage.value = err.message
-  } finally {
-    uploading.value = false
-  }
-}
-
 onMounted(fetchProfile)
 </script>
 
@@ -95,43 +40,11 @@ onMounted(fetchProfile)
     <!-- PROFILE CARD -->
     <div class="card p-6">
       <div class="flex flex-col items-center">
-        <div
-          class="relative flex h-36 w-36 items-center justify-center overflow-hidden rounded-full border-4 border-red-500 bg-black"
-        >
-          <img
-            v-if="profile.avatar_url"
-            :src="profile.avatar_url"
-            :alt="profile.full_name"
-            class="h-full w-full object-cover"
-          />
-
-          <span v-else class="text-5xl font-black text-white">
-            {{ initials }}
-          </span>
-        </div>
-
-        <input
-          ref="fileInput"
-          type="file"
-          accept="image/*"
-          class="hidden"
-          @change="handleImageChange"
-        />
-
-        <button
-          class="mt-4 rounded-2xl bg-red-600 px-5 py-3 font-bold text-white transition hover:bg-red-700 disabled:opacity-50"
-          :disabled="uploading"
-          @click="fileInput.click()"
-        >
-          {{ uploading ? 'Uploading...' : 'Change Photo' }}
-        </button>
-        <p class="mt-2 text-xs text-zinc-500">JPG, PNG, WEBP or GIF · up to 10 MB</p>
-
-        <h2 class="mt-6 text-center text-3xl font-black text-white">
+        <h2 class="text-center text-3xl font-black text-white">
           {{ profile.full_name || 'No name' }}
         </h2>
 
-        <p class="mt-1 text-zinc-400">
+        <p class="mt-1 break-all text-center text-zinc-400">
           {{ profile.email }}
         </p>
 
@@ -181,10 +94,6 @@ onMounted(fetchProfile)
             {{ profile.is_active === false ? 'Disabled' : 'Active' }}
           </p>
         </div>
-      </div>
-
-      <div v-if="successMessage" class="mt-5 rounded-2xl bg-emerald-600/20 p-4 text-emerald-400">
-        {{ successMessage }}
       </div>
 
       <div v-if="errorMessage" class="mt-5 rounded-2xl bg-red-600/20 p-4 text-red-400">
