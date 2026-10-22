@@ -70,6 +70,29 @@
       <path d="M15 17l5-5-5-5M20 12H9M11 4H6a2 2 0 00-2 2v12a2 2 0 002 2h5" />
     </template>
 
+    <!-- lock (read-only) -->
+    <template v-else-if="name === 'lock'">
+      <rect x="5" y="11" width="14" height="10" rx="2" />
+      <path d="M8 11V7a4 4 0 018 0v4" />
+    </template>
+
+    <!-- key (password) -->
+    <template v-else-if="name === 'key'">
+      <circle cx="7.5" cy="15.5" r="4.5" />
+      <path d="M10.7 12.3L20 3M16.5 6.5L19 9M14 9l2 2" />
+    </template>
+
+    <!-- check in a circle (status) -->
+    <template v-else-if="name === 'check'">
+      <circle cx="12" cy="12" r="9" />
+      <path d="M8 12.5l2.8 2.8L16 9.5" />
+    </template>
+
+    <!-- hash (account number) -->
+    <template v-else-if="name === 'hash'">
+      <path d="M5 9h14M5 15h14M10 3L8 21M16 3l-2 18" />
+    </template>
+
     <!-- fallback dot -->
     <circle v-else cx="12" cy="12" r="3" />
   </svg>

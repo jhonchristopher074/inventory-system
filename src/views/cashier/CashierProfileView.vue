@@ -25,8 +25,8 @@
       </button>
     </div>
 
-    <!-- PROFILE SETTINGS: same profile as staff (photo, read-only details, password) -->
-    <MyProfile v-if="activeTab === 'profile'" role-label="CASHIER ACCOUNT" />
+    <!-- PROFILE SETTINGS: same profile as staff (read-only details, password) -->
+    <MyProfile v-if="activeTab === 'profile'" />
 
     <!-- SALES HISTORY: the same view as the Sales History page (date filter,
          totals, every sale with its receipt) -->

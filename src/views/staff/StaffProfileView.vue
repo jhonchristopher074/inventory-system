@@ -5,40 +5,24 @@
       subtitle="Your account details and password."
     />
 
-    <MyProfile role-label="STAFF ACCOUNT">
-      <template #stats>
-        <div class="rounded-2xl bg-black p-4">
-          <p class="text-sm text-zinc-400">
-            Documentation Records
-          </p>
-
-          <h3 class="mt-2 text-3xl font-black text-white">
-            {{ documentationCount }}
-          </h3>
-        </div>
-
-        <div class="rounded-2xl bg-black p-4">
-          <p class="text-sm text-zinc-400">
-            Product Reports
-          </p>
-
-          <h3 class="mt-2 text-3xl font-black text-white">
-            {{ reportCount }}
-          </h3>
-        </div>
-      </template>
-    </MyProfile>
+    <MyProfile :stats="stats" />
   </div>
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { supabase } from '../../lib/supabase'
 import PageHeader from '../../components/PageHeader.vue'
 import MyProfile from '../../components/MyProfile.vue'
 
 const documentationCount = ref(0)
 const reportCount = ref(0)
+
+// shown on the profile under "Your activity"
+const stats = computed(() => [
+  { label: 'Documentation records', value: documentationCount.value, icon: 'docs' },
+  { label: 'Product reports', value: reportCount.value, icon: 'inventory' },
+])
 
 onMounted(fetchStats)
 
