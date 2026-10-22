@@ -57,12 +57,64 @@
             </RouterLink>
           </template>
 
-          <button class="logout-btn" type="button" data-label="Logout" @click="logout">
+          <button class="logout-btn" type="button" data-label="Logout" @click="askLogout">
             <NavIcon name="logout" class="nav-ico" />
             <span class="nav-text">Logout</span>
           </button>
         </nav>
       </aside>
+
+      <!-- LOGOUT: asks first, so a mis-click doesn't end the session -->
+      <div
+        v-if="confirmingLogout"
+        class="fixed inset-0 z-[2000] flex items-center justify-center bg-black/80 p-4"
+        @click.self="cancelLogout"
+        @keydown.esc="cancelLogout"
+      >
+        <div
+          class="w-full max-w-sm rounded-[24px] border border-white/10 bg-zinc-900 p-6 shadow-2xl"
+          role="alertdialog"
+          aria-modal="true"
+          aria-labelledby="logout-title"
+          aria-describedby="logout-text"
+        >
+          <h2 id="logout-title" class="text-xl font-bold text-white">Log out?</h2>
+
+          <p id="logout-text" class="mt-2 text-sm leading-relaxed text-zinc-400">
+            You will need your email and password to log in again.
+          </p>
+
+          <p
+            v-if="logoutError"
+            class="mt-3 rounded-xl bg-red-600/20 p-3 text-sm text-red-400"
+            role="alert"
+          >
+            {{ logoutError }}
+          </p>
+
+          <!-- Log out first on phones (top), on the right on computers -->
+          <div class="mt-5 flex flex-col gap-2 sm:flex-row-reverse">
+            <button
+              ref="logoutButton"
+              type="button"
+              class="flex-1 rounded-2xl bg-red-600 py-3 font-bold text-white hover:bg-red-700 disabled:opacity-50"
+              :disabled="loggingOut"
+              @click="logout"
+            >
+              {{ loggingOut ? 'Logging out…' : 'Log out' }}
+            </button>
+
+            <button
+              type="button"
+              class="flex-1 rounded-2xl bg-zinc-800 py-3 font-bold text-white hover:bg-zinc-700 disabled:opacity-50"
+              :disabled="loggingOut"
+              @click="cancelLogout"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      </div>
 
       <main class="app-main">
         <div class="mb-5 flex items-center justify-between gap-4">
@@ -92,7 +144,7 @@
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter, RouterLink } from 'vue-router'
 import { supabase } from './lib/supabase'
 import NotificationBell from './components/NotificationBell.vue'
@@ -272,13 +324,59 @@ const NAV = {
 const navGroups = computed(() => NAV[role.value] || [])
 
 /* ------------------------------------------------------------------
-   Session
+   Session: Logout asks "Log out?" first
 ------------------------------------------------------------------ */
-async function logout() {
-  // e.g. the Approval page asks first while receipts are still being sent
-  if (!(await confirmLeave())) return
+const confirmingLogout = ref(false)
+const loggingOut = ref(false)
+const logoutError = ref('')
+const logoutButton = ref(null)
 
-  await supabase.auth.signOut()
+async function askLogout() {
+  logoutError.value = ''
+  confirmingLogout.value = true
+
+  // focus is inside the window, so Esc closes it and Enter logs out
+  await nextTick()
+  logoutButton.value?.focus()
+}
+
+function cancelLogout() {
+  if (loggingOut.value) return
+  confirmingLogout.value = false
+}
+
+// Closes on any page change, e.g. the idle timer logged out while it was
+// open: otherwise it would still be there after the next login.
+watch(
+  () => route.path,
+  () => {
+    confirmingLogout.value = false
+  }
+)
+
+async function logout() {
+  if (loggingOut.value) return
+
+  // e.g. the Approval page asks first while receipts are still being sent
+  if (!(await confirmLeave())) {
+    confirmingLogout.value = false
+    return
+  }
+
+  loggingOut.value = true
+  logoutError.value = ''
+
+  const { error } = await supabase.auth.signOut()
+
+  loggingOut.value = false
+
+  // e.g. no connection: still logged in, so say so instead of doing nothing
+  if (error) {
+    logoutError.value = `Couldn't log out: ${error.message}`
+    return
+  }
+
+  confirmingLogout.value = false
   router.push('/login')
 }
 </script>
