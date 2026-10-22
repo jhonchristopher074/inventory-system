@@ -122,237 +122,203 @@
       </div>
     </div>
 
-    <!-- LANDSCAPE MODAL -->
+    <!-- INSPECTION WINDOW: count the batch, save, then submit to the admin -->
     <div
       v-if="selectedProduct"
       class="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4"
       @click.self="closePanel"
+      @keydown.esc="closePanel"
     >
-      <div class="w-full max-w-5xl rounded-2xl border border-white/10 bg-zinc-900 overflow-hidden">
-
-        <!-- MODAL HEADER -->
-        <div class="flex items-center justify-between border-b border-white/10 px-6 py-4">
-          <div>
-            <h2 class="text-2xl font-bold text-white">{{ selectedProduct.name }}</h2>
-            <p class="text-sm text-red-400">{{ selectedProduct.category || 'Uncategorized' }}</p>
+      <div
+        class="flex max-h-[92vh] w-full max-w-xl flex-col overflow-hidden rounded-2xl border border-white/10 bg-zinc-900 shadow-2xl"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="inspect-title"
+      >
+        <!-- HEADER -->
+        <div class="flex items-start justify-between gap-3 border-b border-white/10 px-5 py-4">
+          <div class="min-w-0">
+            <h2 id="inspect-title" class="text-xl font-bold text-white">{{ selectedProduct.name }}</h2>
+            <p class="text-sm text-zinc-400">
+              <span class="text-red-400">{{ selectedProduct.category || 'Uncategorized' }}</span>
+              · {{ formatDate(selectedProduct.inspection_date) }}
+              · batch of {{ inspectionQty(selectedProduct) }}
+            </p>
           </div>
+
           <button
-            class="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-xl text-white hover:bg-white/20"
+            ref="panelClose"
+            type="button"
+            class="shrink-0 rounded-full bg-zinc-800 px-3 py-1 text-white hover:bg-zinc-700"
+            aria-label="Close"
             @click="closePanel"
           >
-            ×
+            ✕
           </button>
         </div>
 
-        <!-- TWO COLUMN BODY -->
-        <!-- one column on phones (side by side was too narrow), two from tablet size up -->
-        <div class="grid grid-cols-1 gap-0 max-h-[80vh] overflow-y-auto md:grid-cols-2">
+        <div class="space-y-5 overflow-y-auto px-5 py-5">
+          <!-- PROGRESS: the numbers under the bar are its legend -->
+          <div>
+            <div class="mb-2 flex items-baseline justify-between gap-3 text-sm">
+              <span class="font-bold text-white">{{ liveTotalProgressPercent }}% inspected</span>
+              <span class="text-zinc-400">
+                <b class="text-white">{{ remainingInspectable(selectedProduct) }}</b> left
+              </span>
+            </div>
 
-          <!-- LEFT: INFO + INPUTS -->
-          <div class="space-y-5 border-b border-white/10 p-4 sm:p-6 md:border-b-0 md:border-r">
+            <div class="flex h-2.5 w-full overflow-hidden rounded-full bg-zinc-800">
+              <div class="h-full bg-red-600 transition-all duration-300" :style="{ width: approvedSegmentPercent + '%' }"></div>
+              <div class="h-full bg-lime-400 transition-all duration-300" :style="{ width: savedSegmentPercent + '%' }"></div>
+              <div class="h-full bg-yellow-400 transition-all duration-300" :style="{ width: submittedSegmentPercent + '%' }"></div>
+            </div>
 
-            <!-- STATS -->
+            <div class="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-zinc-400">
+              <span class="flex items-center gap-1.5">
+                <span class="h-2 w-2 rounded-full bg-red-600" aria-hidden="true"></span>
+                Approved by admin <b class="text-white">{{ adminApprovedQty(selectedProduct) }}</b>
+              </span>
+              <span class="flex items-center gap-1.5">
+                <span class="h-2 w-2 rounded-full bg-lime-400" aria-hidden="true"></span>
+                Saved <b class="text-white">{{ savedQty(selectedProduct) }}</b>
+              </span>
+              <span class="flex items-center gap-1.5">
+                <span class="h-2 w-2 rounded-full bg-yellow-400" aria-hidden="true"></span>
+                Submitted <b class="text-white">{{ submittedQty(selectedProduct) }}</b>
+              </span>
+            </div>
+          </div>
+
+          <!-- THE FORM -->
+          <div class="rounded-xl border border-white/10 bg-black/40 p-4">
+            <p class="mb-3 text-sm font-bold text-white">
+              {{ editingApprovalId ? 'Your saved inspection' : 'Your inspection' }}
+            </p>
+
             <div class="grid grid-cols-2 gap-3">
-              <div class="rounded-xl bg-black p-3">
-                <p class="text-xs text-zinc-500 mb-1">Quantity</p>
-                <p class="text-xl font-bold text-white">{{ inspectionQty(selectedProduct) }}</p>
-              </div>
-              <div class="rounded-xl bg-black p-3">
-                <p class="text-xs text-zinc-500 mb-1">Admin Approved</p>
-                <p class="text-xl font-bold text-white">{{ adminApprovedQty(selectedProduct) }}</p>
-              </div>
-              <div class="rounded-xl bg-black p-3">
-                <p class="text-xs text-zinc-500 mb-1">Saved</p>
-                <p class="text-xl font-bold text-lime-400">{{ savedQty(selectedProduct) }}</p>
-              </div>
-              <div class="rounded-xl bg-black p-3">
-                <p class="text-xs text-zinc-500 mb-1">Submitted</p>
-                <p class="text-xl font-bold text-yellow-400">{{ submittedQty(selectedProduct) }}</p>
-              </div>
-              <div class="col-span-2 rounded-xl bg-black p-3">
-                <p class="text-xs text-zinc-500 mb-1">Remaining</p>
-                <p class="text-xl font-bold text-yellow-400">{{ remainingInspectable(selectedProduct) }}</p>
-              </div>
-            </div>
-
-            <!-- PROGRESS BAR -->
-            <div class="rounded-xl border border-white/10 bg-black p-4">
-              <div class="mb-2 flex justify-between text-xs">
-                <span class="text-zinc-400">Inspection Progress</span>
-                <span class="font-bold text-white">{{ liveTotalProgressPercent }}%</span>
-              </div>
-              <div class="flex h-3 w-full overflow-hidden rounded-full bg-zinc-800">
-                <div
-                  class="h-full bg-red-600 transition-all duration-300"
-                  :style="{ width: approvedSegmentPercent + '%' }"
-                ></div>
-                <div
-                  class="h-full bg-lime-400 transition-all duration-300"
-                  :style="{ width: savedSegmentPercent + '%' }"
-                ></div>
-                <div
-                  class="h-full bg-yellow-400 transition-all duration-300"
-                  :style="{ width: submittedSegmentPercent + '%' }"
-                ></div>
-              </div>
-              <div class="mt-3 flex flex-wrap gap-3 text-[11px]">
-                <span class="text-red-400">● Red: Approved</span>
-                <span class="text-lime-400">● Green: Saved</span>
-                <span class="text-yellow-400">● Yellow: Submitted</span>
-              </div>
-            </div>
-
-            <!-- INPUTS -->
-            <div class="grid grid-cols-2 gap-4">
-              <div>
-                <label class="mb-1 block text-xs text-zinc-300">Approved Qty</label>
+              <label class="block">
+                <span class="mb-1 block text-xs font-semibold text-zinc-300">Approved (good)</span>
                 <input
                   v-model.number="approvedQty"
                   type="number"
                   min="0"
                   :max="maxApprovedInput"
+                  inputmode="numeric"
                   class="inspection-input"
                   @input="limitApproved"
                 />
-                <p class="mt-1 text-[10px] text-zinc-500">Max: {{ maxApprovedInput }}</p>
-              </div>
-              <div>
-                <label class="mb-1 block text-xs text-zinc-300">Return Qty</label>
+                <span class="mt-1 block text-[11px] text-zinc-500">up to {{ maxApprovedInput }}</span>
+              </label>
+
+              <label class="block">
+                <span class="mb-1 block text-xs font-semibold text-zinc-300">Return</span>
                 <input
                   v-model.number="returnQty"
                   type="number"
                   min="0"
                   :max="maxReturnInput"
+                  inputmode="numeric"
                   class="inspection-input"
                   @input="limitReturn"
                 />
-                <p class="mt-1 text-[10px] text-zinc-500">Max: {{ maxReturnInput }}</p>
-              </div>
+                <span class="mt-1 block text-[11px] text-zinc-500">up to {{ maxReturnInput }}</span>
+              </label>
             </div>
 
-            <p class="text-xs text-zinc-400">
-              Total current input: {{ liveInputQty }} / {{ availableForEditing }}
+            <p class="mt-3 text-xs text-zinc-400">
+              Counting <b class="text-white">{{ liveInputQty }}</b> of the
+              {{ availableForEditing }} not inspected yet.
             </p>
-
-            <!-- MESSAGES -->
-            <p v-if="panelMessage" class="rounded-lg bg-emerald-600/20 p-3 text-xs text-emerald-400">
-              {{ panelMessage }}
-            </p>
-            <p v-if="panelError" class="rounded-lg bg-red-600/20 p-3 text-xs text-red-400">
-              {{ panelError }}
-            </p>
-
-            <!-- ACTION BUTTONS -->
-            <div class="flex flex-col gap-2">
-              <button
-                class="w-full rounded-lg bg-red-600 py-3 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50"
-                :disabled="panelBusy"
-                @click="saveInspection"
-              >
-                {{ panelBusy ? 'Saving...' : editingApprovalId ? 'Update My Saved Inspection' : 'Save Inspection' }}
-              </button>
-              <button
-                class="w-full rounded-lg bg-zinc-800 py-3 text-sm font-semibold text-white hover:bg-zinc-700"
-                @click="closePanel"
-              >
-                Close
-              </button>
-            </div>
           </div>
 
-          <!-- RIGHT: SAVED + SUBMITTED LISTS -->
-          <div class="space-y-5 overflow-y-auto p-4 sm:p-6">
+          <!-- MESSAGES -->
+          <p v-if="panelMessage" class="rounded-lg bg-emerald-600/20 p-3 text-sm text-emerald-400" role="status">
+            {{ panelMessage }}
+          </p>
+          <p v-if="panelError" class="rounded-lg bg-red-600/20 p-3 text-sm text-red-400" role="alert">
+            {{ panelError }}
+          </p>
 
-            <!-- SAVED INSPECTIONS -->
-            <div v-if="selectedProductSavedList.length > 0">
-              <h3 class="mb-3 text-sm font-bold text-lime-400 flex items-center gap-2">
-                <span class="inline-block h-2 w-2 rounded-full bg-lime-400"></span>
-                Saved Inspections Not Submitted
-              </h3>
-              <div class="space-y-3">
-                <div
-                  v-for="approval in selectedProductSavedList"
-                  :key="approval.id"
-                  class="rounded-xl border border-lime-500/20 bg-black p-4"
-                >
-                  <div class="flex items-start justify-between mb-2">
-                    <div>
-                      <p class="text-sm font-bold text-white">
-                        Approved: {{ approval.approved_qty }} | Return: {{ approval.return_qty }}
-                      </p>
-                      <p class="text-xs text-zinc-400 mt-1">
-                        Total: {{ Number(approval.approved_qty || 0) + Number(approval.return_qty || 0) }}
-                        <span v-if="approval.requested_by"> • {{ approval.requested_by }}</span>
-                      </p>
-                    </div>
-                    <span class="rounded-full bg-lime-500/20 px-2 py-1 text-[10px] font-bold text-lime-400">Saved</span>
+          <!-- THIS BATCH'S INSPECTIONS (only when there are some) -->
+          <div v-if="selectedProductSavedList.length || selectedProductSubmittedList.length">
+            <p class="mb-2 text-[0.66rem] font-bold uppercase tracking-[0.14em] text-zinc-500">
+              Inspections of this batch
+            </p>
+
+            <ul class="space-y-2">
+              <li
+                v-for="approval in selectedProductSavedList"
+                :key="approval.id"
+                class="rounded-xl border border-lime-500/20 bg-black/40 px-3 py-2.5"
+              >
+                <div class="flex items-center justify-between gap-3">
+                  <div class="min-w-0 text-sm">
+                    <p class="truncate font-semibold text-white">
+                      {{ isMyApproval(approval) ? 'You' : approval.requested_by || 'Staff' }}
+                    </p>
+                    <p class="text-xs text-zinc-400">
+                      Approved {{ approval.approved_qty }} · Return {{ approval.return_qty }}
+                    </p>
                   </div>
-                  <div v-if="isMyApproval(approval)" class="flex gap-2 mt-3">
-                    <button
-                      class="flex-1 rounded-lg bg-yellow-500 py-2 text-xs font-bold text-black hover:bg-yellow-400 disabled:opacity-50"
-                      :disabled="panelBusy"
-                      @click="submitSavedApproval(approval)"
-                    >
-                      Submit
-                    </button>
-                    <button
-                      class="flex-1 rounded-lg bg-red-600 py-2 text-xs font-bold text-white hover:bg-red-700 disabled:opacity-50"
-                      :disabled="panelBusy"
-                      @click="removeSavedInspection(approval)"
-                    >
-                      Remove
-                    </button>
-                  </div>
-                  <p v-else class="mt-2 rounded-lg bg-zinc-800 p-2 text-xs text-zinc-400">
-                    Other staff inspection. Read-only.
+                  <span class="shrink-0 rounded-full bg-lime-500/15 px-2 py-0.5 text-[11px] font-bold text-lime-400">
+                    Saved, not submitted
+                  </span>
+                </div>
+
+                <div v-if="isMyApproval(approval)" class="mt-2 flex gap-2">
+                  <button
+                    class="flex-1 rounded-lg bg-yellow-500 py-1.5 text-xs font-bold text-black hover:bg-yellow-400 disabled:opacity-50"
+                    :disabled="panelBusy"
+                    @click="submitSavedApproval(approval)"
+                  >
+                    Submit to admin
+                  </button>
+                  <button
+                    class="flex-1 rounded-lg bg-zinc-800 py-1.5 text-xs font-bold text-red-300 hover:bg-zinc-700 disabled:opacity-50"
+                    :disabled="panelBusy"
+                    @click="removeSavedInspection(approval)"
+                  >
+                    Remove
+                  </button>
+                </div>
+              </li>
+
+              <li
+                v-for="approval in selectedProductSubmittedList"
+                :key="approval.id"
+                class="flex items-center justify-between gap-3 rounded-xl border border-yellow-500/20 bg-black/40 px-3 py-2.5"
+              >
+                <div class="min-w-0 text-sm">
+                  <p class="truncate font-semibold text-white">
+                    {{ isMyApproval(approval) ? 'You' : approval.requested_by || 'Staff' }}
+                  </p>
+                  <p class="text-xs text-zinc-400">
+                    Approved {{ approval.approved_qty }} · Return {{ approval.return_qty }}
                   </p>
                 </div>
-              </div>
-            </div>
-
-            <!-- SUBMITTED INSPECTIONS -->
-            <div v-if="selectedProductSubmittedList.length > 0">
-              <h3 class="mb-3 text-sm font-bold text-yellow-400 flex items-center gap-2">
-                <span class="inline-block h-2 w-2 rounded-full bg-yellow-400"></span>
-                Submitted to Admin
-              </h3>
-              <div class="space-y-3">
-                <div
-                  v-for="approval in selectedProductSubmittedList"
-                  :key="approval.id"
-                  class="rounded-xl border border-yellow-500/20 bg-black p-4"
-                >
-                  <div class="flex items-start justify-between mb-2">
-                    <div>
-                      <p class="text-sm font-bold text-white">
-                        Approved: {{ approval.approved_qty }} | Return: {{ approval.return_qty }}
-                      </p>
-                      <p class="text-xs text-zinc-400 mt-1">
-                        Total: {{ Number(approval.approved_qty || 0) + Number(approval.return_qty || 0) }}
-                        <span v-if="approval.requested_by"> • {{ approval.requested_by }}</span>
-                      </p>
-                    </div>
-                    <span class="rounded-full bg-yellow-500/20 px-2 py-1 text-[10px] font-bold text-yellow-400">Submitted</span>
-                  </div>
-                  <p class="mt-2 rounded-lg bg-zinc-800 p-2 text-xs text-zinc-400">
-                    Waiting for admin approval.
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <!-- EMPTY STATE -->
-            <div
-              v-if="selectedProductSavedList.length === 0 && selectedProductSubmittedList.length === 0"
-              class="flex h-full min-h-[200px] flex-col items-center justify-center text-center text-zinc-600"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" class="mb-3 h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-              <p class="text-sm">No inspections yet.</p>
-              <p class="text-xs mt-1">Save an inspection to see it here.</p>
-            </div>
+                <span class="shrink-0 rounded-full bg-yellow-500/15 px-2 py-0.5 text-[11px] font-bold text-yellow-400">
+                  Waiting for admin
+                </span>
+              </li>
+            </ul>
           </div>
+        </div>
+
+        <!-- FOOTER -->
+        <div class="flex gap-2 border-t border-white/10 px-5 py-4">
+          <button
+            class="flex-1 rounded-xl bg-zinc-800 py-3 text-sm font-bold text-white hover:bg-zinc-700"
+            @click="closePanel"
+          >
+            Close
+          </button>
+          <button
+            class="flex-[2] rounded-xl bg-red-600 py-3 text-sm font-bold text-white hover:bg-red-700 disabled:opacity-50"
+            :disabled="panelBusy"
+            @click="saveInspection"
+          >
+            {{ panelBusy ? 'Saving...' : editingApprovalId ? 'Update Saved Inspection' : 'Save Inspection' }}
+          </button>
         </div>
       </div>
     </div>
@@ -360,7 +326,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, nextTick, onMounted, ref } from 'vue'
 import { supabase } from '../../lib/supabase'
 import PageHeader from '../../components/PageHeader.vue'
 import InspectionTable from '../../components/InspectionTable.vue'
@@ -683,10 +649,15 @@ function isMyApproval(approval) {
   return approval.requested_by === currentStaffName
 }
 
+const panelClose = ref(null)
+
 function openPanel(product) {
   selectedProduct.value = product
   panelError.value = ''
   panelMessage.value = ''
+
+  // focus inside the window, so Esc closes it
+  nextTick(() => panelClose.value?.focus())
 
   const mine = approvals.value.find(item =>
     item.product_id === product.id &&
