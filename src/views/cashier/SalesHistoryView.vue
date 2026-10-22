@@ -1,7 +1,6 @@
 <template>
   <div>
-    <!-- the Profile page shows this too, under its own heading -->
-    <div v-if="!embedded" class="mb-6 rounded-[24px] border border-white/10 bg-zinc-900 p-5">
+    <div class="mb-6 rounded-[24px] border border-white/10 bg-zinc-900 p-5">
       <h1 class="text-3xl font-bold text-white">Sales History</h1>
       <p class="text-zinc-400">
         Company-style record of completed cashier transactions.
@@ -253,11 +252,6 @@ import { useShowMore } from '../../lib/useShowMore'
 import { downloadSalesPdf } from '../../lib/salesPdf'
 import SalesPeriodFilter from '../../components/SalesPeriodFilter.vue'
 import SalesInsights from '../../components/SalesInsights.vue'
-
-defineProps({
-  // shown inside the Profile page: no page heading of its own
-  embedded: { type: Boolean, default: false },
-})
 
 const sales = ref([])
 const loading = ref(false)
