@@ -5,6 +5,7 @@
 //   <TablePager v-model:page="page" v-model:page-size="pageSize" :total="items.length" noun="products" />
 import { computed } from 'vue'
 import { PAGE_SIZES } from '../lib/usePagination'
+import { count } from '../lib/format'
 
 const props = defineProps({
   total: { type: Number, required: true },
@@ -39,8 +40,8 @@ function goTo(n) {
   <div class="table-pager">
     <p class="text-sm text-zinc-400">
       Showing
-      <b class="text-white">{{ first }}–{{ last }}</b>
-      of <b class="text-white">{{ total }}</b> {{ noun }}
+      <b class="text-white">{{ count(first) }}–{{ count(last) }}</b>
+      of <b class="text-white">{{ count(total) }}</b> {{ noun }}
     </p>
 
     <div class="flex flex-wrap items-center gap-3">

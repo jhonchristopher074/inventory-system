@@ -20,6 +20,7 @@
 import { computed, ref, watch } from 'vue'
 import { usePagination } from '../lib/usePagination'
 import TablePager from './TablePager.vue'
+import { count } from '../lib/format'
 
 const props = defineProps({
   rows: { type: Array, required: true },
@@ -137,13 +138,13 @@ function formatDate(date) {
                 </div>
               </td>
 
-              <td data-label="Batch" class="num text-sm font-bold text-white">{{ row.qty }}</td>
+              <td data-label="Batch" class="num text-sm font-bold text-white">{{ count(row.qty) }}</td>
 
               <td data-label="Progress">
                 <div class="w-40">
                   <div class="flex items-baseline justify-between gap-2 text-xs">
                     <span class="font-bold text-white">{{ row.totalPct }}%</span>
-                    <span class="text-zinc-400">{{ row.remaining }} left</span>
+                    <span class="text-zinc-400">{{ count(row.remaining) }} left</span>
                   </div>
 
                   <div

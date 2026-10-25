@@ -19,25 +19,25 @@
     <div class="mb-6 grid grid-cols-2 gap-3 sm:gap-5 xl:grid-cols-4">
       <div class="dashboard-card">
         <p class="card-label">Total Products</p>
-        <h2 class="card-value">{{ totalProducts }}</h2>
+        <h2 class="card-value">{{ count(totalProducts) }}</h2>
         <p class="card-sub">Available inventory records</p>
       </div>
 
       <div class="dashboard-card">
         <p class="card-label">Low Stock</p>
-        <h2 class="card-value text-red-400">{{ lowStockProducts.length }}</h2>
+        <h2 class="card-value text-red-400">{{ count(lowStockProducts.length) }}</h2>
         <p class="card-sub">Products with 10 or fewer stocks</p>
       </div>
 
       <div class="dashboard-card">
         <p class="card-label">Scheduled Inspections</p>
-        <h2 class="card-value text-yellow-400">{{ scheduledInspections.length }}</h2>
+        <h2 class="card-value text-yellow-400">{{ count(scheduledInspections.length) }}</h2>
         <p class="card-sub">Products with inspection dates</p>
       </div>
 
       <div class="dashboard-card">
         <p class="card-label">Submitted Approvals</p>
-        <h2 class="card-value text-lime-400">{{ submittedApprovals.length }}</h2>
+        <h2 class="card-value text-lime-400">{{ count(submittedApprovals.length) }}</h2>
         <p class="card-sub">Waiting for admin approval</p>
       </div>
     </div>
@@ -51,7 +51,7 @@
           <div>
             <div class="mb-1 flex justify-between text-sm">
               <span class="text-zinc-400">Saved Not Submitted</span>
-              <span class="font-bold text-lime-400">{{ savedPieces }} pcs</span>
+              <span class="font-bold text-lime-400">{{ count(savedPieces) }} pcs</span>
             </div>
             <div class="h-2 overflow-hidden rounded-full bg-zinc-800">
               <div
@@ -64,7 +64,7 @@
           <div>
             <div class="mb-1 flex justify-between text-sm">
               <span class="text-zinc-400">Submitted to Admin</span>
-              <span class="font-bold text-yellow-400">{{ submittedPieces }} pcs</span>
+              <span class="font-bold text-yellow-400">{{ count(submittedPieces) }} pcs</span>
             </div>
             <div class="h-2 overflow-hidden rounded-full bg-zinc-800">
               <div
@@ -77,7 +77,7 @@
           <div>
             <div class="mb-1 flex justify-between text-sm">
               <span class="text-zinc-400">Approved by Admin</span>
-              <span class="font-bold text-red-400">{{ approvedProductCount }} pcs</span>
+              <span class="font-bold text-red-400">{{ count(approvedProductCount) }} pcs</span>
             </div>
             <div class="h-2 overflow-hidden rounded-full bg-zinc-800">
               <div
@@ -125,10 +125,10 @@
 
             <div class="text-right">
               <p class="text-sm font-bold text-white">
-                Qty: {{ item.quantity }}
+                Qty: {{ count(item.quantity) }}
               </p>
               <p class="text-xs text-yellow-400">
-                Remaining: {{ remainingInspection(item) }}
+                Remaining: {{ count(remainingInspection(item)) }}
               </p>
             </div>
           </div>
@@ -163,7 +163,7 @@
             </div>
 
             <span class="rounded-full bg-red-600/20 px-3 py-1 text-xs font-bold text-red-400">
-              Qty: {{ item.quantity }}
+              Qty: {{ count(item.quantity) }}
             </span>
           </div>
         </div>
@@ -204,11 +204,11 @@
 
             <div class="mt-3 flex gap-2">
               <span class="rounded-full bg-emerald-600/20 px-3 py-1 text-xs font-bold text-emerald-400">
-                Approved: {{ item.approved_qty || 0 }}
+                Approved: {{ count(item.approved_qty) }}
               </span>
 
               <span class="rounded-full bg-red-600/20 px-3 py-1 text-xs font-bold text-red-400">
-                Return: {{ item.return_qty || 0 }}
+                Return: {{ count(item.return_qty) }}
               </span>
             </div>
           </div>
@@ -233,6 +233,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { supabase } from '../../lib/supabase'
 import PageHeader from '../../components/PageHeader.vue'
+import { count } from '../../lib/format'
 
 const router = useRouter()
 

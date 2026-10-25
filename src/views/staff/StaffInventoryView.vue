@@ -76,13 +76,13 @@
               </td>
 
               <td data-label="Price" class="num text-sm font-bold text-white">
-                ₱{{ Number(product.price || 0).toLocaleString() }}
+                {{ peso(product.price || 0) }}
               </td>
 
               <td data-label="Stock" class="num text-sm font-bold">
                 <!-- one piece, so on phones "low" stays next to the number -->
                 <span :class="Number(product.quantity || 0) <= 10 ? 'text-red-400' : 'text-white'">
-                  {{ product.quantity }}
+                  {{ count(product.quantity) }}
                   <span
                     v-if="Number(product.quantity || 0) <= 10"
                     class="ml-1 text-[0.6rem] uppercase tracking-wide"
@@ -204,6 +204,7 @@ import { supabase } from '../../lib/supabase'
 import { usePagination } from '../../lib/usePagination'
 import PageHeader from '../../components/PageHeader.vue'
 import TablePager from '../../components/TablePager.vue'
+import { count, peso } from '../../lib/format'
 
 const products = ref([])
 const loading = ref(false)

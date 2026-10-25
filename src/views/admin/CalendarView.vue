@@ -244,7 +244,7 @@
             </h2>
             <p class="text-sm text-zinc-400">
               Inspection {{ formatDate(selectedProduct.inspection_date) }} ·
-              batch of {{ inspectionQty(selectedProduct) }}
+              batch of {{ count(inspectionQty(selectedProduct)) }}
             </p>
           </div>
 
@@ -262,10 +262,10 @@
         <!-- approved by the admin so far -->
         <div class="mb-4 flex flex-wrap gap-2 text-xs font-bold">
           <span class="rounded-full bg-emerald-600/20 px-3 py-1 text-emerald-400">
-            Approved: {{ selectedProduct.approved_count || 0 }}
+            Approved: {{ count(selectedProduct.approved_count) }}
           </span>
           <span class="rounded-full bg-red-600/20 px-3 py-1 text-red-400">
-            Return: {{ selectedProduct.return_count || 0 }}
+            Return: {{ count(selectedProduct.return_count) }}
           </span>
         </div>
 
@@ -281,7 +281,7 @@
           >
             <span class="min-w-0 truncate text-white">{{ approval.requested_by || 'Staff' }}</span>
             <span class="shrink-0 text-zinc-300">
-              Approved {{ approval.approved_qty }} · Return {{ approval.return_qty }}
+              Approved {{ count(approval.approved_qty) }} · Return {{ count(approval.return_qty) }}
             </span>
           </li>
         </ul>
@@ -299,7 +299,7 @@
           >
             <span class="min-w-0 truncate text-white">{{ approval.requested_by || 'Staff' }}</span>
             <span class="shrink-0 text-zinc-300">
-              Approved {{ approval.approved_qty }} · Return {{ approval.return_qty }}
+              Approved {{ count(approval.approved_qty) }} · Return {{ count(approval.return_qty) }}
             </span>
           </li>
         </ul>
@@ -330,6 +330,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { supabase } from '../../lib/supabase'
 import PageHeader from '../../components/PageHeader.vue'
 import InspectionTable from '../../components/InspectionTable.vue'
+import { count } from '../../lib/format'
 
 const activeTab = ref('inspection')
 

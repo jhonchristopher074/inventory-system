@@ -41,9 +41,9 @@
             <!-- mt-auto pins stock, price and the button to the bottom, so they
                  line up across the row no matter how long the product name is -->
             <div class="mt-auto pt-3">
-              <p class="text-sm text-zinc-300">Stock: {{ product.quantity }}</p>
+              <p class="text-sm text-zinc-300">Stock: {{ count(product.quantity) }}</p>
               <p class="text-sm font-bold text-red-400">
-                ₱{{ Number(product.price || 0).toFixed(2) }}
+                {{ peso(product.price || 0) }}
               </p>
             </div>
 
@@ -100,7 +100,7 @@
             <div class="flex justify-between gap-3">
               <div>
                 <h3 class="font-bold text-white">{{ item.name }}</h3>
-                <p class="text-sm text-zinc-400">₱{{ item.price.toFixed(2) }}</p>
+                <p class="text-sm text-zinc-400">{{ peso(item.price) }}</p>
               </div>
 
               <button
@@ -131,7 +131,7 @@
             <p class="mt-2 text-sm text-zinc-300">
               Subtotal:
               <span class="font-bold text-white">
-                ₱{{ (item.price * item.cartQty).toFixed(2) }}
+                {{ peso(item.price * item.cartQty) }}
               </span>
             </p>
           </div>
@@ -140,7 +140,7 @@
         <div class="mt-5 border-t border-white/10 pt-4">
           <div class="mb-4 flex justify-between text-xl font-bold">
             <span>Total</span>
-            <span class="text-red-400">₱{{ totalAmount.toFixed(2) }}</span>
+            <span class="text-red-400">{{ peso(totalAmount) }}</span>
           </div>
 
           <p v-if="errorMessage" class="mb-3 rounded-xl bg-red-600/20 p-3 text-sm text-red-400">
@@ -183,7 +183,7 @@
       @click="showCart = true"
     >
       <span>🛒 Cart · {{ cartCount }} item(s)</span>
-      <span>₱{{ totalAmount.toFixed(2) }}</span>
+      <span>{{ peso(totalAmount) }}</span>
     </button>
 
     <!-- RECEIPT MODAL -->
@@ -217,11 +217,11 @@
             >
               <div class="flex justify-between gap-3">
                 <p class="font-bold">{{ item.product_name }}</p>
-                <p>₱{{ Number(item.subtotal).toFixed(2) }}</p>
+                <p>{{ peso(item.subtotal) }}</p>
               </div>
 
               <p class="text-xs">
-                Qty: {{ item.quantity }} × ₱{{ Number(item.price).toFixed(2) }}
+                Qty: {{ count(item.quantity) }} × {{ peso(item.price) }}
               </p>
             </div>
           </div>
@@ -230,7 +230,7 @@
 
           <div class="flex justify-between text-lg font-extrabold">
             <span>Total</span>
-            <span>₱{{ Number(receipt.total_amount).toFixed(2) }}</span>
+            <span>{{ peso(receipt.total_amount) }}</span>
           </div>
 
           <p class="mt-5 text-center text-xs">
@@ -263,6 +263,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { supabase } from '../../lib/supabase'
 import { useShowMore } from '../../lib/useShowMore'
 import { printElement } from '../../lib/printReceipt'
+import { count, peso } from '../../lib/format'
 
 const products = ref([])
 const cart = ref([])
@@ -281,7 +282,7 @@ const receipt = ref(null)
 // phones: the cart opens as a sheet from the bar at the bottom of the screen
 const showCart = ref(false)
 const cartCount = computed(() =>
-  cart.value.reduce((count, item) => count + Number(item.cartQty || 0), 0)
+  cart.value.reduce((sum, item) => sum + Number(item.cartQty || 0), 0)
 )
 const cashierEmail = ref('')
 

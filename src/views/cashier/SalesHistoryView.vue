@@ -14,17 +14,17 @@
     <div class="mb-6 grid gap-4 sm:grid-cols-3">
       <div class="rounded-[24px] border border-white/10 bg-zinc-900 p-5">
         <p class="text-sm text-zinc-400">Total sales</p>
-        <p class="mt-1 text-2xl font-extrabold text-red-400">₱{{ summaryTotal.toFixed(2) }}</p>
+        <p class="mt-1 text-2xl font-extrabold text-red-400">{{ peso(summaryTotal) }}</p>
       </div>
 
       <div class="rounded-[24px] border border-white/10 bg-zinc-900 p-5">
         <p class="text-sm text-zinc-400">Transactions</p>
-        <p class="mt-1 text-2xl font-extrabold text-white">{{ filteredSales.length }}</p>
+        <p class="mt-1 text-2xl font-extrabold text-white">{{ count(filteredSales.length) }}</p>
       </div>
 
       <div class="rounded-[24px] border border-white/10 bg-zinc-900 p-5">
         <p class="text-sm text-zinc-400">Items sold</p>
-        <p class="mt-1 text-2xl font-extrabold text-white">{{ summaryItems }}</p>
+        <p class="mt-1 text-2xl font-extrabold text-white">{{ count(summaryItems) }}</p>
       </div>
     </div>
 
@@ -34,7 +34,7 @@
     <!-- what the list shows, and download it as a PDF to read or print -->
     <div class="mb-3 flex flex-wrap items-center justify-between gap-3">
       <p class="text-sm text-zinc-400">
-        {{ filteredSales.length }} sale{{ filteredSales.length === 1 ? '' : 's' }}
+        {{ count(filteredSales.length) }} sale{{ filteredSales.length === 1 ? '' : 's' }}
       </p>
 
       <button
@@ -84,7 +84,7 @@
             </td>
 
             <td data-label="Total" class="px-5 py-4 font-bold text-red-400">
-              ₱{{ Number(sale.total_amount).toFixed(2) }}
+              {{ peso(sale.total_amount) }}
             </td>
 
             <td data-label="Action" class="px-5 py-4">
@@ -155,12 +155,12 @@
               <div>
                 <h3 class="font-bold text-white">{{ item.product_name }}</h3>
                 <p class="text-sm text-zinc-400">
-                  Qty: {{ item.quantity }} × ₱{{ Number(item.price).toFixed(2) }}
+                  Qty: {{ count(item.quantity) }} × {{ peso(item.price) }}
                 </p>
               </div>
 
               <p class="font-bold text-white">
-                ₱{{ Number(item.subtotal).toFixed(2) }}
+                {{ peso(item.subtotal) }}
               </p>
             </div>
           </div>
@@ -169,7 +169,7 @@
         <div class="mt-5 flex justify-between border-t border-white/10 pt-4 text-xl font-bold">
           <span>Total</span>
           <span class="text-red-400">
-            ₱{{ Number(selectedSale.total_amount).toFixed(2) }}
+            {{ peso(selectedSale.total_amount) }}
           </span>
         </div>
       </div>
@@ -204,10 +204,10 @@
             >
               <div class="flex justify-between">
                 <p class="font-bold">{{ item.product_name }}</p>
-                <p>₱{{ Number(item.subtotal).toFixed(2) }}</p>
+                <p>{{ peso(item.subtotal) }}</p>
               </div>
               <p class="text-xs">
-                Qty: {{ item.quantity }} × ₱{{ Number(item.price).toFixed(2) }}
+                Qty: {{ count(item.quantity) }} × {{ peso(item.price) }}
               </p>
             </div>
           </div>
@@ -216,7 +216,7 @@
 
           <div class="flex justify-between text-lg font-extrabold">
             <span>Total</span>
-            <span>₱{{ Number(receiptSale.total_amount).toFixed(2) }}</span>
+            <span>{{ peso(receiptSale.total_amount) }}</span>
           </div>
 
           <p class="mt-5 text-center text-xs">
@@ -252,6 +252,7 @@ import { useShowMore } from '../../lib/useShowMore'
 import { downloadSalesPdf } from '../../lib/salesPdf'
 import SalesPeriodFilter from '../../components/SalesPeriodFilter.vue'
 import SalesInsights from '../../components/SalesInsights.vue'
+import { count, peso } from '../../lib/format'
 
 const sales = ref([])
 const loading = ref(false)

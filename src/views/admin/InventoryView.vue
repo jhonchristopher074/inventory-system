@@ -102,13 +102,13 @@
               </td>
 
               <td data-label="Price" class="num text-sm font-bold text-red-400">
-                ₱{{ Number(product.price || 0).toFixed(2) }}
+                {{ peso(product.price || 0) }}
               </td>
 
               <td data-label="Stock" class="num text-sm font-bold">
                 <!-- one piece, so on phones "low" stays next to the number -->
                 <span :class="Number(product.quantity) <= 10 ? 'text-red-400' : 'text-white'">
-                  {{ product.quantity }}
+                  {{ count(product.quantity) }}
                   <span
                     v-if="Number(product.quantity) <= 10"
                     class="ml-1 text-[0.6rem] uppercase tracking-wide"
@@ -198,7 +198,7 @@
     <ActionSheet
       v-if="manageProduct"
       :title="manageProduct.nickname || manageProduct.name"
-      :subtitle="`Stock: ${manageProduct.quantity} · ₱${Number(manageProduct.price || 0).toFixed(2)}`"
+      :subtitle="`Stock: ${count(manageProduct.quantity)} · ${peso(manageProduct.price)}`"
       :actions="manageActions"
       @select="onManageAction"
       @close="manageProduct = null"
@@ -247,11 +247,11 @@
           </p>
 
           <p class="mt-2 text-zinc-300">
-            <b>Quantity:</b> {{ selectedProduct.quantity }}
+            <b>Quantity:</b> {{ count(selectedProduct.quantity) }}
           </p>
 
           <p class="mt-2 text-red-400">
-            <b>Price:</b> ₱{{ Number(selectedProduct.price || 0).toFixed(2) }}
+            <b>Price:</b> {{ peso(selectedProduct.price || 0) }}
           </p>
 
           <div class="mt-6 w-full text-left">
@@ -573,7 +573,7 @@
               v-if="Number(editForm.quantity) !== Number(editForm.originalQuantity)"
               class="text-xs text-amber-400"
             >
-              Quantity will change from {{ editForm.originalQuantity }} to {{ editForm.quantity === '' ? '—' : editForm.quantity }}.
+              Quantity will change from {{ count(editForm.originalQuantity) }} to {{ editForm.quantity === '' ? '—' : count(editForm.quantity) }}.
             </p>
 
             <p class="text-xs text-zinc-500">
@@ -653,7 +653,7 @@
         <p class="mb-4 font-bold text-white">{{ stockProduct?.name }}</p>
 
         <p class="mb-2 text-sm text-zinc-400">
-          Current Quantity: {{ stockProduct?.quantity }}
+          Current Quantity: {{ count(stockProduct?.quantity) }}
         </p>
 
         <input
@@ -701,6 +701,7 @@ import TablePager from '../../components/TablePager.vue'
 import { supabase } from '../../lib/supabase'
 import { usePagination } from '../../lib/usePagination'
 import { uploadImage } from '../../lib/uploadImage'
+import { count, peso } from '../../lib/format'
 
 const products = ref([])
 const selectedCategory = ref('All')

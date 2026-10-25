@@ -22,7 +22,7 @@
         <p class="stat-label">Today's Sales</p>
 
         <h2 class="stat-value text-red-400">
-          ₱{{ todaySales.toFixed(2) }}
+          {{ peso(todaySales) }}
         </h2>
       </div>
 
@@ -30,7 +30,7 @@
         <p class="stat-label">Transactions Today</p>
 
         <h2 class="stat-value">
-          {{ totalTransactions }}
+          {{ count(totalTransactions) }}
         </h2>
       </div>
 
@@ -38,7 +38,7 @@
         <p class="stat-label">Products Sold Today</p>
 
         <h2 class="stat-value">
-          {{ totalProductsSold }}
+          {{ count(totalProductsSold) }}
         </h2>
       </div>
 
@@ -46,7 +46,7 @@
         <p class="stat-label">Available Products</p>
 
         <h2 class="stat-value">
-          {{ availableProducts }}
+          {{ count(availableProducts) }}
         </h2>
       </div>
     </div>
@@ -92,7 +92,7 @@
               </div>
 
               <p class="text-xl font-extrabold text-red-400">
-                ₱{{ Number(sale.total_amount).toFixed(2) }}
+                {{ peso(sale.total_amount) }}
               </p>
             </div>
 
@@ -108,12 +108,12 @@
                   </p>
 
                   <p class="text-xs text-zinc-400">
-                    Qty: {{ item.quantity }}
+                    Qty: {{ count(item.quantity) }}
                   </p>
                 </div>
 
                 <p class="font-bold text-white">
-                  ₱{{ Number(item.subtotal).toFixed(2) }}
+                  {{ peso(item.subtotal) }}
                 </p>
               </div>
             </div>
@@ -194,7 +194,7 @@
 
                 <div class="text-right">
                   <p class="font-bold text-red-400">
-                    {{ product.quantity }}
+                    {{ count(product.quantity) }}
                   </p>
 
                   <p class="text-xs text-zinc-500">
@@ -220,6 +220,7 @@
 <script setup>
 import { onMounted, ref } from 'vue'
 import { supabase } from '../../lib/supabase'
+import { count, peso } from '../../lib/format'
 
 const recentSales = ref([])
 const lowStockProducts = ref([])

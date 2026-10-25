@@ -142,7 +142,7 @@
             <p class="text-sm text-zinc-400">
               <span class="text-red-400">{{ selectedProduct.category || 'Uncategorized' }}</span>
               · {{ formatDate(selectedProduct.inspection_date) }}
-              · batch of {{ inspectionQty(selectedProduct) }}
+              · batch of {{ count(inspectionQty(selectedProduct)) }}
             </p>
           </div>
 
@@ -163,7 +163,7 @@
             <div class="mb-2 flex items-baseline justify-between gap-3 text-sm">
               <span class="font-bold text-white">{{ liveTotalProgressPercent }}% inspected</span>
               <span class="text-zinc-400">
-                <b class="text-white">{{ remainingInspectable(selectedProduct) }}</b> left
+                <b class="text-white">{{ count(remainingInspectable(selectedProduct)) }}</b> left
               </span>
             </div>
 
@@ -176,15 +176,15 @@
             <div class="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-zinc-400">
               <span class="flex items-center gap-1.5">
                 <span class="h-2 w-2 rounded-full bg-red-600" aria-hidden="true"></span>
-                Approved by admin <b class="text-white">{{ adminApprovedQty(selectedProduct) }}</b>
+                Approved by admin <b class="text-white">{{ count(adminApprovedQty(selectedProduct)) }}</b>
               </span>
               <span class="flex items-center gap-1.5">
                 <span class="h-2 w-2 rounded-full bg-lime-400" aria-hidden="true"></span>
-                Saved <b class="text-white">{{ savedQty(selectedProduct) }}</b>
+                Saved <b class="text-white">{{ count(savedQty(selectedProduct)) }}</b>
               </span>
               <span class="flex items-center gap-1.5">
                 <span class="h-2 w-2 rounded-full bg-yellow-400" aria-hidden="true"></span>
-                Submitted <b class="text-white">{{ submittedQty(selectedProduct) }}</b>
+                Submitted <b class="text-white">{{ count(submittedQty(selectedProduct)) }}</b>
               </span>
             </div>
           </div>
@@ -207,7 +207,7 @@
                   class="inspection-input"
                   @input="limitApproved"
                 />
-                <span class="mt-1 block text-[11px] text-zinc-500">up to {{ maxApprovedInput }}</span>
+                <span class="mt-1 block text-[11px] text-zinc-500">up to {{ count(maxApprovedInput) }}</span>
               </label>
 
               <label class="block">
@@ -221,13 +221,13 @@
                   class="inspection-input"
                   @input="limitReturn"
                 />
-                <span class="mt-1 block text-[11px] text-zinc-500">up to {{ maxReturnInput }}</span>
+                <span class="mt-1 block text-[11px] text-zinc-500">up to {{ count(maxReturnInput) }}</span>
               </label>
             </div>
 
             <p class="mt-3 text-xs text-zinc-400">
-              Counting <b class="text-white">{{ liveInputQty }}</b> of the
-              {{ availableForEditing }} not inspected yet.
+              Counting <b class="text-white">{{ count(liveInputQty) }}</b> of the
+              {{ count(availableForEditing) }} not inspected yet.
             </p>
           </div>
 
@@ -257,7 +257,7 @@
                       {{ isMyApproval(approval) ? 'You' : approval.requested_by || 'Staff' }}
                     </p>
                     <p class="text-xs text-zinc-400">
-                      Approved {{ approval.approved_qty }} · Return {{ approval.return_qty }}
+                      Approved {{ count(approval.approved_qty) }} · Return {{ count(approval.return_qty) }}
                     </p>
                   </div>
                   <span class="shrink-0 rounded-full bg-lime-500/15 px-2 py-0.5 text-[11px] font-bold text-lime-400">
@@ -293,7 +293,7 @@
                     {{ isMyApproval(approval) ? 'You' : approval.requested_by || 'Staff' }}
                   </p>
                   <p class="text-xs text-zinc-400">
-                    Approved {{ approval.approved_qty }} · Return {{ approval.return_qty }}
+                    Approved {{ count(approval.approved_qty) }} · Return {{ count(approval.return_qty) }}
                   </p>
                 </div>
                 <span class="shrink-0 rounded-full bg-yellow-500/15 px-2 py-0.5 text-[11px] font-bold text-yellow-400">
@@ -330,6 +330,7 @@ import { computed, nextTick, onMounted, ref } from 'vue'
 import { supabase } from '../../lib/supabase'
 import PageHeader from '../../components/PageHeader.vue'
 import InspectionTable from '../../components/InspectionTable.vue'
+import { count } from '../../lib/format'
 
 const activeTab = ref('inspection')
 

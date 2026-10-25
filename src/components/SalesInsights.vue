@@ -5,6 +5,7 @@
 //
 //   <SalesInsights :sales="filteredSales" :range="range" />
 import { computed, ref, watch } from 'vue'
+import { count, peso } from '../lib/format'
 
 const props = defineProps({
   sales: { type: Array, required: true },
@@ -41,7 +42,7 @@ function monthKey(date) {
 }
 
 function money(value) {
-  return '₱' + Number(value || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  return peso(value)
 }
 
 // ----- Chart: one bar per day (or per month for long periods) -----
@@ -156,7 +157,7 @@ const shownProducts = computed(() =>
               class="pointer-events-none absolute bottom-full left-1/2 z-10 mb-2 hidden -translate-x-1/2 whitespace-nowrap rounded-lg bg-black px-2.5 py-1.5 text-xs text-white shadow-xl ring-1 ring-white/10 group-hover:block"
             >
               <span class="font-bold">{{ bucket.label }}</span><br />
-              {{ money(bucket.total) }} · {{ bucket.count }} sale{{ bucket.count === 1 ? '' : 's' }}
+              {{ money(bucket.total) }} · {{ count(bucket.count) }} sale{{ bucket.count === 1 ? '' : 's' }}
             </div>
           </div>
         </div>
@@ -193,7 +194,7 @@ const shownProducts = computed(() =>
             <div class="h-1.5 flex-1 overflow-hidden rounded-full bg-zinc-800">
               <div class="h-full rounded-full bg-red-500" :style="{ width: product.share + '%' }"></div>
             </div>
-            <span class="w-14 shrink-0 text-right text-xs text-zinc-500">{{ product.quantity }} pcs</span>
+            <span class="w-14 shrink-0 text-right text-xs text-zinc-500">{{ count(product.quantity) }} pcs</span>
           </div>
         </li>
       </ol>

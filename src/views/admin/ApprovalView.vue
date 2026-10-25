@@ -212,7 +212,7 @@
                 >
                   {{ item.is_new ? 'NEW' : 'RESTOCK' }}
                 </span>
-                +{{ item.qty_added ?? 0 }} pcs
+                +{{ count(item.qty_added) }} pcs
                 · Cost: {{ item.cost != null ? money(item.cost) : '—' }}
                 <template v-if="!item.is_new"> · Now: {{ money(item.price) }}</template>
               </p>
@@ -350,11 +350,11 @@
 
         <div class="mt-4 flex flex-wrap gap-2">
           <span class="rounded-full bg-emerald-600/20 px-3 py-1 text-xs font-bold text-emerald-400">
-            Approved: {{ approval.approved_qty || 0 }}
+            Approved: {{ count(approval.approved_qty) }}
           </span>
 
           <span class="rounded-full bg-red-600/20 px-3 py-1 text-xs font-bold text-red-400">
-            Return: {{ approval.return_qty || 0 }}
+            Return: {{ count(approval.return_qty) }}
           </span>
 
           <span class="rounded-full bg-yellow-500/20 px-3 py-1 text-xs font-bold text-yellow-400">
@@ -671,6 +671,7 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { onBeforeRouteLeave } from 'vue-router'
 import { supabase, uniqueChannelName } from '../../lib/supabase'
 import { setLeaveQuestion } from '../../lib/leaveGuard'
+import { count } from '../../lib/format'
 import PageHeader from '../../components/PageHeader.vue'
 
 /* ------------------------------------------------------------------
@@ -842,7 +843,7 @@ function confirmReview() {
 function money(value) {
   const number = Number(value)
   if (value === null || value === '' || !Number.isFinite(number)) return '—'
-  return number.toLocaleString(undefined, {
+  return number.toLocaleString('en-PH', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })
@@ -1363,20 +1364,20 @@ function updateScanning() {
   const finished = []
 
   for (const entry of scanning.value) {
-    const count = reviewItems.value.filter((item) => item.upload_ref === entry.ref).length
+    const itemsNow = reviewItems.value.filter((item) => item.upload_ref === entry.ref).length
 
-    if (count > entry.baseline) {
-      if (count === entry.found) {
+    if (itemsNow > entry.baseline) {
+      if (itemsNow === entry.found) {
         entry.stable += 1
       } else {
-        entry.found = count
+        entry.found = itemsNow
         entry.stable = 0
       }
 
       if (entry.stable >= 1) {
         finished.push(entry)
         itemsError.value = ''
-        itemsSuccess.value = `"${entry.name}": ${count - entry.baseline} product${count - entry.baseline === 1 ? '' : 's'} updated. Press Open to check the prices.`
+        itemsSuccess.value = `"${entry.name}": ${itemsNow - entry.baseline} product${itemsNow - entry.baseline === 1 ? '' : 's'} updated. Press Open to check the prices.`
       }
     } else if (Date.now() - entry.startedAt > SCAN_TIMEOUT_MS) {
       finished.push(entry)

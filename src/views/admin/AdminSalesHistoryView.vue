@@ -47,21 +47,21 @@
       <div class="rounded-[24px] border border-white/10 bg-zinc-900 p-5">
         <p class="text-sm text-zinc-400">Total sales</p>
         <p class="mt-1 text-2xl font-extrabold text-red-400">
-          ₱{{ summaryTotal.toFixed(2) }}
+          {{ peso(summaryTotal) }}
         </p>
       </div>
 
       <div class="rounded-[24px] border border-white/10 bg-zinc-900 p-5">
         <p class="text-sm text-zinc-400">Transactions</p>
         <p class="mt-1 text-2xl font-extrabold text-white">
-          {{ filteredSales.length }}
+          {{ count(filteredSales.length) }}
         </p>
       </div>
 
       <div class="rounded-[24px] border border-white/10 bg-zinc-900 p-5">
         <p class="text-sm text-zinc-400">Items sold</p>
         <p class="mt-1 text-2xl font-extrabold text-white">
-          {{ summaryItems }}
+          {{ count(summaryItems) }}
         </p>
       </div>
     </div>
@@ -72,7 +72,7 @@
     <!-- what the list shows, and download it: a PDF to read or print, CSV for Excel -->
     <div class="mb-3 flex flex-wrap items-center justify-between gap-3">
       <p class="text-sm text-zinc-400">
-        {{ filteredSales.length }} sale{{ filteredSales.length === 1 ? '' : 's' }}
+        {{ count(filteredSales.length) }} sale{{ filteredSales.length === 1 ? '' : 's' }}
       </p>
 
       <div class="flex flex-wrap gap-2">
@@ -149,7 +149,7 @@
             </td>
 
             <td data-label="Total" class="px-5 py-4 font-bold text-red-400">
-              ₱{{ Number(sale.total_amount).toFixed(2) }}
+              {{ peso(sale.total_amount) }}
             </td>
 
             <td data-label="Receipt" class="px-5 py-4">
@@ -240,14 +240,14 @@
                 </p>
 
                 <p>
-                  ₱{{ Number(item.subtotal).toFixed(2) }}
+                  {{ peso(item.subtotal) }}
                 </p>
               </div>
 
               <p class="text-xs">
-                Qty: {{ item.quantity }}
+                Qty: {{ count(item.quantity) }}
                 ×
-                ₱{{ Number(item.price).toFixed(2) }}
+                {{ peso(item.price) }}
               </p>
             </div>
           </div>
@@ -258,7 +258,7 @@
             <span>Total</span>
 
             <span>
-              ₱{{ Number(receiptSale.total_amount).toFixed(2) }}
+              {{ peso(receiptSale.total_amount) }}
             </span>
           </div>
 
@@ -295,6 +295,7 @@ import { useShowMore } from '../../lib/useShowMore'
 import { downloadSalesPdf } from '../../lib/salesPdf'
 import SalesPeriodFilter from '../../components/SalesPeriodFilter.vue'
 import SalesInsights from '../../components/SalesInsights.vue'
+import { count, peso } from '../../lib/format'
 
 const sales = ref([])
 const loading = ref(false)

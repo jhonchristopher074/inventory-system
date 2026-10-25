@@ -4,6 +4,7 @@
 // With a product: that product's history. Without: recent changes to all.
 import { onMounted, ref } from 'vue'
 import { supabase } from '../lib/supabase'
+import { count } from '../lib/format'
 
 const props = defineProps({
   product: { type: Object, default: null },
@@ -47,7 +48,7 @@ function formatDateTime(date) {
 
 function formatChange(change) {
   const value = Number(change || 0)
-  return value > 0 ? `+${value}` : String(value)
+  return value > 0 ? `+${count(value)}` : count(value)
 }
 
 onMounted(fetchMovements)
@@ -119,7 +120,7 @@ onMounted(fetchMovements)
                   {{ formatChange(move.change) }}
                 </td>
                 <td class="whitespace-nowrap px-4 py-3 text-right text-zinc-400">
-                  {{ move.old_quantity }} → <span class="font-bold text-white">{{ move.new_quantity }}</span>
+                  {{ count(move.old_quantity) }} → <span class="font-bold text-white">{{ count(move.new_quantity) }}</span>
                 </td>
                 <td class="px-4 py-3">{{ move.reason }}</td>
                 <td class="px-4 py-3">{{ move.changed_by_name || '—' }}</td>

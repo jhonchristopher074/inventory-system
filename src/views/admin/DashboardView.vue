@@ -14,22 +14,22 @@
     <section class="mb-5 grid grid-cols-2 gap-3 md:grid-cols-4">
       <div class="rounded-[22px] border border-white/10 bg-zinc-900 p-4">
         <p class="text-xs text-zinc-400">Total Products</p>
-        <h2 class="text-2xl font-bold text-white">{{ totalProducts }}</h2>
+        <h2 class="text-2xl font-bold text-white">{{ count(totalProducts) }}</h2>
       </div>
 
       <div class="rounded-[22px] border border-white/10 bg-zinc-900 p-4">
         <p class="text-xs text-zinc-400">Low Stock</p>
-        <h2 class="text-2xl font-bold text-white">{{ lowStock }}</h2>
+        <h2 class="text-2xl font-bold text-white">{{ count(lowStock) }}</h2>
       </div>
 
       <div class="rounded-[22px] border border-white/10 bg-zinc-900 p-4">
         <p class="text-xs text-zinc-400">Categories</p>
-        <h2 class="text-2xl font-bold text-white">{{ categoryCount }}</h2>
+        <h2 class="text-2xl font-bold text-white">{{ count(categoryCount) }}</h2>
       </div>
 
       <div class="rounded-[22px] border border-white/10 bg-zinc-900 p-4">
         <p class="text-xs text-zinc-400">Schedules</p>
-        <h2 class="text-2xl font-bold text-white">{{ inspectionProducts.length }}</h2>
+        <h2 class="text-2xl font-bold text-white">{{ count(inspectionProducts.length) }}</h2>
       </div>
     </section>
 
@@ -69,7 +69,7 @@
 
             <h3 class="mb-1 text-lg font-bold text-white">{{ product.name }}</h3>
             <p class="text-sm text-red-400">{{ product.category }}</p>
-            <p class="mt-1 text-sm text-zinc-300">Qty: {{ product.quantity }}</p>
+            <p class="mt-1 text-sm text-zinc-300">Qty: {{ count(product.quantity) }}</p>
           </div>
         </div>
       </div>
@@ -112,7 +112,7 @@
               <div>
                 <p class="text-sm text-zinc-300">{{ item.name }}</p>
                 <p class="text-[11px] text-zinc-400">
-                  Inspected: {{ currentInspected(item) }} / {{ inspectionQty(item) }}
+                  Inspected: {{ count(currentInspected(item)) }} / {{ count(inspectionQty(item)) }}
                 </p>
               </div>
 
@@ -155,6 +155,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { supabase } from '../../lib/supabase'
 import PageHeader from '../../components/PageHeader.vue'
+import { count } from '../../lib/format'
 
 const products = ref([])
 const loading = ref(false)
