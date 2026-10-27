@@ -307,7 +307,8 @@
         <!-- FOOTER -->
         <div class="flex gap-2 border-t border-white/10 px-5 py-4">
           <button
-            class="flex-1 rounded-xl bg-zinc-800 py-3 text-sm font-bold text-white hover:bg-zinc-700"
+            class="flex-1 rounded-xl bg-zinc-800 py-3 text-sm font-bold text-white hover:bg-zinc-700 disabled:opacity-50"
+            :disabled="panelBusy"
             @click="closePanel"
           >
             Close
@@ -677,7 +678,11 @@ function openPanel(product) {
   }
 }
 
+// Not while Save / Submit / Remove is running: its result ("Inspection
+// saved", the refreshed numbers) would land in the next window opened.
 function closePanel() {
+  if (panelBusy.value) return
+
   selectedProduct.value = null
   approvedQty.value = 0
   returnQty.value = 0
