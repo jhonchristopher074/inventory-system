@@ -213,7 +213,7 @@ import { useRouter, useRoute } from 'vue-router'
 import { supabase } from '../../lib/supabase'
 import { afterLogin } from '../../lib/passwordStatus'
 import { markActivity } from '../../lib/idleLogout'
-import { markTabLoggedIn } from '../../lib/browserSession'
+import { markLoggedIn } from '../../lib/browserSession'
 import { startPasswordRecovery } from '../../lib/passwordRecovery'
 
 const router = useRouter()
@@ -283,10 +283,10 @@ async function login() {
     return
   }
 
-  // fresh login: restart the auto-logout clock, and remember that this tab
-  // is logged in (closing every tab logs out, see lib/browserSession.js)
+  // fresh login: restart the auto-logout clock, and remember it until the
+  // browser app is closed (see lib/browserSession.js)
   markActivity()
-  markTabLoggedIn()
+  markLoggedIn()
 
   // Temporary password? Expired -> signed out with a message.
   // Still valid -> go to the Change password page BEFORE anything else.

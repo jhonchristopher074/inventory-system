@@ -6,7 +6,7 @@ import LoginView from '../views/auth/LoginView.vue'
 import { isPasswordRecovery, endPasswordRecovery } from '../lib/passwordRecovery'
 import { getPasswordStatus, EXPIRED_MESSAGE } from '../lib/passwordStatus'
 import { isIdleExpired, markActivity, IDLE_MESSAGE } from '../lib/idleLogout'
-import { wasBrowserClosed, markTabLoggedIn, CLOSED_MESSAGE } from '../lib/browserSession'
+import { wasBrowserClosed, markLoggedIn, CLOSED_MESSAGE } from '../lib/browserSession'
 
 // Every page except Login is downloaded only when it's first opened, so the
 // first load (the login screen) is much smaller, especially on phones.
@@ -108,11 +108,11 @@ router.beforeEach(async (to) => {
   // left open: restart the auto-logout clock instead of ending it.
   if (to.path === '/reset-password' && isPasswordRecovery()) {
     markActivity()
-    markTabLoggedIn()
+    markLoggedIn()
   }
 
-  // Every tab of the app was closed since the login: end it.
-  if (await wasBrowserClosed()) {
+  // The browser app was closed since the login: end it.
+  if (wasBrowserClosed()) {
     await supabase.auth.signOut({ scope: 'local' })
     currentRole.value = ''
     if (to.path === '/login') return
