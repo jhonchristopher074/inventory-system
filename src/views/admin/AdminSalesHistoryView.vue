@@ -2,25 +2,43 @@
   <div>
     <!-- HEADER -->
     <div class="mb-6 rounded-[24px] border border-white/10 bg-zinc-900 p-5">
-      <button
-        v-if="selectedCashier"
-        class="mb-3 rounded-xl bg-zinc-800 px-4 py-2 text-sm font-bold text-white hover:bg-zinc-700"
-        @click="showAllSales"
-      >
-        ← All sales
-      </button>
+      <!-- one cashier's sales (their name was clicked) -->
+      <template v-if="selectedCashier">
+        <button
+          type="button"
+          class="inline-flex items-center gap-2 rounded-xl border border-red-500/50 bg-red-600/15 px-4 py-2.5 text-sm font-bold text-red-100 transition hover:border-red-600 hover:bg-red-600 hover:text-white"
+          @click="showAllSales"
+        >
+          <NavIcon name="back" class="h-4 w-4" />
+          Back to all sales
+        </button>
 
-      <h1 class="text-3xl font-bold text-white">
-        {{ selectedCashier ? selectedCashier.name : 'Admin Sales History' }}
-      </h1>
+        <div class="mt-4 flex items-center gap-4">
+          <span
+            class="grid h-14 w-14 shrink-0 place-items-center rounded-full bg-red-600 text-2xl font-extrabold text-white"
+            aria-hidden="true"
+          >
+            {{ selectedCashier.initials }}
+          </span>
 
-      <p class="text-zinc-400">
-        {{
-          selectedCashier
-            ? 'Sales history of this cashier.'
-            : 'Monitor all cashier transactions and receipts. Click a cashier name to see their sales.'
-        }}
-      </p>
+          <div class="min-w-0">
+            <p class="text-xs font-bold uppercase tracking-[0.16em] text-red-400">
+              Cashier sales history
+            </p>
+            <h1 class="break-words text-3xl font-bold text-white">
+              {{ selectedCashier.name }}
+            </h1>
+            <p class="text-zinc-400">Only this cashier's sales are shown below.</p>
+          </div>
+        </div>
+      </template>
+
+      <template v-else>
+        <h1 class="text-3xl font-bold text-white">Admin Sales History</h1>
+        <p class="text-zinc-400">
+          Monitor all cashier transactions and receipts. Click a cashier name to see their sales.
+        </p>
+      </template>
     </div>
 
     <!-- DATE FILTER, with the cashier search at the right end of its row
@@ -71,9 +89,30 @@
 
     <!-- what the list shows, and download it: a PDF to read or print, CSV for Excel -->
     <div class="mb-3 flex flex-wrap items-center justify-between gap-3">
-      <p class="text-sm text-zinc-400">
-        {{ count(filteredSales.length) }} sale{{ filteredSales.length === 1 ? '' : 's' }}
-      </p>
+      <!-- one cashier: whose sales these are, and a way back right here
+           (the header is scrolled out of view by now) -->
+      <div v-if="selectedCashier" class="flex flex-wrap items-center gap-2 text-sm text-zinc-400">
+        <span>{{ salesCountText }} of</span>
+        <span class="inline-flex items-center gap-2 rounded-full border border-red-500/40 bg-red-600/10 py-1 pl-1 pr-3">
+          <span
+            class="grid h-6 w-6 place-items-center rounded-full bg-red-600 text-[0.65rem] font-extrabold text-white"
+            aria-hidden="true"
+          >
+            {{ selectedCashier.initials }}
+          </span>
+          <b class="text-white">{{ selectedCashier.name }}</b>
+        </span>
+        <button
+          type="button"
+          class="inline-flex items-center gap-1.5 rounded-full border border-white/10 px-3 py-1 font-bold text-zinc-200 transition hover:border-red-500/60 hover:text-white"
+          @click="showAllSales"
+        >
+          <NavIcon name="back" class="h-3.5 w-3.5" />
+          All sales
+        </button>
+      </div>
+
+      <p v-else class="text-sm text-zinc-400">{{ salesCountText }}</p>
 
       <div class="flex flex-wrap gap-2">
         <button
@@ -113,7 +152,8 @@
         <thead class="bg-black text-sm text-zinc-400">
           <tr>
             <th class="px-5 py-4">Sale ID</th>
-            <th class="px-5 py-4">Cashier</th>
+            <!-- one cashier: their name is already above the table -->
+            <th v-if="!selectedCashier" class="px-5 py-4">Cashier</th>
             <th class="px-5 py-4">Date</th>
             <th class="px-5 py-4">Items</th>
             <th class="px-5 py-4">Total</th>
@@ -131,7 +171,7 @@
               #{{ sale.id }}
             </td>
 
-            <td data-label="Cashier" class="px-5 py-4">
+            <td v-if="!selectedCashier" data-label="Cashier" class="px-5 py-4">
               <button
                 class="font-semibold text-zinc-200 hover:text-red-400 hover:underline"
                 @click="openCashier(sale)"
@@ -296,10 +336,11 @@ import { useShowMore } from '../../lib/useShowMore'
 import { downloadSalesPdf } from '../../lib/salesPdf'
 import SalesPeriodFilter from '../../components/SalesPeriodFilter.vue'
 import SalesInsights from '../../components/SalesInsights.vue'
+import NavIcon from '../../components/NavIcon.vue'
 import { count, peso } from '../../lib/format'
 
 const sales = ref([])
-const loading = ref(false)
+const loading = ref(true) // until the first load is done
 const errorMessage = ref('')
 const receiptSale = ref(null)
 
@@ -312,8 +353,18 @@ const selectedCashier = computed(() => {
   const key = route.query.cashier
   if (!key) return null // show everyone
   const sale = sales.value.find((s) => String(cashierKey(s)) === key)
-  return { key, name: sale ? cashierName(sale) : 'Cashier' }
+  if (sale) return { key, name: cashierName(sale), initials: initialsOf(cashierName(sale)) }
+
+  // still loading, or an old link to a cashier with no sales left
+  return { key, name: loading.value ? 'Loading…' : 'Unknown cashier', initials: '?' }
 })
+
+// "Maria Dela Cruz" → "MC"
+function initialsOf(name) {
+  const words = name.trim().split(/\s+/).filter(Boolean)
+  const letters = (words[0]?.[0] || '') + (words.length > 1 ? words[words.length - 1][0] : '')
+  return letters.toUpperCase() || '?'
+}
 
 function openCashier(sale) {
   router.push({ query: { ...route.query, cashier: String(cashierKey(sale)) } })
@@ -373,6 +424,10 @@ const filteredSales = computed(() => {
       inRange(s)
   )
 })
+
+const salesCountText = computed(
+  () => `${count(filteredSales.value.length)} sale${filteredSales.value.length === 1 ? '' : 's'}`
+)
 
 const summaryTotal = computed(() =>
   filteredSales.value.reduce((sum, s) => sum + Number(s.total_amount || 0), 0)

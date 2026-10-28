@@ -93,6 +93,11 @@
       <path d="M5 9h14M5 15h14M10 3L8 21M16 3l-2 18" />
     </template>
 
+    <!-- arrow left (back) -->
+    <template v-else-if="name === 'back'">
+      <path d="M19 12H5M11 18l-6-6 6-6" />
+    </template>
+
     <!-- fallback dot -->
     <circle v-else cx="12" cy="12" r="3" />
   </svg>
