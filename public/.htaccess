@@ -12,3 +12,19 @@
   RewriteCond %{REQUEST_FILENAME} !-d
   RewriteRule . /index.html [L]
 </IfModule>
+
+# The page itself (index.html, also served for /inventory, /login ...) must
+# be checked for a new version every time it's opened. InfinityFree tells
+# browsers to keep it for 30 days, so after an update people kept getting
+# the old version when they opened the site. The files in assets/ have the
+# version in their names (index-Box0qK9M.js), so they can stay cached.
+<IfModule mod_expires.c>
+  ExpiresActive On
+  ExpiresByType text/html "access plus 0 seconds"
+</IfModule>
+<IfModule mod_headers.c>
+  <FilesMatch "\.html$">
+    Header set Cache-Control "no-cache"
+    Header unset Expires
+  </FilesMatch>
+</IfModule>
