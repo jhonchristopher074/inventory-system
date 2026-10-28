@@ -5,7 +5,7 @@
       <button
         v-if="selectedCashier"
         class="mb-3 rounded-xl bg-zinc-800 px-4 py-2 text-sm font-bold text-white hover:bg-zinc-700"
-        @click="selectedCashier = null"
+        @click="showAllSales"
       >
         ← All sales
       </button>
@@ -134,7 +134,7 @@
             <td data-label="Cashier" class="px-5 py-4">
               <button
                 class="font-semibold text-zinc-200 hover:text-red-400 hover:underline"
-                @click="selectedCashier = { key: cashierKey(sale), name: cashierName(sale) }"
+                @click="openCashier(sale)"
               >
                 {{ cashierName(sale) }}
               </button>
@@ -289,6 +289,7 @@
 
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { supabase } from '../../lib/supabase'
 import { printElement } from '../../lib/printReceipt'
 import { useShowMore } from '../../lib/useShowMore'
@@ -301,7 +302,34 @@ const sales = ref([])
 const loading = ref(false)
 const errorMessage = ref('')
 const receiptSale = ref(null)
-const selectedCashier = ref(null) // { key, name } or null = show everyone
+
+// The clicked cashier lives in the address (?cashier=<id>), so the browser's
+// Back button returns to all sales instead of leaving the page.
+const route = useRoute()
+const router = useRouter()
+
+const selectedCashier = computed(() => {
+  const key = route.query.cashier
+  if (!key) return null // show everyone
+  const sale = sales.value.find((s) => String(cashierKey(s)) === key)
+  return { key, name: sale ? cashierName(sale) : 'Cashier' }
+})
+
+function openCashier(sale) {
+  router.push({ query: { ...route.query, cashier: String(cashierKey(sale)) } })
+}
+
+function showAllSales() {
+  // came here by clicking a name: go back, so Back/Forward stay in order
+  const back = window.history.state?.back
+  if (back && router.resolve(back).path === route.path && !router.resolve(back).query.cashier) {
+    router.back()
+  } else {
+    const query = { ...route.query }
+    delete query.cashier
+    router.replace({ query })
+  }
+}
 
 // { start, end } of the date filter (end not included); null = no limit
 const range = ref({ start: null, end: null })
@@ -340,7 +368,7 @@ const filteredSales = computed(() => {
 
   return sales.value.filter(
     (s) =>
-      (!selectedCashier.value || cashierKey(s) === selectedCashier.value.key) &&
+      (!selectedCashier.value || String(cashierKey(s)) === selectedCashier.value.key) &&
       (selectedCashier.value || !search || cashierName(s).toLowerCase().includes(search)) &&
       inRange(s)
   )
