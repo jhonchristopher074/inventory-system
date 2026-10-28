@@ -35,6 +35,7 @@ const StaffDocumentationView = () => import('../views/staff/StaffDocumentationVi
 const StaffProfileView = () => import('../views/staff/StaffProfileView.vue')
 
 const SupplierDropBoxView = () => import('../views/supplier/SupplierDropBoxView.vue')
+const SupplierProfileView = () => import('../views/supplier/SupplierProfileView.vue')
 
 const routes = [
   { path: '/login', name: 'login', component: LoginView },
@@ -64,6 +65,7 @@ const routes = [
   { path: '/staff/profile', component: StaffProfileView, meta: { requiresAuth: true, role: 'staff' } },
 
   { path: '/SupplierDropBoxView', component: SupplierDropBoxView, meta: { requiresAuth: true, role: 'supplier' } },
+  { path: '/supplier/profile', component: SupplierProfileView, meta: { requiresAuth: true, role: 'supplier' } },
 
   // a mistyped address: your home page (or the login page)
   { path: '/:pathMatch(.*)*', redirect: '/' },

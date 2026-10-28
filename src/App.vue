@@ -320,6 +320,10 @@ const NAV = {
       section: 'Overview',
       items: [{ to: '/SupplierDropBoxView', label: 'Dashboard', icon: 'dashboard' }],
     },
+    {
+      section: 'Account',
+      items: [{ to: '/supplier/profile', label: 'Profile', icon: 'profile' }],
+    },
   ],
 }
 

@@ -1,5 +1,5 @@
 <script setup>
-// Profile shared by the staff and cashier pages: who you are (read-only:
+// Profile shared by the staff, cashier and supplier pages: who you are (read-only:
 // only the administrator can change a name or email), your password, and
 // role-specific numbers ("stats", e.g. the staff documentation counts).
 import { computed, onMounted, ref } from 'vue'
