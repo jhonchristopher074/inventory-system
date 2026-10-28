@@ -38,61 +38,65 @@
     </div>
 
     <!-- every card is the same size: fixed picture, title of 2 lines and
-         description of 3 lines at most, button at the bottom -->
-    <div class="grid gap-3 sm:gap-5 md:grid-cols-2 xl:grid-cols-3">
-      <div
-        v-for="document in visibleDocuments"
-        :key="document.id"
-        class="flex flex-col rounded-2xl border border-white/10 bg-zinc-900 p-3 shadow-xl sm:rounded-[24px] sm:p-5"
-      >
+         description of 3 lines at most, button at the bottom.
+         Columns follow the width of the page area (not the whole window, which
+         also holds the sidebar): 1, 2, 3, then 4 per row on wide screens. -->
+    <div class="@container">
+      <div class="grid gap-3 sm:gap-5 @min-[600px]:grid-cols-2 @min-[880px]:grid-cols-3 @min-[1100px]:grid-cols-4">
         <div
-          class="mb-3 flex h-32 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-black sm:mb-4 sm:h-40 sm:rounded-2xl"
+          v-for="document in visibleDocuments"
+          :key="document.id"
+          class="flex flex-col rounded-2xl border border-white/10 bg-zinc-900 p-3 shadow-xl sm:rounded-[24px] sm:p-5"
         >
-          <img
-            v-if="documentImage(document)"
-            :src="documentImage(document)"
-            loading="lazy"
-            class="h-full w-full object-cover"
-          />
-
-          <span v-else class="text-sm text-zinc-500">
-            No Image
-          </span>
-        </div>
-
-        <div class="mb-3 flex items-center justify-between gap-3">
-          <span
-            class="rounded-full px-3 py-1 text-xs font-bold"
-            :class="badgeClass(document.type)"
+          <div
+            class="mb-3 flex h-32 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-black sm:mb-4 sm:h-40 sm:rounded-2xl"
           >
-            {{ document.type || 'Document' }}
-          </span>
+            <img
+              v-if="documentImage(document)"
+              :src="documentImage(document)"
+              loading="lazy"
+              class="h-full w-full object-cover"
+            />
 
-          <span class="text-xs text-zinc-500">
-            {{ formatDate(document.created_at) }}
-          </span>
-        </div>
+            <span v-else class="text-sm text-zinc-500">
+              No Image
+            </span>
+          </div>
 
-        <h2 class="line-clamp-2 min-h-[2.75em] text-base font-bold leading-snug text-white sm:text-xl">
-          {{ document.title || document.type || 'Untitled Document' }}
-        </h2>
+          <div class="mb-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+            <span
+              class="rounded-full px-3 py-1 text-xs font-bold"
+              :class="badgeClass(document.type)"
+            >
+              {{ document.type || 'Document' }}
+            </span>
 
-        <p class="mt-2 line-clamp-3 min-h-[4.5rem] text-sm leading-6 text-zinc-400">
-          {{ document.description || 'No description provided.' }}
-        </p>
+            <span class="text-xs text-zinc-500">
+              {{ formatDate(document.created_at) }}
+            </span>
+          </div>
 
-        <div class="mt-auto pt-3 sm:pt-5">
-          <button
-            class="w-full rounded-xl bg-red-600 py-2.5 text-sm font-bold text-white transition hover:bg-red-700 sm:rounded-2xl sm:py-3 sm:text-base"
-            @click="openDocument(document)"
-          >
-            View Details
-          </button>
+          <h2 class="line-clamp-2 min-h-[2.75em] text-base font-bold leading-snug text-white sm:text-xl @min-[1100px]:text-lg">
+            {{ document.title || document.type || 'Untitled Document' }}
+          </h2>
+
+          <p class="mt-2 line-clamp-3 min-h-[4.5rem] text-sm leading-6 text-zinc-400">
+            {{ document.description || 'No description provided.' }}
+          </p>
+
+          <div class="mt-auto pt-3 sm:pt-5">
+            <button
+              class="w-full rounded-xl bg-red-600 py-2.5 text-sm font-bold text-white transition hover:bg-red-700 sm:rounded-2xl sm:py-3 sm:text-base"
+              @click="openDocument(document)"
+            >
+              View Details
+            </button>
+          </div>
         </div>
       </div>
     </div>
 
-    <!-- LAZY LOADING: when this line comes near the screen, the next 15 items are shown -->
+    <!-- LAZY LOADING: when this line comes near the screen, the next 16 items are shown -->
     <div
       v-if="hasMore"
       ref="sentinel"
@@ -218,8 +222,8 @@ const documentTypes = [
   'Inspection Note',
 ]
 
-// ----- Lazy loading: show 15 at a time -----
-const PAGE_SIZE = 15
+// ----- Lazy loading: show 16 at a time (4 full rows of 4) -----
+const PAGE_SIZE = 16
 const visibleCount = ref(PAGE_SIZE)
 const sentinel = ref(null)
 let observer = null
@@ -253,7 +257,7 @@ watch(
   { flush: 'post' }
 )
 
-// Changing the tab starts again from the first 15.
+// Changing the tab starts again from the first 16.
 watch(selectedType, () => {
   visibleCount.value = PAGE_SIZE
 })
