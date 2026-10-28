@@ -89,8 +89,8 @@
 
     <!-- what the list shows, and download it: a PDF to read or print, CSV for Excel -->
     <div class="mb-3 flex flex-wrap items-center justify-between gap-3">
-      <!-- one cashier: whose sales these are, and a way back right here
-           (the header is scrolled out of view by now) -->
+      <!-- one cashier: whose sales these are (the header is scrolled out of
+           view by now; its "Back to all sales" button goes back) -->
       <div v-if="selectedCashier" class="flex flex-wrap items-center gap-2 text-sm text-zinc-400">
         <span>{{ salesCountText }} of</span>
         <span class="inline-flex items-center gap-2 rounded-full border border-red-500/40 bg-red-600/10 py-1 pl-1 pr-3">
@@ -102,14 +102,6 @@
           </span>
           <b class="text-white">{{ selectedCashier.name }}</b>
         </span>
-        <button
-          type="button"
-          class="inline-flex items-center gap-1.5 rounded-full border border-white/10 px-3 py-1 font-bold text-zinc-200 transition hover:border-red-500/60 hover:text-white"
-          @click="showAllSales"
-        >
-          <NavIcon name="back" class="h-3.5 w-3.5" />
-          All sales
-        </button>
       </div>
 
       <p v-else class="text-sm text-zinc-400">{{ salesCountText }}</p>
