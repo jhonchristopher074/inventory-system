@@ -307,7 +307,7 @@ function moved(list, to) {
   return to === NO_CATEGORY ? `Took ${what} out: now Uncategorized.` : `Moved ${what} to ${to}.`
 }
 
-// a product's own "Move to…" menu
+// a product's own "Select category" / "Change category" menu
 function moveOne(product, event) {
   const to = event.target.value
   event.target.value = ''
@@ -838,7 +838,7 @@ onBeforeUnmount(() => {
                 >
                   <b class="text-white">{{ count(checked.size) }} selected</b>
                   <select class="move-select" aria-label="Move the selected products" @change="moveChecked">
-                    <option value="">{{ isUncategorized ? 'Put them in…' : 'Move them to…' }}</option>
+                    <option value="">{{ isUncategorized ? 'Select category' : 'Change category' }}</option>
                     <option v-for="name in moveTargets" :key="name" :value="name">{{ targetLabel(name) }}</option>
                   </select>
                   <button type="button" class="font-bold text-zinc-400 hover:text-white" @click="checked.clear()">
@@ -879,7 +879,7 @@ onBeforeUnmount(() => {
                       :aria-label="`Move ${product.name}`"
                       @change="moveOne(product, $event)"
                     >
-                      <option value="">{{ isUncategorized ? 'Put in…' : 'Move to…' }}</option>
+                      <option value="">{{ isUncategorized ? 'Select category' : 'Change category' }}</option>
                       <option v-for="name in moveTargets" :key="name" :value="name">{{ targetLabel(name) }}</option>
                     </select>
                   </li>
