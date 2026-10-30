@@ -15,40 +15,41 @@
 
         <p v-if="loading" class="text-zinc-400">Loading products...</p>
 
-        <!-- up to 4 a row: the columns follow the width of this area (it
-             shares the screen with the cart), not the whole window -->
+        <!-- 2 a row on phones, up to 4: the columns follow the width of this
+             area (it shares the screen with the cart), not the whole window.
+             Below 440px the cards are smaller (less padding, smaller text). -->
         <div class="@container">
-          <div class="grid grid-cols-1 gap-4 @min-[440px]:grid-cols-2 @min-[640px]:grid-cols-3 @min-[780px]:grid-cols-4">
+          <div class="grid grid-cols-2 gap-3 @min-[440px]:gap-4 @min-[640px]:grid-cols-3 @min-[780px]:grid-cols-4">
             <div
               v-for="product in visibleProducts"
               :key="product.id"
-              class="card flex flex-col p-4"
+              class="card flex min-w-0 flex-col p-2.5 @min-[440px]:p-4"
             >
               <img
                 :src="product.image_url || 'https://via.placeholder.com/300x200'"
                 :alt="product.name"
-                class="mb-3 h-[140px] w-full shrink-0 rounded-2xl object-cover"
+                class="mb-2 aspect-[4/3] w-full shrink-0 rounded-xl object-cover @min-[440px]:mb-3 @min-[440px]:aspect-auto @min-[440px]:h-[140px] @min-[440px]:rounded-2xl"
                 loading="lazy"
               />
 
-              <h2 class="line-clamp-2 text-lg font-bold leading-snug text-white">
+              <h2 class="line-clamp-2 text-sm font-bold leading-snug text-white @min-[440px]:text-lg">
                 {{ product.name }}
               </h2>
-              <p class="truncate text-sm text-zinc-400">
+              <p class="truncate text-xs text-zinc-400 @min-[440px]:text-sm">
                 {{ product.category || 'Uncategorized' }}
               </p>
 
               <!-- mt-auto pins stock, price and the button to the bottom, so they
                    line up across the row no matter how long the product name is -->
-              <div class="mt-auto pt-3">
-                <p class="text-sm text-zinc-300">Stock: {{ count(product.quantity) }}</p>
+              <div class="mt-auto pt-2 @min-[440px]:pt-3">
+                <p class="text-xs text-zinc-300 @min-[440px]:text-sm">Stock: {{ count(product.quantity) }}</p>
                 <p class="text-sm font-bold text-red-400">
                   {{ peso(product.price || 0) }}
                 </p>
               </div>
 
               <button
-                class="mt-3 w-full shrink-0 rounded-xl bg-red-600 py-2 font-bold text-white hover:bg-red-700 disabled:opacity-50"
+                class="mt-2 w-full shrink-0 rounded-xl bg-red-600 py-2 text-sm font-bold text-white hover:bg-red-700 disabled:opacity-50 @min-[440px]:mt-3 @min-[440px]:text-base"
                 :disabled="product.quantity <= 0 || checkingOut"
                 @click="addToCart(product)"
               >
