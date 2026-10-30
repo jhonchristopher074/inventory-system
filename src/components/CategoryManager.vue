@@ -6,7 +6,8 @@
 //   right  the chosen one: its products, "Add products", Rename, Delete,
 //          and optional notes for the receipt scanner's AI. In
 //          Uncategorized each product has "Select category" (or tick several
-//          and sort them together); in a category each just shows it.
+//          and sort them together); in a category its menu shows that
+//          category, and picking another moves it.
 //          Every move shows a message with Undo.
 //
 // The window keeps one size whatever is typed. Phones: one side at a time
@@ -175,15 +176,9 @@ function closeEditors() {
   confirmingDelete.value = false
 }
 
-// where a product can be moved from here: the other categories, and out
-const moveTargets = computed(() => [
-  ...allCategories.value.map((c) => c.name).filter((name) => name !== selectedName.value),
-  ...(isUncategorized.value ? [] : [NO_CATEGORY]),
-])
-
-function targetLabel(name) {
-  return name === NO_CATEGORY ? 'Uncategorized (take out)' : name
-}
+// a product's category menu lists every category (in a category, its own
+// is the one selected)
+const categoryNames = computed(() => allCategories.value.map((c) => c.name))
 
 // long lists: a filter
 const productFilter = ref('')
@@ -309,12 +304,14 @@ function moved(list, to) {
   return to === NO_CATEGORY ? `Took ${what} out: now Uncategorized.` : `Moved ${what} to ${to}.`
 }
 
-// an Uncategorized product's "Select category" menu (one that has a
-// category just shows it)
+// a product's category menu: "Select category" in Uncategorized, its own
+// category elsewhere. Picking another moves it (and the menu shows the old
+// value until the move is shown, so a failed one doesn't leave it wrong).
 function moveOne(product, event) {
   const to = event.target.value
-  event.target.value = ''
-  if (to) moveProducts([{ product, to }], (done) => moved(done, to))
+  const from = categoryOf(product)
+  event.target.value = from === NO_CATEGORY ? '' : from
+  if (to && to !== from) moveProducts([{ product, to }], (done) => moved(done, to))
 }
 
 // the ticked ones
@@ -845,7 +842,7 @@ onBeforeUnmount(() => {
                   <b class="text-white">{{ count(checked.size) }} selected</b>
                   <select class="move-select" aria-label="Category for the selected products" @change="moveChecked">
                     <option value="">Select category</option>
-                    <option v-for="name in moveTargets" :key="name" :value="name">{{ targetLabel(name) }}</option>
+                    <option v-for="name in categoryNames" :key="name" :value="name">{{ name }}</option>
                   </select>
                   <button type="button" class="font-bold text-zinc-400 hover:text-white" @click="checked.clear()">
                     Clear
@@ -881,20 +878,15 @@ onBeforeUnmount(() => {
                     <span class="min-w-0 flex-1 truncate text-sm text-zinc-200">{{ product.name }}</span>
 
                     <select
-                      v-if="isUncategorized"
                       class="move-select"
+                      :value="isUncategorized ? '' : categoryOf(product)"
                       :disabled="pending.has(product.id)"
                       :aria-label="`Category for ${product.name}`"
                       @change="moveOne(product, $event)"
                     >
-                      <option value="">Select category</option>
-                      <option v-for="name in moveTargets" :key="name" :value="name">{{ targetLabel(name) }}</option>
+                      <option v-if="isUncategorized" value="">Select category</option>
+                      <option v-for="name in categoryNames" :key="name" :value="name">{{ name }}</option>
                     </select>
-                    <!-- it has its category: shown, not changed here -->
-                    <span v-else class="category-chip" :title="`In ${categoryOf(product)}`">
-                      <NavIcon name="tag" class="h-3.5 w-3.5" />
-                      <span class="truncate">{{ categoryOf(product) }}</span>
-                    </span>
                   </li>
 
                   <li v-if="productsHere.length === 0" class="px-3 py-8 text-center text-sm text-zinc-500">
@@ -1064,20 +1056,6 @@ onBeforeUnmount(() => {
   color: var(--color-zinc-500);
 }
 
-/* a product's category, where Uncategorized ones have the menu */
-.category-chip {
-  display: inline-flex;
-  max-width: 11rem;
-  flex: none;
-  align-items: center;
-  gap: 0.35rem;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.06);
-  padding: 0.25rem 0.65rem;
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: var(--color-zinc-300);
-}
 
 .move-select {
   max-width: 11rem;
