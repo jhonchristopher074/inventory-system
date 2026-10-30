@@ -17,11 +17,12 @@
  * The Excel library (about 1 MB) is downloaded only when a file is made,
  * not with the page.
  */
-import { reportDay, reportFileName, reportPeriod, reportTime } from './salesReport'
+import { newestFirst, reportDay, reportFileName, reportPeriod, reportTime } from './salesReport'
 
 const SHOP = '10 FIVE 7 Hardware'
 
 // number formats, as Excel writes them
+const SALE_ID = '"#"0' // #45, like the PDF, but still a number (sorts as one)
 const PESO = '"₱"#,##0.00'
 const COUNT = '#,##0'
 const PERCENT = '0.0%'
@@ -71,13 +72,18 @@ function columnLetter(n) {
   return letters
 }
 
+// numbers on the right, text on the left (or what the column asks for)
+function sideOf(column) {
+  return column.align || (column.numFmt ? 'right' : 'left')
+}
+
 function styleHeader(row, columns) {
   row.height = 22
   columns.forEach((column, i) => {
     const cell = row.getCell(i + 1)
     cell.font = { bold: true, color: { argb: 'FFFFFFFF' } }
     cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: BRAND } }
-    cell.alignment = { vertical: 'middle', horizontal: column.numFmt ? 'right' : 'left' }
+    cell.alignment = { vertical: 'middle', horizontal: sideOf(column) }
   })
 }
 
@@ -94,7 +100,10 @@ function styleTotal(row, count) {
  * A list on its own sheet: header (fixed on screen, a filter on every
  * column), the rows, and a TOTAL row under a blank line.
  *
- * columns: [{ header, key, width, numFmt, sum }]  sum: add it up in TOTAL
+ * columns: [{ header, key, width, numFmt, align, wrap, sum }]
+ *   align: 'left' | 'right' (numbers go right, text left)
+ *   wrap:  the text may take several lines (e.g. one product per line)
+ *   sum:   add it up in TOTAL
  */
 function addListSheet(workbook, name, columns, rows) {
   const sheet = workbook.addWorksheet(name, {
@@ -109,11 +118,16 @@ function addListSheet(workbook, name, columns, rows) {
     },
   })
 
-  sheet.columns = columns.map(({ header, key, width, numFmt }) => ({
-    header,
-    key,
-    width,
-    style: numFmt ? { numFmt } : {},
+  // every cell at the top of its row, so a sale with several products
+  // (one per line) reads like it does in the PDF
+  sheet.columns = columns.map((column) => ({
+    header: column.header,
+    key: column.key,
+    width: column.width,
+    style: {
+      ...(column.numFmt ? { numFmt: column.numFmt } : {}),
+      alignment: { vertical: 'top', horizontal: sideOf(column), wrapText: Boolean(column.wrap) },
+    },
   }))
   styleHeader(sheet.getRow(1), columns)
 
@@ -164,8 +178,8 @@ export async function buildSalesWorkbook({ sales, range, who = '', cashierOf = n
   workbook.creator = SHOP
   workbook.created = made
 
-  // oldest first, like a ledger
-  const list = [...sales].sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
+  // the latest sale first, like the list on the page and the PDF
+  const list = newestFirst(sales)
   const totalAmount = list.reduce((sum, sale) => sum + Number(sale.total_amount || 0), 0)
   const totalItems = list.reduce((sum, sale) => sum + itemsOf(sale), 0)
 
@@ -273,11 +287,11 @@ export async function buildSalesWorkbook({ sales, range, who = '', cashierOf = n
     workbook,
     'Sales',
     [
-      { header: 'Sale ID', key: 'id', width: 10 },
+      { header: 'Sale ID', key: 'id', width: 10, numFmt: SALE_ID, align: 'left' },
       { header: 'Date', key: 'date', width: 14, numFmt: DATE },
       { header: 'Time', key: 'time', width: 11, numFmt: TIME },
       ...(cashierOf ? [{ header: 'Cashier', key: 'cashier', width: 24 }] : []),
-      { header: 'Products', key: 'products', width: 60 },
+      { header: 'Products', key: 'products', width: 45, wrap: true },
       { header: 'Items', key: 'items', width: 9, numFmt: COUNT, sum: true },
       { header: 'Total', key: 'total', width: 15, numFmt: PESO, sum: true },
     ],
@@ -288,7 +302,8 @@ export async function buildSalesWorkbook({ sales, range, who = '', cashierOf = n
         date: when,
         time: when,
         cashier: cashierOf ? cashierOf(sale) : undefined,
-        products: (sale.sale_items || []).map((item) => `${item.product_name} x${item.quantity}`).join('; '),
+        // one product per line, like the PDF
+        products: (sale.sale_items || []).map((item) => `${item.product_name} x${item.quantity}`).join('\n'),
         items: itemsOf(sale),
         total: Number(sale.total_amount || 0),
       }
@@ -300,7 +315,7 @@ export async function buildSalesWorkbook({ sales, range, who = '', cashierOf = n
     workbook,
     'Items sold',
     [
-      { header: 'Sale ID', key: 'id', width: 10 },
+      { header: 'Sale ID', key: 'id', width: 10, numFmt: SALE_ID, align: 'left' },
       { header: 'Date', key: 'date', width: 14, numFmt: DATE },
       { header: 'Time', key: 'time', width: 11, numFmt: TIME },
       ...(cashierOf ? [{ header: 'Cashier', key: 'cashier', width: 24 }] : []),

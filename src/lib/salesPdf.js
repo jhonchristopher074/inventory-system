@@ -8,7 +8,7 @@
  * The PDF library (about 400 KB) is downloaded only when a PDF is made,
  * not with the page.
  */
-import { reportDay as day, reportFileName, reportPeriod, reportTime as time } from './salesReport'
+import { newestFirst, reportDay as day, reportFileName, reportPeriod, reportTime as time } from './salesReport'
 
 const SHOP = '10 FIVE 7 Hardware'
 const BRAND_RED = [224, 27, 50]
@@ -101,7 +101,8 @@ export async function buildSalesPdf({ sales, range, who = '', cashierOf = null }
     right('Total (PHP)'),
   ]
 
-  const body = sales.map((sale) => {
+  // the latest sale first, like the list on the page and the Excel file
+  const body = newestFirst(sales).map((sale) => {
     const when = new Date(sale.created_at)
     return [
       `#${sale.id}`,

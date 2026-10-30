@@ -318,6 +318,7 @@ import { printElement } from '../../lib/printReceipt'
 import { usePagination } from '../../lib/usePagination'
 import { downloadSalesPdf } from '../../lib/salesPdf'
 import { downloadSalesExcel } from '../../lib/salesExcel'
+import { newestFirst } from '../../lib/salesReport'
 import SalesPeriodFilter from '../../components/SalesPeriodFilter.vue'
 import SalesInsights from '../../components/SalesInsights.vue'
 import NavIcon from '../../components/NavIcon.vue'
@@ -496,7 +497,8 @@ async function fetchSales() {
     return
   }
 
-  sales.value = data || []
+  // the latest sale first, the same order as in the PDF and Excel file
+  sales.value = newestFirst(data || [])
 }
 
 function openReceipt(sale) {

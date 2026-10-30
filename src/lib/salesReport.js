@@ -31,6 +31,16 @@ export function reportPeriod(range) {
   return { first, last, text }
 }
 
+/**
+ * The latest sale first, then older ones: the order of the Sales History
+ * list, the PDF and the Excel file alike.
+ */
+export function newestFirst(sales) {
+  return [...sales].sort(
+    (a, b) => new Date(b.created_at) - new Date(a.created_at) || Number(b.id) - Number(a.id)
+  )
+}
+
 /** sales_2026-10-01_to_2026-10-30_Maria-Santos.pdf (or sales_all.xlsx) */
 export function reportFileName(range, who, extension) {
   const { first, last } = reportPeriod(range)
