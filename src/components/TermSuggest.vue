@@ -27,6 +27,9 @@ const props = defineProps({
   single: { type: Boolean, default: false },
   // how many suggestions at most
   limit: { type: Number, default: 6 },
+  // shown in the dropdown's place when something is typed but nothing
+  // matches (e.g. 'No category called "ff" yet.'); '' = show nothing
+  emptyText: { type: String, default: '' },
 })
 
 const emit = defineEmits(['pick'])
@@ -78,6 +81,11 @@ const matches = computed(() => {
 })
 
 const open = computed(() => focused.value && !dismissed.value && matches.value.length > 0)
+
+// typed, no match: the empty text where the list would be
+const showEmpty = computed(
+  () => Boolean(props.emptyText) && focused.value && !dismissed.value && term.value !== '' && matches.value.length === 0
+)
 
 // -1 = none highlighted (single: until ↓ is pressed)
 watch(matches, () => {
@@ -184,5 +192,13 @@ function onInput(event) {
         <span v-if="item.hint" class="shrink-0 text-xs text-zinc-500">{{ item.hint }}</span>
       </li>
     </ul>
+
+    <p
+      v-else-if="showEmpty"
+      class="absolute inset-x-0 top-full z-20 mt-1 rounded-xl border border-white/10 bg-zinc-900 px-3 py-2.5 text-sm text-zinc-400 shadow-2xl"
+      role="status"
+    >
+      {{ emptyText }}
+    </p>
   </div>
 </template>

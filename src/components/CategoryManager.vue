@@ -46,11 +46,6 @@ function productCount(n) {
    the typed letters marked ---- */
 const query = computed(() => newName.value.trim().replace(/\s+/g, ' ').toLowerCase())
 
-// how many categories have the typed letters (for the line over the list)
-const matchCount = computed(() =>
-  query.value ? props.categories.filter((c) => c.name.toLowerCase().includes(query.value)).length : 0
-)
-
 // each with its name cut around the typed letters, to mark them
 const shown = computed(() =>
   props.categories
@@ -261,6 +256,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
           placeholder="New category, e.g. Plumbing"
           aria-label="Name of the new category"
           class="input"
+          :empty-text="existing ? '' : `No category called &quot;${newName.trim()}&quot; yet. Press Add to make it.`"
           @pick="editPicked"
         />
         <TermSuggest
@@ -293,15 +289,6 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
       </p>
       <p v-if="notice" class="mx-5 mt-4 rounded-xl bg-emerald-600/15 p-3 text-sm text-emerald-400" role="status">
         {{ notice }}
-      </p>
-
-      <!-- while a name is typed: how many categories match it -->
-      <p v-if="query && categories.length > 0" class="border-b border-white/5 px-5 py-2 text-xs text-zinc-500" aria-live="polite">
-        {{
-          matchCount > 0
-            ? `${matchCount} of ${categories.length} categories match "${newName.trim()}"`
-            : `No category called "${newName.trim()}" yet. Press Add to make it.`
-        }}
       </p>
 
       <!-- THE LIST -->
