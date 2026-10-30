@@ -7,18 +7,19 @@
       subtitle="Create and view your own documentation records."
     />
 
-    <!-- DOCUMENT GRID: up to 4 a row. The columns follow the width of the
-         page area, not the whole window (which also holds the sidebar). -->
+    <!-- DOCUMENT GRID: 2 a row on phones (smaller cards), up to 4. The
+         columns follow the width of the page area, not the whole window
+         (which also holds the sidebar). -->
     <div ref="gridTop" class="@container mt-6 scroll-mt-4">
-      <div class="grid gap-4 @min-[600px]:grid-cols-2 @min-[880px]:grid-cols-3 @min-[1100px]:grid-cols-4">
+      <div class="grid grid-cols-2 gap-3 @min-[600px]:gap-4 @min-[880px]:grid-cols-3 @min-[1100px]:grid-cols-4">
         <div
           v-for="doc in visibleDocuments"
           :key="doc.id"
-          class="card flex flex-col p-4 transition hover:border-red-500/40"
+          class="card flex min-w-0 flex-col p-2.5 transition hover:border-red-500/40 @min-[600px]:p-4"
         >
           <!-- IMAGE -->
           <div
-            class="mb-3 flex h-28 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-black"
+            class="mb-2 flex h-24 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-black @min-[600px]:mb-3 @min-[600px]:h-28"
           >
             <img
               v-if="doc.receipt_image_url || doc.image_url"
@@ -35,12 +36,12 @@
           </div>
 
           <!-- TYPE -->
-          <div class="self-start rounded-full bg-red-950 px-3 py-1 text-[11px] font-bold text-red-400">
+          <div class="max-w-full self-start truncate rounded-full bg-red-950 px-2 py-0.5 text-[10px] font-bold text-red-400 @min-[600px]:px-3 @min-[600px]:py-1 @min-[600px]:text-[11px]">
             {{ doc.type || 'Staff Documentation' }}
           </div>
 
           <!-- TITLE -->
-          <h2 class="mt-2 line-clamp-2 min-h-[2.75em] text-base font-bold leading-snug text-white">
+          <h2 class="mt-2 line-clamp-2 min-h-[2.75em] text-sm font-bold leading-snug text-white @min-[600px]:text-base">
             {{ doc.title || 'Untitled Document' }}
           </h2>
 

@@ -44,16 +44,17 @@
     <!-- every card is the same size: fixed picture, title of 2 lines and
          description of 3 lines at most, button at the bottom.
          Columns follow the width of the page area (not the whole window, which
-         also holds the sidebar): 1, 2, 3, then 4 per row on wide screens. -->
+         also holds the sidebar): 2 (phones, smaller cards), 3, then 4 per
+         row on wide screens. -->
     <div class="@container">
-      <div class="grid gap-3 sm:gap-5 @min-[600px]:grid-cols-2 @min-[880px]:grid-cols-3 @min-[1100px]:grid-cols-4">
+      <div class="grid grid-cols-2 gap-3 @min-[600px]:gap-5 @min-[880px]:grid-cols-3 @min-[1100px]:grid-cols-4">
         <div
           v-for="document in visibleDocuments"
           :key="document.id"
-          class="flex flex-col rounded-2xl border border-white/10 bg-zinc-900 p-3 shadow-xl sm:rounded-[24px] sm:p-5"
+          class="flex min-w-0 flex-col rounded-2xl border border-white/10 bg-zinc-900 p-2.5 shadow-xl @min-[600px]:rounded-[24px] @min-[600px]:p-5"
         >
           <div
-            class="mb-3 flex h-32 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-black sm:mb-4 sm:h-40 sm:rounded-2xl"
+            class="mb-2 flex h-24 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-black @min-[600px]:mb-4 @min-[600px]:h-40 @min-[600px]:rounded-2xl"
           >
             <img
               v-if="documentImage(document)"
@@ -67,30 +68,30 @@
             </span>
           </div>
 
-          <div class="mb-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+          <div class="mb-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 @min-[600px]:mb-3">
             <span
-              class="rounded-full px-3 py-1 text-xs font-bold"
+              class="max-w-full truncate rounded-full px-2 py-0.5 text-[10px] font-bold @min-[600px]:px-3 @min-[600px]:py-1 @min-[600px]:text-xs"
               :class="badgeClass(document.type)"
             >
               {{ document.type || 'Document' }}
             </span>
 
-            <span class="text-xs text-zinc-500">
+            <span class="text-[10px] text-zinc-500 @min-[600px]:text-xs">
               {{ formatDate(document.created_at) }}
             </span>
           </div>
 
-          <h2 class="line-clamp-2 min-h-[2.75em] text-base font-bold leading-snug text-white sm:text-xl @min-[1100px]:text-lg">
+          <h2 class="line-clamp-2 min-h-[2.75em] text-sm font-bold leading-snug text-white @min-[600px]:text-xl @min-[1100px]:text-lg">
             {{ document.title || document.type || 'Untitled Document' }}
           </h2>
 
-          <p class="mt-2 line-clamp-3 min-h-[4.5rem] text-sm leading-6 text-zinc-400">
+          <p class="mt-1 line-clamp-2 min-h-[2.5rem] text-xs leading-5 text-zinc-400 @min-[600px]:mt-2 @min-[600px]:line-clamp-3 @min-[600px]:min-h-[4.5rem] @min-[600px]:text-sm @min-[600px]:leading-6">
             {{ document.description || 'No description provided.' }}
           </p>
 
-          <div class="mt-auto pt-3 sm:pt-5">
+          <div class="mt-auto pt-2 @min-[600px]:pt-5">
             <button
-              class="w-full rounded-xl bg-red-600 py-2.5 text-sm font-bold text-white transition hover:bg-red-700 sm:rounded-2xl sm:py-3 sm:text-base"
+              class="w-full rounded-xl bg-red-600 py-2 text-sm font-bold text-white transition hover:bg-red-700 @min-[600px]:rounded-2xl @min-[600px]:py-3 @min-[600px]:text-base"
               @click="openDocument(document)"
             >
               View Details
