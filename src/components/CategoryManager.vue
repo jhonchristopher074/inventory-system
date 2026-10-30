@@ -41,13 +41,19 @@ function productCount(n) {
   return `${count(n)} product${n === 1 ? '' : 's'}`
 }
 
-/* ---- typing a name: only the categories that match it ---- */
+/* ---- typing a name: the matches drop down under the box (like the
+   products); the list stays whole, so the window keeps its size, with
+   the typed letters marked ---- */
 const query = computed(() => newName.value.trim().replace(/\s+/g, ' ').toLowerCase())
+
+// how many categories have the typed letters (for the line over the list)
+const matchCount = computed(() =>
+  query.value ? props.categories.filter((c) => c.name.toLowerCase().includes(query.value)).length : 0
+)
 
 // each with its name cut around the typed letters, to mark them
 const shown = computed(() =>
   props.categories
-    .filter((category) => !query.value || category.name.toLowerCase().includes(query.value))
     .map((category) => {
       const at = query.value ? category.name.toLowerCase().indexOf(query.value) : -1
       return {
@@ -292,8 +298,8 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
       <!-- while a name is typed: how many categories match it -->
       <p v-if="query && categories.length > 0" class="border-b border-white/5 px-5 py-2 text-xs text-zinc-500" aria-live="polite">
         {{
-          shown.length > 0
-            ? `${shown.length} of ${categories.length} categories match "${newName.trim()}"`
+          matchCount > 0
+            ? `${matchCount} of ${categories.length} categories match "${newName.trim()}"`
             : `No category called "${newName.trim()}" yet. Press Add to make it.`
         }}
       </p>
