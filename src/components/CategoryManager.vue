@@ -889,7 +889,18 @@ onBeforeUnmount(() => {
                       <NavIcon name="check" class="mx-auto mb-2 h-6 w-6 text-emerald-400" />
                       All products are sorted.
                     </template>
-                    <template v-else>No products in {{ selectedName }} yet. Add some above.</template>
+                    <template v-else>
+                      No products in {{ selectedName }} yet. Add some above<template v-if="uncategorizedCount > 0">, or pick them from the products that have no category yet</template>.
+                      <button
+                        v-if="uncategorizedCount > 0"
+                        type="button"
+                        class="mx-auto mt-3 flex items-center gap-2 rounded-xl bg-red-600 px-4 py-2 text-sm font-bold text-white hover:bg-red-700"
+                        @click="select(UNCATEGORIZED)"
+                      >
+                        Go to Uncategorized
+                        <span class="rounded-full bg-white/20 px-2 text-xs">{{ count(uncategorizedCount) }}</span>
+                      </button>
+                    </template>
                   </li>
                   <li
                     v-else-if="productsShown.length === 0"
