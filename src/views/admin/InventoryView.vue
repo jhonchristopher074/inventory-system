@@ -14,14 +14,23 @@
 
       <button
         class="flex-1 rounded-2xl border border-white/10 bg-zinc-900 px-5 py-3 font-bold text-zinc-200 hover:bg-zinc-800 sm:flex-none"
+        title="Make, rename and describe the product categories"
+        @click="openCategories"
+      >
+        Categories
+      </button>
+
+      <button
+        class="flex-1 rounded-2xl border border-white/10 bg-zinc-900 px-5 py-3 font-bold text-zinc-200 hover:bg-zinc-800 sm:flex-none"
         title="Every stock change, for all products"
         @click="openHistory(null)"
       >
         Stock History
       </button>
 
+      <!-- phones: on its own line under the other two -->
       <button
-        class="flex-1 rounded-2xl bg-red-600 px-5 py-3 font-bold text-white hover:bg-red-700 sm:flex-none"
+        class="basis-full rounded-2xl bg-red-600 px-5 py-3 font-bold text-white hover:bg-red-700 sm:basis-auto sm:flex-none"
         @click="showAddModal = true"
       >
         + Add Product
@@ -119,7 +128,29 @@
               </td>
 
               <td data-label="Category" class="text-sm text-zinc-400">
-                {{ product.category || 'Uncategorized' }}
+                <!-- the owner sorts products right here; saved at once -->
+                <select
+                  v-if="categoryList"
+                  :value="product.category || NO_CATEGORY"
+                  class="category-select"
+                  :disabled="savingCategoryId === product.id"
+                  :aria-label="`Category of ${product.name}`"
+                  title="Change the category"
+                  @change="changeCategory(product, $event.target.value)"
+                >
+                  <option :value="NO_CATEGORY">{{ NO_CATEGORY }}</option>
+                  <option v-for="category in categoryList" :key="category.id" :value="category.name">
+                    {{ category.name }}
+                  </option>
+                  <!-- an old name that isn't in the list (yet) -->
+                  <option
+                    v-if="product.category && product.category !== NO_CATEGORY && !categoryNames.has(product.category)"
+                    :value="product.category"
+                  >
+                    {{ product.category }}
+                  </option>
+                </select>
+                <template v-else>{{ product.category || NO_CATEGORY }}</template>
               </td>
 
               <td data-label="Price" class="num text-sm font-bold text-red-400">
@@ -207,6 +238,14 @@
         noun="products"
       />
     </div>
+
+    <!-- the owner's categories (also read by the receipt scanner) -->
+    <CategoryManager
+      v-if="showCategories"
+      :categories="categoryList || []"
+      @changed="onCategoriesChanged"
+      @close="showCategories = false"
+    />
 
     <StockHistoryModal
       v-if="showHistory"
@@ -413,12 +452,29 @@
 
             <div>
               <label class="label">Category</label>
+              <!-- one of the owner's categories (typed by hand until the
+                   categories SQL is run) -->
+              <select v-if="categoryList" v-model="newProduct.category" class="input">
+                <option value="">{{ NO_CATEGORY }}</option>
+                <option v-for="category in categoryList" :key="category.id" :value="category.name">
+                  {{ category.name }}
+                </option>
+              </select>
               <input
+                v-else
                 v-model="newProduct.category"
                 type="text"
                 placeholder="e.g. Electrical Tape"
                 class="input"
               />
+              <button
+                v-if="categoryList"
+                type="button"
+                class="mt-1 text-xs font-bold text-zinc-400 hover:text-white"
+                @click="openCategories"
+              >
+                ＋ New category
+              </button>
             </div>
 
             <div class="grid grid-cols-2 gap-4">
@@ -559,6 +615,16 @@
                 class="input"
               />
               <p class="mt-1 text-xs text-zinc-500">Leave empty to remove the nickname.</p>
+            </div>
+
+            <div v-if="categoryList">
+              <label class="label">Category</label>
+              <select v-model="editForm.category" class="input">
+                <option :value="NO_CATEGORY">{{ NO_CATEGORY }}</option>
+                <option v-for="category in categoryList" :key="category.id" :value="category.name">
+                  {{ category.name }}
+                </option>
+              </select>
             </div>
 
             <div class="grid grid-cols-2 gap-4">
@@ -719,6 +785,8 @@ import ActionSheet from '../../components/ActionSheet.vue'
 import TablePager from '../../components/TablePager.vue'
 import NavIcon from '../../components/NavIcon.vue'
 import StockLevel from '../../components/StockLevel.vue'
+import CategoryManager from '../../components/CategoryManager.vue'
+import { NO_CATEGORY, fetchCategories } from '../../lib/categories'
 import { supabase } from '../../lib/supabase'
 import { usePagination } from '../../lib/usePagination'
 import { useQueryParam } from '../../lib/useQueryParam'
@@ -777,6 +845,57 @@ const categories = computed(() => {
 
   return ['All', ...new Set(uniqueCategories)]
 })
+
+/* ------------------------------------------------------------------
+   Categories, made by the owner (lib/categories.js). null = the
+   categories SQL isn't run yet: categories are typed by hand as before.
+------------------------------------------------------------------ */
+const categoryList = ref(null)
+const categoryNames = computed(() => new Set((categoryList.value || []).map((c) => c.name)))
+const showCategories = ref(false)
+const savingCategoryId = ref(null) // the product whose category is being saved
+
+async function loadCategories() {
+  categoryList.value = await fetchCategories()
+}
+
+function openCategories() {
+  if (categoryList.value) {
+    showCategories.value = true
+  } else {
+    errorMessage.value =
+      'Categories need a one-time database update first: run supabase/migrations/20261030000001_product_categories.sql in the Supabase SQL Editor.'
+  }
+}
+
+// added, renamed or deleted: products may have moved too
+async function onCategoriesChanged() {
+  await Promise.all([loadCategories(), fetchProducts()])
+}
+
+// the Category menu in the table: shown at once, saved right away
+async function changeCategory(product, value) {
+  const before = product.category
+  product.category = value
+  savingCategoryId.value = product.id
+
+  const { data: saved, error } = await supabase.rpc('admin_set_product_category', {
+    p_product_id: Number(product.id),
+    p_category: value === NO_CATEGORY ? '' : value,
+  })
+
+  savingCategoryId.value = null
+
+  if (error) {
+    product.category = before
+    errorMessage.value = `Couldn't change the category of ${product.name}: ${error.message}`
+    return
+  }
+
+  product.category = saved || value
+  errorMessage.value = ''
+  loadCategories() // the product counts
+}
 
 // "Low stock" button: ?stock=low in the address
 const stockFilter = useQueryParam('stock', 'all', ['all', 'low'])
@@ -1012,7 +1131,7 @@ async function addProduct() {
 
   showAddModal.value = false
 
-  await fetchProducts()
+  await Promise.all([fetchProducts(), categoryList.value ? loadCategories() : null])
 }
 
 async function handleImageUpload(event) {
@@ -1052,6 +1171,8 @@ const editForm = ref({
   quantity: '',
   originalQuantity: 0,
   image_url: '',
+  category: NO_CATEGORY,
+  originalCategory: NO_CATEGORY,
 })
 const editError = ref('')
 const editSaving = ref(false)
@@ -1066,6 +1187,8 @@ function openEditModal(product) {
     quantity: Number(product.quantity || 0),
     originalQuantity: Number(product.quantity || 0),
     image_url: product.image_url || '',
+    category: product.category || NO_CATEGORY,
+    originalCategory: product.category || NO_CATEGORY,
   }
   editError.value = ''
   showEditModal.value = true
@@ -1126,6 +1249,23 @@ async function saveEdit() {
     editSaving.value = false
     editError.value = error.message
     return
+  }
+
+  // the category, if it was changed
+  if (categoryList.value && editForm.value.category !== editForm.value.originalCategory) {
+    const { error: categoryError } = await supabase.rpc('admin_set_product_category', {
+      p_product_id: Number(editForm.value.id),
+      p_category: editForm.value.category === NO_CATEGORY ? '' : editForm.value.category,
+    })
+
+    if (categoryError) {
+      editSaving.value = false
+      editError.value = `Other changes were saved, but the category was not: ${categoryError.message}`
+      await fetchProducts()
+      return
+    }
+
+    loadCategories() // the product counts
   }
 
   // Only touch the quantity if it was actually changed
@@ -1197,7 +1337,10 @@ async function reportProduct() {
   detailMessage.value = { type: 'success', text: 'Product report sent.' }
 }
 
-onMounted(fetchProducts)
+onMounted(() => {
+  fetchProducts()
+  loadCategories()
+})
 </script>
 
 <style scoped>
@@ -1221,5 +1364,34 @@ onMounted(fetchProducts)
 
 .input:focus {
   border-color: rgb(239 68 68);
+}
+
+/* the Category menu in the table: reads like plain text until pointed at */
+.category-select {
+  max-width: 100%;
+  cursor: pointer;
+  border-radius: 0.6rem;
+  border: 1px solid transparent;
+  background: transparent;
+  padding: 0.3rem 0.45rem;
+  margin-left: -0.45rem;
+  color: var(--color-zinc-300);
+  outline: none;
+}
+
+.category-select:hover,
+.category-select:focus-visible {
+  border-color: var(--hairline);
+  background: var(--surface-sunken);
+}
+
+.category-select:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+
+.category-select option {
+  background: var(--surface);
+  color: #fff;
 }
 </style>

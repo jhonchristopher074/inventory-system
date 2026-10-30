@@ -10,7 +10,7 @@ export function getPasswordStatus(user) {
 }
 
 export const EXPIRED_MESSAGE =
-  'Your temporary password has expired. Please ask an administrator to issue a new one.'
+  'Your temporary password has expired. Please ask the owner to issue a new one.'
 
 // Call this right after a successful signInWithPassword() on your Login page.
 // Returns the route to go to, or throws with a user-friendly message.

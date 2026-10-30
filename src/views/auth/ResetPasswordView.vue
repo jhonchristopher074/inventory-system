@@ -112,7 +112,7 @@ async function cancel() {
       </p>
       <p class="cp-sub">
         To get a new one, enter your email on the login page and press <b>Forgot password?</b> —
-        or ask the administrator to reset your password.
+        or ask the owner to reset your password.
       </p>
       <button type="button" class="cp-submit" @click="router.replace('/login')">
         Go to login

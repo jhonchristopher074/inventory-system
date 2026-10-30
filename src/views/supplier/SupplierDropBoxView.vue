@@ -37,7 +37,7 @@
         >
           <span>
             <strong>{{ decisionAlert.fileName }}</strong>
-            was {{ decisionAlert.status === 'approved' ? 'approved' : 'denied' }} by the admin.
+            was {{ decisionAlert.status === 'approved' ? 'approved' : 'denied' }} by the owner.
           </span>
           <button class="decision-dismiss" @click="dismissDecisionAlert">✕</button>
         </div>
@@ -328,7 +328,7 @@
     try {
       await submitSupplierUpload(file)
 
-      successMessage.value = 'Uploaded. The admin has been notified.'
+      successMessage.value = 'Uploaded. The owner has been notified.'
       if (selectedFile.value === file) {
         selectedFile.value = null
         if (fileInput.value) fileInput.value.value = ''

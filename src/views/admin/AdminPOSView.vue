@@ -298,10 +298,10 @@ const cashierEmail = ref('')
 
 // The seller's name on the receipt, as the sale saved it (the account's
 // name; the sale falls back to the email when no name is set, so then
-// just "Admin").
+// just "Owner").
 const receiptCashier = computed(() => {
   const name = String(receipt.value?.cashier_name || '').trim()
-  return name && !name.includes('@') ? name : 'Admin'
+  return name && !name.includes('@') ? name : 'Owner'
 })
 
 const filteredProducts = computed(() => {
@@ -464,7 +464,7 @@ async function checkout() {
 
   const { data: sale, error: saleError } = await supabase.rpc('process_sale', {
     p_cashier_id: userId,
-    p_cashier_name: session?.user?.user_metadata?.full_name || 'Admin',
+    p_cashier_name: session?.user?.user_metadata?.full_name || 'Owner',
     p_cashier_email: cashierEmail.value,
     p_items: cart.value.map(item => ({
       product_id: item.id,

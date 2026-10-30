@@ -126,13 +126,13 @@
             <span
               class="grid h-9 w-9 place-items-center rounded-full bg-red-600 text-sm font-extrabold uppercase text-white"
             >
-              {{ role.charAt(0) }}
+              {{ roleLabel(role).charAt(0) }}
             </span>
             <span class="leading-tight">
               <span class="block text-[0.68rem] uppercase tracking-[0.14em] text-zinc-500">
                 Logged in as
               </span>
-              <span class="block text-sm font-bold capitalize text-white">{{ role }}</span>
+              <span class="block text-sm font-bold text-white">{{ roleLabel(role) }}</span>
             </span>
           </div>
 
@@ -154,6 +154,7 @@ import NavIcon from './components/NavIcon.vue'
 import { watchIdle, IDLE_MESSAGE } from './lib/idleLogout'
 import { confirmLeave } from './lib/leaveGuard'
 import { currentRole } from './router'
+import { roleLabel } from './lib/roles'
 
 const router = useRouter()
 const route = useRoute()

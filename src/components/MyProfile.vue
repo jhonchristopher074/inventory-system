@@ -1,11 +1,12 @@
 <script setup>
 // Profile shared by the staff, cashier and supplier pages: who you are (read-only:
-// only the administrator can change a name or email), your password, and
+// only the owner can change a name or email), your password, and
 // role-specific numbers ("stats", e.g. the staff documentation counts).
 import { computed, onMounted, ref } from 'vue'
 import { supabase } from '../lib/supabase'
 import ChangeOwnPasswordModal from './ChangeOwnPasswordModal.vue'
 import NavIcon from './NavIcon.vue'
+import { roleLabel } from '../lib/roles'
 
 defineProps({
   // [{ label, value, icon }] shown under "Your activity"
@@ -51,7 +52,7 @@ const details = computed(() => {
   const active = p.is_active !== false
 
   const list = [
-    { label: 'Role', value: role ? role.charAt(0).toUpperCase() + role.slice(1) : '—', icon: 'profile' },
+    { label: 'Role', value: roleLabel(role) || '—', icon: 'profile' },
     {
       label: 'Status',
       value: active ? 'Active' : 'Disabled',
@@ -90,7 +91,7 @@ onMounted(fetchProfile)
 
           <p class="mt-3 flex items-center gap-2 text-xs text-zinc-500">
             <NavIcon name="lock" class="h-3.5 w-3.5 shrink-0" />
-            Only the administrator can change your name or email.
+            Only the owner can change your name or email.
           </p>
         </div>
 

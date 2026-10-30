@@ -38,7 +38,7 @@
       <div class="dashboard-card">
         <p class="card-label">Submitted Approvals</p>
         <h2 class="card-value text-lime-400">{{ count(submittedApprovals.length) }}</h2>
-        <p class="card-sub">Waiting for admin approval</p>
+        <p class="card-sub">Waiting for the owner's approval</p>
       </div>
     </div>
 
@@ -63,7 +63,7 @@
 
           <div>
             <div class="mb-1 flex justify-between text-sm">
-              <span class="text-zinc-400">Submitted to Admin</span>
+              <span class="text-zinc-400">Submitted to Owner</span>
               <span class="font-bold text-yellow-400">{{ count(submittedPieces) }} pcs</span>
             </div>
             <div class="h-2 overflow-hidden rounded-full bg-zinc-800">
@@ -76,7 +76,7 @@
 
           <div>
             <div class="mb-1 flex justify-between text-sm">
-              <span class="text-zinc-400">Approved by Admin</span>
+              <span class="text-zinc-400">Approved by Owner</span>
               <span class="font-bold text-red-400">{{ count(approvedProductCount) }} pcs</span>
             </div>
             <div class="h-2 overflow-hidden rounded-full bg-zinc-800">

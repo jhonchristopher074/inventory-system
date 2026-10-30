@@ -176,7 +176,7 @@
             <div class="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-zinc-400">
               <span class="flex items-center gap-1.5">
                 <span class="h-2 w-2 rounded-full bg-red-600" aria-hidden="true"></span>
-                Approved by admin <b class="text-white">{{ count(adminApprovedQty(selectedProduct)) }}</b>
+                Approved by owner <b class="text-white">{{ count(adminApprovedQty(selectedProduct)) }}</b>
               </span>
               <span class="flex items-center gap-1.5">
                 <span class="h-2 w-2 rounded-full bg-lime-400" aria-hidden="true"></span>
@@ -271,7 +271,7 @@
                     :disabled="panelBusy"
                     @click="submitSavedApproval(approval)"
                   >
-                    Submit to admin
+                    Submit to owner
                   </button>
                   <button
                     class="flex-1 rounded-lg bg-zinc-800 py-1.5 text-xs font-bold text-red-300 hover:bg-zinc-700 disabled:opacity-50"
@@ -297,7 +297,7 @@
                   </p>
                 </div>
                 <span class="shrink-0 rounded-full bg-yellow-500/15 px-2 py-0.5 text-[11px] font-bold text-yellow-400">
-                  Waiting for admin
+                  Waiting for owner
                 </span>
               </li>
             </ul>
@@ -810,7 +810,7 @@ async function submitSavedApproval(approval) {
       return
     }
 
-    panelMessage.value = 'Submitted to admin approval.'
+    panelMessage.value = "Submitted for the owner's approval."
     approvedQty.value = 0
     returnQty.value = 0
     editingApprovalId.value = null

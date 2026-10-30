@@ -268,6 +268,7 @@
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import PageHeader from '../../components/PageHeader.vue'
+import { ROLE_LABELS } from '../../lib/roles'
 import { supabase } from '../../lib/supabase'
 import { adminAction } from '../../lib/employeeAdmin'
 import CreateEmployeeForm from '../../components/CreateEmployeeForm.vue'
@@ -305,12 +306,10 @@ const filteredUsers = computed(() => {
 })
 
 // Categories (tabs + grouped sections)
-const CATEGORIES = [
-  { key: 'admin', label: 'Owner' },
-  { key: 'staff', label: 'Staff' },
-  { key: 'cashier', label: 'Cashier' },
-  { key: 'supplier', label: 'Supplier' },
-]
+const CATEGORIES = ['admin', 'staff', 'cashier', 'supplier'].map((key) => ({
+  key,
+  label: ROLE_LABELS[key], // the 'admin' role is the Owner (lib/roles.js)
+}))
 const activeTab = ref('all')
 
 // Groups follow the search box, so search + category work together.

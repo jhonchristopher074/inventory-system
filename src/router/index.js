@@ -84,7 +84,7 @@ const HOME = {
 }
 
 const BLOCKED_MESSAGE =
-  'This account is disabled or not set up yet. Please contact the administrator.'
+  'This account is disabled or not set up yet. Please contact the owner.'
 
 const router = createRouter({
   history: createWebHistory(),

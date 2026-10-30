@@ -37,7 +37,7 @@
 
     <PageHeader
       v-else
-      title="Admin Sales History"
+      title="Sales History"
       subtitle="Monitor all cashier transactions and receipts. Click a cashier name to see their sales."
     />
 
