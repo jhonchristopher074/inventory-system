@@ -46,7 +46,11 @@ jobs:
 
       # Uploads only files that changed, and removes files from earlier
       # uploads that no longer exist (old assets/index-*.js etc.).
+      # FTP servers (Hostinger too) sometimes drop the connection part way
+      # ("ECONNRESET"), so it tries up to 3 times, a little apart.
       - name: Upload over FTP
+        id: upload1
+        continue-on-error: true
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
           server: ${{ secrets.FTP_SERVER }}
@@ -54,3 +58,36 @@ jobs:
           password: ${{ secrets.FTP_PASSWORD }}
           local-dir: ./dist/
           server-dir: ${{ vars.FTP_DIR || '/htdocs/' }}
+          timeout: 120000
+
+      - name: Wait before trying again
+        if: steps.upload1.outcome == 'failure'
+        run: sleep 20
+
+      - name: Upload over FTP (2nd try)
+        id: upload2
+        if: steps.upload1.outcome == 'failure'
+        continue-on-error: true
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          local-dir: ./dist/
+          server-dir: ${{ vars.FTP_DIR || '/htdocs/' }}
+          timeout: 120000
+
+      - name: Wait before the last try
+        if: steps.upload2.outcome == 'failure'
+        run: sleep 40
+
+      - name: Upload over FTP (last try)
+        if: steps.upload2.outcome == 'failure'
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          local-dir: ./dist/
+          server-dir: ${{ vars.FTP_DIR || '/htdocs/' }}
+          timeout: 120000
