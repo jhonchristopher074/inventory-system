@@ -243,6 +243,7 @@
     <CategoryManager
       v-if="showCategories"
       :categories="categoryList || []"
+      :products="products"
       @changed="onCategoriesChanged"
       @close="showCategories = false"
     />
