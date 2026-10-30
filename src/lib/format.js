@@ -16,3 +16,19 @@ export function peso(value) {
 export function count(value) {
   return COUNT.format(Number(value) || 0)
 }
+
+// ₱0 / ₱5K / ₱1.2M: amounts on a chart's scale
+const COMPACT = new Intl.NumberFormat('en-PH', { notation: 'compact', maximumFractionDigits: 1 })
+
+export function pesoShort(value) {
+  return '₱' + COMPACT.format(Number(value) || 0)
+}
+
+// A clean top for a chart's scale (1, 2, 2.5 or 5 × 10, 100, 1000…), so the
+// lines read ₱0 / ₱5K / ₱10K instead of ₱0 / ₱4,137 / ₱8,274.
+export function niceTop(max) {
+  if (!(max > 0)) return 1000
+  const step = 10 ** Math.floor(Math.log10(max))
+  const f = max / step
+  return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 2.5 ? 2.5 : f <= 5 ? 5 : 10) * step
+}

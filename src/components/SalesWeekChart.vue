@@ -7,27 +7,11 @@
 //   <SalesWeekChart :days="days" />
 //   days: [{ key, short: 'Mon' | 'Today', long: 'Monday, Oct 27', total, count, isToday }]
 import { computed } from 'vue'
-import { count, peso } from '../lib/format'
+import { count, niceTop, peso, pesoShort } from '../lib/format'
 
 const props = defineProps({
   days: { type: Array, required: true },
 })
-
-// ₱0 / ₱5K / ₱10K on the scale
-const COMPACT = new Intl.NumberFormat('en-PH', { notation: 'compact', maximumFractionDigits: 1 })
-
-function pesoShort(value) {
-  return '₱' + COMPACT.format(value)
-}
-
-// A clean top for the scale (1, 2, 2.5 or 5 × 10, 100, 1000…), so the
-// lines read ₱0 / ₱5K / ₱10K instead of ₱0 / ₱4,137 / ₱8,274.
-function niceTop(max) {
-  if (!(max > 0)) return 1000
-  const step = 10 ** Math.floor(Math.log10(max))
-  const f = max / step
-  return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 2.5 ? 2.5 : f <= 5 ? 5 : 10) * step
-}
 
 const top = computed(() => niceTop(Math.max(0, ...props.days.map((day) => day.total))))
 
