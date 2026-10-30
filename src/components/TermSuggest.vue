@@ -12,7 +12,8 @@
 // goes on the text box itself. `multiline` makes it a textarea.
 //
 // `single`: the whole box is one name (no commas). Nothing is highlighted
-// until ↓ is pressed, so Enter still sends the form with what was typed.
+// until ↓ is pressed, so Enter still sends the form with what was typed
+// (unless `autoHighlight`: then the first match is, and Enter picks it).
 // A pick is also sent as the "pick" event.
 import { computed, ref, useId, watch } from 'vue'
 
@@ -25,6 +26,8 @@ const props = defineProps({
   options: { type: Array, default: () => [] },
   multiline: { type: Boolean, default: false },
   single: { type: Boolean, default: false },
+  // single: highlight the first match at once (Enter picks it)
+  autoHighlight: { type: Boolean, default: false },
   // how many suggestions at most
   limit: { type: Number, default: 6 },
   // shown in the dropdown's place when something is typed but nothing
@@ -89,7 +92,7 @@ const showEmpty = computed(
 
 // -1 = none highlighted (single: until ↓ is pressed)
 watch(matches, () => {
-  active.value = props.single ? -1 : 0
+  active.value = props.single && !props.autoHighlight ? -1 : 0
 })
 
 function pick(item) {
