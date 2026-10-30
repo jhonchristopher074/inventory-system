@@ -76,17 +76,27 @@ function editExisting() {
 const categoryOptions = computed(() =>
   props.categories.map((category) => ({
     text: category.name,
-    hint: `${productCount(category.product_count)} · Edit`,
+    hint: productCount(category.product_count),
   }))
 )
 
-// picked from that dropdown: it exists already, so open it to edit
-function editPicked(item) {
+// picked from that dropdown: find it in the list (scroll to it and light it
+// up for a moment). Editing is its own Edit button.
+const foundId = ref(null)
+let foundTimer = null
+
+function findPicked(item) {
   const category = props.categories.find((c) => c.name === item.text)
   if (!category) return
+
   newName.value = ''
-  newDescription.value = ''
-  startEdit(category)
+  foundId.value = category.id
+  clearTimeout(foundTimer)
+  foundTimer = setTimeout(() => (foundId.value = null), 2500)
+
+  nextTick(() =>
+    document.getElementById(`category-${category.id}`)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+  )
 }
 
 /* ---- typing what goes in it: the products that match ---- */
@@ -209,7 +219,10 @@ onMounted(() => {
   nextTick(() => nameInput.value?.focus())
 })
 
-onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
+onBeforeUnmount(() => {
+  window.removeEventListener('keydown', onKey)
+  clearTimeout(foundTimer)
+})
 </script>
 
 <template>
@@ -253,11 +266,11 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
           single
           :options="categoryOptions"
           maxlength="60"
-          placeholder="New category, e.g. Plumbing"
+          placeholder="Find or add a category"
           aria-label="Name of the new category"
           class="input"
           :empty-text="existing ? '' : `No category called &quot;${newName.trim()}&quot; yet. Press Add to make it.`"
-          @pick="editPicked"
+          @pick="findPicked"
         />
         <TermSuggest
           v-model="newDescription"
@@ -278,6 +291,9 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
         <p v-if="existing" class="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-yellow-300 sm:col-span-3" role="status">
           <NavIcon name="alert" class="h-4 w-4 shrink-0" />
           "{{ existing.name }}" is already a category ({{ productCount(existing.product_count) }}).
+          <button type="button" class="font-bold underline hover:text-white" @click="findPicked({ text: existing.name })">
+            Show it
+          </button>
           <button type="button" class="font-bold underline hover:text-white" @click="editExisting">
             Edit it
           </button>
@@ -293,7 +309,13 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
 
       <!-- THE LIST -->
       <ul class="min-h-0 flex-1 divide-y divide-white/5 overflow-y-auto">
-        <li v-for="category in shown" :key="category.id" class="p-4 sm:px-5">
+        <li
+          v-for="category in shown"
+          :id="`category-${category.id}`"
+          :key="category.id"
+          class="p-4 transition-colors duration-500 sm:px-5"
+          :class="foundId === category.id ? 'bg-red-500/15' : ''"
+        >
           <!-- editing -->
           <form v-if="editingId === category.id" class="grid gap-2" @submit.prevent="saveEdit(category)">
             <input
