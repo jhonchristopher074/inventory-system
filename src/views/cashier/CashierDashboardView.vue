@@ -1,15 +1,9 @@
 <template>
   <div>
-    <!-- HEADER -->
-    <div class="mb-6 rounded-[24px] border border-white/10 bg-zinc-900 p-5">
-      <h1 class="text-3xl font-extrabold text-white">
-        Cashier Dashboard
-      </h1>
-
-      <p class="text-zinc-400">
-        Monitor sales, transactions, and cashier activities.
-      </p>
-    </div>
+    <PageHeader
+      title="Cashier Dashboard"
+      subtitle="Monitor sales, transactions, and cashier activities."
+    />
 
     <p v-if="errorMessage" class="mb-6 rounded-xl bg-red-600/20 p-4 text-sm text-red-400">
       Couldn't load everything: {{ errorMessage }}
@@ -222,6 +216,7 @@ import { onMounted, ref } from 'vue'
 import { supabase } from '../../lib/supabase'
 import { count, peso } from '../../lib/format'
 import { byStockLevel, isLowStock } from '../../lib/stock'
+import PageHeader from '../../components/PageHeader.vue'
 
 const recentSales = ref([])
 const lowStockProducts = ref([])

@@ -1,15 +1,6 @@
 <template>
   <div>
-    <!-- HEADER -->
-    <div class="mb-5 card p-5">
-      <h1 class="text-3xl font-extrabold text-white">
-        Profile & Users
-      </h1>
-
-      <p class="mt-1 text-sm text-zinc-400">
-        Manage owner, cashier, and staff accounts.
-      </p>
-    </div>
+    <PageHeader title="Profile & Users" subtitle="Manage owner, cashier, and staff accounts." />
 
     <!-- MAIN -->
     <!-- minmax(0, …): a column may shrink to the screen; otherwise the
@@ -276,6 +267,7 @@
 
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import PageHeader from '../../components/PageHeader.vue'
 import { supabase } from '../../lib/supabase'
 import { adminAction } from '../../lib/employeeAdmin'
 import CreateEmployeeForm from '../../components/CreateEmployeeForm.vue'

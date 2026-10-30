@@ -1,11 +1,9 @@
 <template>
   <div>
-    <div class="mb-6 rounded-[24px] border border-white/10 bg-zinc-900 p-5">
-      <h1 class="text-3xl font-bold text-white">Sales History</h1>
-      <p class="text-zinc-400">
-        Company-style record of completed cashier transactions.
-      </p>
-    </div>
+    <PageHeader
+      title="Sales History"
+      subtitle="Company-style record of completed cashier transactions."
+    />
 
     <!-- DATE FILTER (shared with the other Sales History page) -->
     <SalesPeriodFilter v-model="range" />
@@ -253,6 +251,7 @@ import { newestFirst } from '../../lib/salesReport'
 import SalesPeriodFilter from '../../components/SalesPeriodFilter.vue'
 import SalesInsights from '../../components/SalesInsights.vue'
 import TablePager from '../../components/TablePager.vue'
+import PageHeader from '../../components/PageHeader.vue'
 import { count, peso } from '../../lib/format'
 
 const sales = ref([])

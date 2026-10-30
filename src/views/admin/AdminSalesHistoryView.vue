@@ -1,45 +1,45 @@
 <template>
   <div>
-    <!-- HEADER -->
-    <div class="mb-6 rounded-[24px] border border-white/10 bg-zinc-900 p-5">
-      <!-- one cashier's sales (their name was clicked) -->
-      <template v-if="selectedCashier">
-        <button
-          type="button"
-          class="inline-flex items-center gap-2 rounded-xl border border-red-500/50 bg-red-600/15 px-4 py-2.5 text-sm font-bold text-red-100 transition hover:border-red-600 hover:bg-red-600 hover:text-white"
-          @click="showAllSales"
+    <!-- HEADER: one cashier's sales (their name was clicked), in the same
+         box as every page's title (PageHeader) -->
+    <div
+      v-if="selectedCashier"
+      class="mb-4 rounded-[26px] border border-white/10 bg-zinc-900/90 p-4 shadow-lg"
+    >
+      <button
+        type="button"
+        class="inline-flex items-center gap-2 rounded-xl border border-red-500/50 bg-red-600/15 px-4 py-2.5 text-sm font-bold text-red-100 transition hover:border-red-600 hover:bg-red-600 hover:text-white"
+        @click="showAllSales"
+      >
+        <NavIcon name="back" class="h-4 w-4" />
+        Back to all sales
+      </button>
+
+      <div class="mt-4 flex items-center gap-4">
+        <span
+          class="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-red-600 text-xl font-extrabold text-white"
+          aria-hidden="true"
         >
-          <NavIcon name="back" class="h-4 w-4" />
-          Back to all sales
-        </button>
+          {{ selectedCashier.initials }}
+        </span>
 
-        <div class="mt-4 flex items-center gap-4">
-          <span
-            class="grid h-14 w-14 shrink-0 place-items-center rounded-full bg-red-600 text-2xl font-extrabold text-white"
-            aria-hidden="true"
-          >
-            {{ selectedCashier.initials }}
-          </span>
-
-          <div class="min-w-0">
-            <p class="text-xs font-bold uppercase tracking-[0.16em] text-red-400">
-              Cashier sales history
-            </p>
-            <h1 class="break-words text-3xl font-bold text-white">
-              {{ selectedCashier.name }}
-            </h1>
-            <p class="text-zinc-400">Only this cashier's sales are shown below.</p>
-          </div>
+        <div class="min-w-0">
+          <p class="text-[11px] font-bold uppercase tracking-[0.16em] text-red-400">
+            Cashier sales history
+          </p>
+          <h1 class="break-words text-2xl font-extrabold text-white">
+            {{ selectedCashier.name }}
+          </h1>
+          <p class="text-xs text-zinc-400">Only this cashier's sales are shown below.</p>
         </div>
-      </template>
-
-      <template v-else>
-        <h1 class="text-3xl font-bold text-white">Admin Sales History</h1>
-        <p class="text-zinc-400">
-          Monitor all cashier transactions and receipts. Click a cashier name to see their sales.
-        </p>
-      </template>
+      </div>
     </div>
+
+    <PageHeader
+      v-else
+      title="Admin Sales History"
+      subtitle="Monitor all cashier transactions and receipts. Click a cashier name to see their sales."
+    />
 
     <!-- DATE FILTER, with the cashier search at the right end of its row
          (not needed once a cashier's name was clicked) -->
@@ -322,6 +322,7 @@ import { newestFirst } from '../../lib/salesReport'
 import SalesPeriodFilter from '../../components/SalesPeriodFilter.vue'
 import SalesInsights from '../../components/SalesInsights.vue'
 import NavIcon from '../../components/NavIcon.vue'
+import PageHeader from '../../components/PageHeader.vue'
 import TablePager from '../../components/TablePager.vue'
 import { count, peso } from '../../lib/format'
 

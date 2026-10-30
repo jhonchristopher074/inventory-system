@@ -1,4 +1,9 @@
   <template>
+    <PageHeader
+      title="Supplier Dashboard"
+      subtitle="Upload your receipts and follow what happens to them."
+    />
+
     <div class="upload-container">
       <div class="drop-box-wrap">
         <!-- TABS: upload a receipt / see where your uploads are -->
@@ -147,6 +152,7 @@
   <script setup>
   import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
   import { supabase, uniqueChannelName } from '../../lib/supabase'
+  import PageHeader from '../../components/PageHeader.vue'
 
   /* ------------------------------------------------------------------
     Config
@@ -574,9 +580,10 @@
   <style scoped>
   /* the space left under the top bar (logged-in pill + page padding), so
      the page doesn't scroll when there's nothing more to show */
+  /* the space under the page's title box */
   .upload-container {
-    min-height: calc(100vh - 9rem);
-    min-height: calc(100dvh - 9rem);
+    min-height: calc(100vh - 15rem);
+    min-height: calc(100dvh - 15rem);
     display: flex;
     justify-content: center;
     align-items: center;

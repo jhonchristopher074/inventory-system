@@ -1,9 +1,6 @@
 <template>
   <div>
-    <div class="mb-6 card p-5">
-      <h1 class="text-3xl font-bold text-white">Point of Sale</h1>
-      <p class="text-zinc-400">Cashier product sales and stock-out system.</p>
-    </div>
+    <PageHeader title="Point of Sale" subtitle="Cashier product sales and stock-out system." />
 
     <!-- pb-24 on phones: room for the cart bar fixed at the bottom -->
     <div class="grid gap-6 pb-24 lg:grid-cols-[1fr_380px] lg:pb-0">
@@ -276,6 +273,7 @@ import { GRID_PAGE_SIZES, usePagination } from '../../lib/usePagination'
 import { printElement } from '../../lib/printReceipt'
 import { count, peso } from '../../lib/format'
 import TablePager from '../../components/TablePager.vue'
+import PageHeader from '../../components/PageHeader.vue'
 
 const products = ref([])
 const cart = ref([])
