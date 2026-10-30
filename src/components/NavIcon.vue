@@ -98,6 +98,38 @@
       <path d="M19 12H5M11 18l-6-6 6-6" />
     </template>
 
+    <!-- warning triangle (out of stock, overdue) -->
+    <template v-else-if="name === 'alert'">
+      <path d="M10.3 4.2L2.6 18a2 2 0 001.7 3h15.4a2 2 0 001.7-3L13.7 4.2a2 2 0 00-3.4 0z" />
+      <path d="M12 9.5v4M12 17h.01" />
+    </template>
+
+    <!-- price tag -->
+    <template v-else-if="name === 'tag'">
+      <path d="M3 12.6V4a1 1 0 011-1h8.6a1 1 0 01.7.3l7.4 7.4a1 1 0 010 1.4l-8.6 8.6a1 1 0 01-1.4 0l-7.4-7.4a1 1 0 01-.3-.7z" />
+      <path d="M8 8h.01" />
+    </template>
+
+    <!-- chevron right (open) -->
+    <template v-else-if="name === 'chevron'">
+      <path d="M9 6l6 6-6 6" />
+    </template>
+
+    <!-- arrows up / down (more / less than before) -->
+    <template v-else-if="name === 'up'">
+      <path d="M12 19V5M6 11l6-6 6 6" />
+    </template>
+
+    <template v-else-if="name === 'down'">
+      <path d="M12 5v14M6 13l6 6 6-6" />
+    </template>
+
+    <!-- refresh -->
+    <template v-else-if="name === 'refresh'">
+      <path d="M20 12a8 8 0 11-2.34-5.66L20 8.5" />
+      <path d="M20 3.5v5h-5" />
+    </template>
+
     <!-- fallback dot -->
     <circle v-else cx="12" cy="12" r="3" />
   </svg>
