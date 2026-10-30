@@ -195,16 +195,27 @@ button:not(:disabled):active {
   --side: 72px;
 }
 
+/* The sidebar's dark column, the full height of the page. The sidebar sits
+   on it (sticky, one screen tall), so the dark never stops short of the
+   bottom, even where a phone measures "one screen" differently. */
+.app-shell::before {
+  content: '';
+  grid-column: 1;
+  grid-row: 1;
+  border-right: 1px solid rgba(255, 255, 255, 0.05);
+  background: rgba(13, 13, 16, 0.75);
+}
+
 /* Layers: page content (POS cart bar: 40) < sidebar (45)
    < popups (50 and up). */
 .app-side {
+  grid-column: 1;
+  grid-row: 1;
   position: sticky;
   top: 0;
   z-index: 45;
   height: 100vh;
-  border-right: 1px solid rgba(255, 255, 255, 0.05);
-  background: rgba(13, 13, 16, 0.75);
-  backdrop-filter: blur(8px);
+  height: 100dvh; /* the visible screen, where the browser knows it */
   padding: 0.85rem 0.7rem;
   overflow-x: hidden;
   overflow-y: auto;
@@ -219,6 +230,8 @@ button:not(:disabled):active {
 /* No z-index here on purpose: it put every popup on the page inside one
    layer below the sidebar, which then covered their left edge on phones. */
 .app-main {
+  grid-column: 2;
+  grid-row: 1;
   position: relative;
   min-width: 0;
   padding: 1.75rem;

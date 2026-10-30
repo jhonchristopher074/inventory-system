@@ -96,9 +96,6 @@
             <div>
               <p class="eyebrow">Sales</p>
               <h2 class="card-title">Last 7 days</h2>
-              <p v-if="bestDay" class="mt-1 text-xs text-zinc-400">
-                Best day: <b class="text-white">{{ bestDay.title }}</b> · {{ peso(bestDay.total) }}
-              </p>
             </div>
 
             <div class="text-right">
@@ -106,6 +103,12 @@
               <p class="text-xs text-zinc-400">{{ salesText(weekCount) }}</p>
             </div>
           </div>
+
+          <!-- its own line: beside the total it was squeezed on phones -->
+          <p v-if="bestDay" class="-mt-2 mb-4 text-xs text-zinc-400">
+            Best day: <b class="whitespace-nowrap text-white">{{ bestDay.title }}</b> ·
+            <span class="whitespace-nowrap">{{ peso(bestDay.total) }}</span>
+          </p>
 
           <SalesLineChart
             :points="weekDays"
