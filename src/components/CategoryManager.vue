@@ -80,8 +80,8 @@ const categoryOptions = computed(() =>
   }))
 )
 
-// picked from that dropdown: find it in the list (scroll to it and light it
-// up for a moment). Editing is its own Edit button.
+// picked from that dropdown: open it to show its products (scrolled to and
+// lit up for a moment). Editing is its own Edit button.
 const foundId = ref(null)
 let foundTimer = null
 
@@ -90,6 +90,7 @@ function findPicked(item) {
   if (!category) return
 
   newName.value = ''
+  openProducts(category, true)
   foundId.value = category.id
   clearTimeout(foundTimer)
   foundTimer = setTimeout(() => (foundId.value = null), 2500)
@@ -97,6 +98,58 @@ function findPicked(item) {
   nextTick(() =>
     document.getElementById(`category-${category.id}`)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
   )
+}
+
+/* ---- a category's products: shown when it's opened ---- */
+const openId = ref(null) // the category whose products are shown
+const addProductText = ref('')
+
+function openProducts(category, keepOpen = false) {
+  openId.value = openId.value === category.id && !keepOpen ? null : category.id
+  addProductText.value = ''
+  editingId.value = null
+  deletingId.value = null
+}
+
+function productsIn(name) {
+  return props.products
+    .filter((product) => (product.category || 'Uncategorized') === name)
+    .sort((a, b) => String(a.name).localeCompare(String(b.name)))
+}
+
+// products to add to a category: the ones not in it yet
+function addOptions(name) {
+  return props.products
+    .filter((product) => (product.category || 'Uncategorized') !== name)
+    .map((product) => ({
+      id: product.id,
+      text: product.name,
+      hint: !product.category || product.category === 'Uncategorized' ? 'Uncategorized' : `in ${product.category}`,
+    }))
+}
+
+// put a product in a category ('' = take it out: Uncategorized)
+async function moveProduct(product, categoryName) {
+  busy.value = true
+  error.value = ''
+  notice.value = ''
+
+  const { error: moveError } = await supabase.rpc('admin_set_product_category', {
+    p_product_id: Number(product.id),
+    p_category: categoryName,
+  })
+
+  busy.value = false
+  addProductText.value = ''
+
+  if (moveError) {
+    error.value = moveError.message
+    return
+  }
+
+  const name = product.name || product.text
+  notice.value = categoryName ? `Put "${name}" in ${categoryName}.` : `Took "${name}" out (now Uncategorized).`
+  emit('changed')
 }
 
 /* ---- typing what goes in it: the products that match ---- */
@@ -386,25 +439,35 @@ onBeforeUnmount(() => {
             </div>
           </div>
 
-          <!-- the category -->
-          <div v-else class="flex items-start gap-3">
+          <!-- the category: click it to show its products -->
+          <template v-else>
+          <div class="flex items-start gap-3">
             <span class="mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-[10px] bg-white/5 text-zinc-300">
               <NavIcon name="tag" class="h-4 w-4" />
             </span>
 
-            <div class="min-w-0 flex-1">
+            <button
+              type="button"
+              class="min-w-0 flex-1 text-left"
+              :aria-expanded="openId === category.id"
+              :title="openId === category.id ? 'Hide its products' : 'Show its products'"
+              @click="openProducts(category)"
+            >
               <p class="font-bold text-white">
                 <!-- the typed letters marked -->
                 {{ category.before }}<mark
                   v-if="category.match"
                   class="rounded bg-red-500/30 px-0.5 text-white"
                 >{{ category.match }}</mark>{{ category.after }}
-                <span class="ml-1 text-xs font-normal text-zinc-500">{{ productCount(category.product_count) }}</span>
+                <span class="ml-1 text-xs font-normal text-zinc-500">
+                  {{ productCount(category.product_count) }}
+                  <span aria-hidden="true">{{ openId === category.id ? '▴' : '▾' }}</span>
+                </span>
               </p>
               <p class="mt-0.5 text-sm" :class="category.description ? 'text-zinc-400' : 'italic text-zinc-500'">
                 {{ category.description || 'No description yet. Add one so the AI knows what goes here.' }}
               </p>
-            </div>
+            </button>
 
             <div class="flex shrink-0 gap-1">
               <button
@@ -423,6 +486,47 @@ onBeforeUnmount(() => {
               </button>
             </div>
           </div>
+
+          <!-- ITS PRODUCTS: take one out, or add one -->
+          <div v-if="openId === category.id" class="ml-12 mt-3 rounded-xl border border-white/5 bg-black/20 p-3">
+            <p class="mb-2 text-[11px] font-bold uppercase tracking-wider text-zinc-500">
+              Products in {{ category.name }}
+            </p>
+
+            <ul class="space-y-1">
+              <li
+                v-for="product in productsIn(category.name)"
+                :key="product.id"
+                class="flex items-center justify-between gap-3 rounded-lg px-2 py-1.5 text-sm hover:bg-white/5"
+              >
+                <span class="min-w-0 truncate text-zinc-200">{{ product.name }}</span>
+                <button
+                  type="button"
+                  class="shrink-0 text-xs font-bold text-zinc-400 hover:text-red-300 disabled:opacity-50"
+                  :disabled="busy"
+                  title="Take it out of this category (it becomes Uncategorized)"
+                  @click="moveProduct(product, '')"
+                >
+                  Remove
+                </button>
+              </li>
+              <li v-if="productsIn(category.name).length === 0" class="px-2 py-1.5 text-sm text-zinc-500">
+                No products in it yet.
+              </li>
+            </ul>
+
+            <TermSuggest
+              v-model="addProductText"
+              single
+              :options="addOptions(category.name)"
+              placeholder="Add a product to this category…"
+              aria-label="Add a product to this category"
+              empty-text="No product matches."
+              class="input mt-3"
+              @pick="(item) => moveProduct(item, category.name)"
+            />
+          </div>
+          </template>
         </li>
 
         <li v-if="categories.length === 0" class="p-6 text-center text-sm text-zinc-500">
