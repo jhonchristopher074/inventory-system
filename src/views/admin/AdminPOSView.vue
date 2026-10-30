@@ -7,8 +7,8 @@
 
     <!-- pb-24 on phones: room for the cart bar fixed at the bottom -->
     <div class="grid gap-6 pb-24 lg:grid-cols-[1fr_380px] lg:pb-0">
-      <!-- PRODUCTS -->
-      <div>
+      <!-- PRODUCTS (a new page scrolls back up to the search box) -->
+      <div ref="productsTop" class="scroll-mt-4">
         <input
           v-model="searchQuery"
           type="text"
@@ -18,54 +18,65 @@
 
         <p v-if="loading" class="text-zinc-400">Loading products...</p>
 
-        <div class="grid grid-cols-1 gap-5 sm:grid-cols-[repeat(auto-fill,220px)]">
-          <div
-            v-for="product in visibleProducts"
-            :key="product.id"
-            class="card flex flex-col p-4"
-          >
-            <img
-              :src="product.image_url || 'https://via.placeholder.com/300x200'"
-              :alt="product.name"
-              class="mb-3 h-[140px] w-full shrink-0 rounded-2xl object-cover"
-              loading="lazy"
-            />
-
-            <h2 class="line-clamp-2 text-lg font-bold leading-snug text-white">
-              {{ product.name }}
-            </h2>
-            <p class="truncate text-sm text-zinc-400">
-              {{ product.category || 'Uncategorized' }}
-            </p>
-
-            <!-- mt-auto pins stock, price and the button to the bottom, so they
-                 line up across the row no matter how long the product name is -->
-            <div class="mt-auto pt-3">
-              <p class="text-sm text-zinc-300">Stock: {{ count(product.quantity) }}</p>
-              <p class="text-sm font-bold text-red-400">
-                {{ peso(product.price || 0) }}
-              </p>
-            </div>
-
-            <button
-              class="mt-3 w-full shrink-0 rounded-xl bg-red-600 py-2 font-bold text-white hover:bg-red-700 disabled:opacity-50"
-              :disabled="product.quantity <= 0 || checkingOut"
-              @click="addToCart(product)"
+        <!-- up to 4 a row: the columns follow the width of this area (it
+             shares the screen with the cart), not the whole window -->
+        <div class="@container">
+          <div class="grid grid-cols-1 gap-4 @min-[440px]:grid-cols-2 @min-[640px]:grid-cols-3 @min-[780px]:grid-cols-4">
+            <div
+              v-for="product in visibleProducts"
+              :key="product.id"
+              class="card flex flex-col p-4"
             >
-              {{ product.quantity <= 0 ? 'Out of Stock' : 'Add to Cart' }}
-            </button>
+              <img
+                :src="product.image_url || 'https://via.placeholder.com/300x200'"
+                :alt="product.name"
+                class="mb-3 h-[140px] w-full shrink-0 rounded-2xl object-cover"
+                loading="lazy"
+              />
+
+              <h2 class="line-clamp-2 text-lg font-bold leading-snug text-white">
+                {{ product.name }}
+              </h2>
+              <p class="truncate text-sm text-zinc-400">
+                {{ product.category || 'Uncategorized' }}
+              </p>
+
+              <!-- mt-auto pins stock, price and the button to the bottom, so they
+                   line up across the row no matter how long the product name is -->
+              <div class="mt-auto pt-3">
+                <p class="text-sm text-zinc-300">Stock: {{ count(product.quantity) }}</p>
+                <p class="text-sm font-bold text-red-400">
+                  {{ peso(product.price || 0) }}
+                </p>
+              </div>
+
+              <button
+                class="mt-3 w-full shrink-0 rounded-xl bg-red-600 py-2 font-bold text-white hover:bg-red-700 disabled:opacity-50"
+                :disabled="product.quantity <= 0 || checkingOut"
+                @click="addToCart(product)"
+              >
+                {{ product.quantity <= 0 ? 'Out of Stock' : 'Add to Cart' }}
+              </button>
+            </div>
           </div>
         </div>
 
-        <!-- the next products load as this comes into view -->
-        <div v-if="remaining > 0" ref="listEnd" class="py-5 text-center">
-          <button
-            class="rounded-xl bg-zinc-800 px-5 py-2 text-sm font-bold text-white hover:bg-zinc-700"
-            @click="showMore"
-          >
-            Show more ({{ remaining }} left)
-          </button>
-        </div>
+        <!-- 16 or 24 products a page (4 full rows), or all of them -->
+        <TablePager
+          v-if="filteredProducts.length > 0"
+          v-model:page="page"
+          v-model:page-size="pageSize"
+          :total="filteredProducts.length"
+          :sizes="GRID_PAGE_SIZES"
+          label="Per page"
+          noun="products"
+          card
+          class="mt-5"
+        />
+
+        <p v-else-if="!loading" class="card p-5 text-zinc-400">
+          {{ products.length > 0 ? 'No product matches your search.' : 'No products to show.' }}
+        </p>
       </div>
 
       <!-- CART: beside the products on wide screens. On phones it opens from
@@ -261,9 +272,10 @@
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue'
 import { supabase } from '../../lib/supabase'
-import { useShowMore } from '../../lib/useShowMore'
+import { GRID_PAGE_SIZES, usePagination } from '../../lib/usePagination'
 import { printElement } from '../../lib/printReceipt'
 import { count, peso } from '../../lib/format'
+import TablePager from '../../components/TablePager.vue'
 
 const products = ref([])
 const cart = ref([])
@@ -305,17 +317,22 @@ const filteredProducts = computed(() => {
   )
 })
 
-// Long lists: 40 products at a time, more as you scroll (keeps phones fast).
+// 16 or 24 products a page (4 full rows of 4), or all of them. The choice
+// is remembered on this device.
+const productsTop = ref(null)
 const {
+  page,
+  pageSize,
   visible: visibleProducts,
-  remaining,
-  sentinel: listEnd,
-  showMore,
-  reset: resetList,
-} = useShowMore(filteredProducts)
+  reset: resetPage,
+} = usePagination(filteredProducts, {
+  storageKey: 'pos',
+  scrollTarget: productsTop,
+  sizes: GRID_PAGE_SIZES,
+})
 
-// a new search starts again at the top
-watch(searchQuery, resetList)
+// a new search starts again at page 1
+watch(searchQuery, resetPage)
 
 const totalAmount = computed(() => {
   return cart.value.reduce((total, item) => {

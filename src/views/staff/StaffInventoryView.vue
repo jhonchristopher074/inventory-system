@@ -34,7 +34,7 @@
       {{ errorMessage }}
     </p>
 
-    <!-- PRODUCT TABLE: 10 or 15 products a page -->
+    <!-- PRODUCT TABLE: 10, 15 or all products a page -->
     <div ref="tableTop" class="card overflow-hidden">
       <div class="overflow-x-auto">
         <table class="data-table resp-table">
@@ -271,7 +271,7 @@ const filteredProducts = computed(() => {
   })
 })
 
-// The table shows 10 or 15 products a page, with page buttons under it.
+// The table shows 10, 15 or all products a page, with page buttons under it.
 const tableTop = ref(null)
 
 const {

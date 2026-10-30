@@ -1,68 +1,91 @@
 <template>
-  <div class="min-h-screen text-white">
+  <!-- pb-24: room under the page buttons for the + button, which stays at
+       the bottom right of the screen -->
+  <div class="min-h-screen pb-24 text-white">
     <PageHeader
       title="Employee Documentation"
       subtitle="Create and view your own documentation records."
     />
 
-    <!-- DOCUMENT GRID -->
-    <div class="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-      <div
-        v-for="doc in documents"
-        :key="doc.id"
-        class="card flex flex-col p-4 transition hover:border-red-500/40"
-      >
-        <!-- IMAGE -->
+    <!-- DOCUMENT GRID: up to 4 a row. The columns follow the width of the
+         page area, not the whole window (which also holds the sidebar). -->
+    <div ref="gridTop" class="@container mt-6 scroll-mt-4">
+      <div class="grid gap-4 @min-[600px]:grid-cols-2 @min-[880px]:grid-cols-3 @min-[1100px]:grid-cols-4">
         <div
-          class="mb-3 flex h-28 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-black"
+          v-for="doc in visibleDocuments"
+          :key="doc.id"
+          class="card flex flex-col p-4 transition hover:border-red-500/40"
         >
-          <img
-            v-if="doc.receipt_image_url || doc.image_url"
-            :src="doc.receipt_image_url || doc.image_url"
-            class="h-full w-full object-cover"
-          />
-          <div v-else class="flex flex-col items-center gap-1 text-zinc-600">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
-            <span class="text-[11px] uppercase tracking-wide">No image</span>
+          <!-- IMAGE -->
+          <div
+            class="mb-3 flex h-28 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-black"
+          >
+            <img
+              v-if="doc.receipt_image_url || doc.image_url"
+              :src="doc.receipt_image_url || doc.image_url"
+              loading="lazy"
+              class="h-full w-full object-cover"
+            />
+            <div v-else class="flex flex-col items-center gap-1 text-zinc-600">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              <span class="text-[11px] uppercase tracking-wide">No image</span>
+            </div>
           </div>
+
+          <!-- TYPE -->
+          <div class="self-start rounded-full bg-red-950 px-3 py-1 text-[11px] font-bold text-red-400">
+            {{ doc.type || 'Staff Documentation' }}
+          </div>
+
+          <!-- TITLE -->
+          <h2 class="mt-2 line-clamp-2 min-h-[2.75em] text-base font-bold leading-snug text-white">
+            {{ doc.title || 'Untitled Document' }}
+          </h2>
+
+          <!-- PRODUCT -->
+          <p class="mt-1 min-h-[1.5em] text-xs font-semibold text-yellow-400 line-clamp-1">
+            {{ doc.product_name }}
+          </p>
+
+          <!-- DESCRIPTION -->
+          <p class="mt-1 line-clamp-2 min-h-[3em] text-xs leading-normal text-zinc-500">
+            {{ doc.description || 'No description.' }}
+          </p>
+
+          <!-- DATE -->
+          <p class="mb-3 mt-2 text-[11px] text-zinc-600">
+            {{ formatDate(doc.created_at) }}
+          </p>
+
+          <!-- OPEN -->
+          <button
+            class="mt-auto w-full rounded-xl bg-red-600 py-2 text-sm font-bold text-white transition hover:bg-red-700"
+            @click="openDocument(doc)"
+          >
+            Open
+          </button>
         </div>
-
-        <!-- TYPE -->
-        <div class="self-start rounded-full bg-red-950 px-3 py-1 text-[11px] font-bold text-red-400">
-          {{ doc.type || 'Staff Documentation' }}
-        </div>
-
-        <!-- TITLE -->
-        <h2 class="mt-2 line-clamp-2 min-h-[2.75em] text-base font-bold leading-snug text-white">
-          {{ doc.title || 'Untitled Document' }}
-        </h2>
-
-        <!-- PRODUCT -->
-        <p class="mt-1 min-h-[1.5em] text-xs font-semibold text-yellow-400 line-clamp-1">
-          {{ doc.product_name }}
-        </p>
-
-        <!-- DESCRIPTION -->
-        <p class="mt-1 line-clamp-2 min-h-[3em] text-xs leading-normal text-zinc-500">
-          {{ doc.description || 'No description.' }}
-        </p>
-
-        <!-- DATE -->
-        <p class="mb-3 mt-2 text-[11px] text-zinc-600">
-          {{ formatDate(doc.created_at) }}
-        </p>
-
-        <!-- OPEN -->
-        <button
-          class="mt-auto w-full rounded-xl bg-red-600 py-2 text-sm font-bold text-white transition hover:bg-red-700"
-          @click="openDocument(doc)"
-        >
-          Open
-        </button>
       </div>
     </div>
+
+    <p v-if="!loading && documents.length === 0" class="card p-5 text-zinc-400">
+      No documentation yet. Press + to add one.
+    </p>
+
+    <!-- 16 or 24 documents a page (4 full rows), or all of them -->
+    <TablePager
+      v-if="documents.length > 0"
+      v-model:page="page"
+      v-model:page-size="pageSize"
+      :total="documents.length"
+      :sizes="GRID_PAGE_SIZES"
+      label="Per page"
+      noun="documents"
+      card
+      class="mt-5"
+    />
 
     <!-- PLUS BUTTON -->
     <button
@@ -328,10 +351,26 @@
 import { computed, onMounted, ref } from 'vue'
 import { supabase } from '../../lib/supabase'
 import { uploadImage as uploadImage_ } from '../../lib/uploadImage'
+import { GRID_PAGE_SIZES, usePagination } from '../../lib/usePagination'
 import PageHeader from '../../components/PageHeader.vue'
+import TablePager from '../../components/TablePager.vue'
 
 const documents = ref([])
+const loading = ref(true) // until the first load is done
 const products = ref([])
+
+// 16 or 24 documents a page (4 full rows of 4), or all of them. The choice
+// is remembered on this device.
+const gridTop = ref(null)
+const {
+  page,
+  pageSize,
+  visible: visibleDocuments,
+} = usePagination(documents, {
+  storageKey: 'staffDocumentation',
+  scrollTarget: gridTop,
+  sizes: GRID_PAGE_SIZES,
+})
 
 const showAddModal = ref(false)
 const showProductDropdown = ref(false)
@@ -394,6 +433,7 @@ async function fetchDocuments() {
   })
 
   documents.value = data || []
+  loading.value = false
 }
 
 async function fetchProducts() {
@@ -474,6 +514,7 @@ async function saveDocument() {
     }
 
     await fetchDocuments()
+    page.value = 1 // the new document is on the first page
     closeAddModal()
   } catch (err) {
     modalError.value = err.message

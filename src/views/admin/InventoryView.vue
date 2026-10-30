@@ -52,7 +52,7 @@
       </button>
     </div>
 
-    <!-- PRODUCT TABLE: 10 or 15 products a page
+    <!-- PRODUCT TABLE: 10, 15 or all products a page
          (@container: the buttons below adapt to the table's own width) -->
     <div ref="tableTop" class="card @container overflow-hidden">
       <div class="overflow-x-auto">
@@ -784,7 +784,7 @@ const filteredProducts = computed(() => {
   return result
 })
 
-// The table shows 10 or 15 products a page, with page buttons under it.
+// The table shows 10, 15 or all products a page, with page buttons under it.
 const tableTop = ref(null)
 
 const {

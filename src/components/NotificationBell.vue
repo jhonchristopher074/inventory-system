@@ -303,7 +303,8 @@ const ROUTES = {
     restore: '/inventory',
     archive: '/archived',
     inspection: '/calendar',
-    inspection_approval: '/approval',
+    // each opens its own tab of the Approval page
+    inspection_approval: '/approval?tab=inspections',
     supplier_upload: '/approval',
     report: '/documentation',
     documentation: '/documentation',

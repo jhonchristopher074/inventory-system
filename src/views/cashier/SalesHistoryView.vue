@@ -51,7 +51,8 @@
       {{ pdfError }}
     </p>
 
-    <div class="overflow-hidden rounded-[24px] border border-white/10 bg-zinc-900">
+    <!-- TABLE: 10, 15 or all sales a page -->
+    <div ref="tableTop" class="scroll-mt-4 overflow-hidden rounded-[24px] border border-white/10 bg-zinc-900">
       <!-- resp-table: each sale becomes a small card on phones -->
       <table class="resp-table w-full border-collapse text-left">
         <thead class="bg-black text-sm text-zinc-400">
@@ -99,16 +100,6 @@
         </tbody>
       </table>
 
-      <!-- the next sales load as this comes into view -->
-      <div v-if="remaining > 0" ref="listEnd" class="border-t border-white/10 py-5 text-center">
-        <button
-          class="rounded-xl bg-zinc-800 px-5 py-2 text-sm font-bold text-white hover:bg-zinc-700"
-          @click="showMore"
-        >
-          Show more ({{ remaining }} left)
-        </button>
-      </div>
-
       <p v-if="loading && sales.length === 0" class="p-6 text-center text-zinc-500">
         Loading sales...
       </p>
@@ -118,6 +109,14 @@
       <p v-else-if="filteredSales.length === 0" class="p-6 text-center text-zinc-500">
         {{ sales.length === 0 ? 'No sales found.' : 'No sales in this period.' }}
       </p>
+
+      <TablePager
+        v-else
+        v-model:page="page"
+        v-model:page-size="pageSize"
+        :total="filteredSales.length"
+        noun="sales"
+      />
     </div>
 
     <!-- SALE DETAILS MODAL -->
@@ -248,10 +247,11 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { supabase } from '../../lib/supabase'
 import { printElement } from '../../lib/printReceipt'
-import { useShowMore } from '../../lib/useShowMore'
+import { usePagination } from '../../lib/usePagination'
 import { downloadSalesPdf } from '../../lib/salesPdf'
 import SalesPeriodFilter from '../../components/SalesPeriodFilter.vue'
 import SalesInsights from '../../components/SalesInsights.vue'
+import TablePager from '../../components/TablePager.vue'
 import { count, peso } from '../../lib/format'
 
 const sales = ref([])
@@ -282,17 +282,18 @@ const summaryItems = computed(() =>
   )
 )
 
-// Long history: 40 sales at a time, more as you scroll (keeps phones fast).
+// 10, 15 or all sales a page, with page buttons under the table. The choice
+// is remembered on this device.
+const tableTop = ref(null)
 const {
+  page,
+  pageSize,
   visible: visibleSales,
-  remaining,
-  sentinel: listEnd,
-  showMore,
-  reset: resetList,
-} = useShowMore(filteredSales)
+  reset: resetPage,
+} = usePagination(filteredSales, { storageKey: 'mySales', scrollTarget: tableTop })
 
-// another period starts again at the top
-watch(range, resetList)
+// another period starts again at page 1
+watch(range, resetPage)
 
 // Downloads the sales shown (date filter) as a PDF with a table, easy to
 // read and print (see lib/salesPdf.js).

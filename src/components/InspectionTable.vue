@@ -1,7 +1,7 @@
 <script setup>
 // The inspection calendar as a data table (admin and staff Calendar pages):
-// one row per scheduled product with its progress and status, 10 or 15 a
-// page, oldest date first. The row's button opens that page's own window
+// one row per scheduled product with its progress and status, 10, 15 or all
+// a page, oldest date first. The row's button opens that page's own window
 // (admin: who submitted / saved what; staff: the inspection form).
 //
 // Each row is worked out by the page, which has the numbers:

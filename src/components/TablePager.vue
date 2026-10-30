@@ -1,23 +1,33 @@
 <script setup>
 // Footer of a data table: "Showing 11–20 of 57 products", rows per page
-// (10 / 15) and the page buttons. Goes with lib/usePagination.js:
+// (10 / 15 / All) and the page buttons. Goes with lib/usePagination.js:
 //
 //   <TablePager v-model:page="page" v-model:page-size="pageSize" :total="items.length" noun="products" />
+//
+// Under a card grid (POS, Documentation) it's a card of its own:
+//   <TablePager ... :sizes="GRID_PAGE_SIZES" label="Per page" card />
 import { computed } from 'vue'
-import { PAGE_SIZES } from '../lib/usePagination'
+import { ALL, PAGE_SIZES, rowsPerPage } from '../lib/usePagination'
 import { count } from '../lib/format'
 
 const props = defineProps({
   total: { type: Number, required: true },
   noun: { type: String, default: 'items' },
+  // the choices of the menu (ALL = every row on one page)
+  sizes: { type: Array, default: () => PAGE_SIZES },
+  // the menu's name: "Rows" in a table, "Per page" under cards
+  label: { type: String, default: 'Rows' },
+  // a card of its own (under a card grid) instead of the foot of a table card
+  card: { type: Boolean, default: false },
 })
 
 const page = defineModel('page', { type: Number, default: 1 })
 const pageSize = defineModel('pageSize', { type: Number, default: PAGE_SIZES[0] })
 
-const pageCount = computed(() => Math.max(1, Math.ceil(props.total / pageSize.value)))
-const first = computed(() => (props.total === 0 ? 0 : (page.value - 1) * pageSize.value + 1))
-const last = computed(() => Math.min(page.value * pageSize.value, props.total))
+const perPage = computed(() => rowsPerPage(pageSize.value, props.total))
+const pageCount = computed(() => Math.max(1, Math.ceil(props.total / perPage.value)))
+const first = computed(() => (props.total === 0 ? 0 : (page.value - 1) * perPage.value + 1))
+const last = computed(() => Math.min(page.value * perPage.value, props.total))
 
 // 1 … 4 5 6 … 12: the first and last page, and the ones next to this one
 const pageButtons = computed(() => {
@@ -37,25 +47,33 @@ function goTo(n) {
 </script>
 
 <template>
-  <div class="table-pager">
+  <div class="table-pager" :class="{ 'table-pager--card': card }">
     <p class="text-sm text-zinc-400">
-      Showing
-      <b class="text-white">{{ count(first) }}–{{ count(last) }}</b>
-      of <b class="text-white">{{ count(total) }}</b> {{ noun }}
+      <template v-if="pageSize === ALL">
+        Showing all <b class="text-white">{{ count(total) }}</b> {{ noun }}
+      </template>
+      <template v-else>
+        Showing
+        <b class="text-white">{{ count(first) }}–{{ count(last) }}</b>
+        of <b class="text-white">{{ count(total) }}</b> {{ noun }}
+      </template>
     </p>
 
     <div class="flex flex-wrap items-center gap-3">
       <label class="flex items-center gap-2 text-sm text-zinc-400">
-        Rows
+        {{ label }}
         <select
           v-model.number="pageSize"
           class="rounded-lg border border-white/10 bg-zinc-900 px-2 py-1.5 text-sm font-bold text-white outline-none focus:border-red-500"
         >
-          <option v-for="size in PAGE_SIZES" :key="size" :value="size">{{ size }}</option>
+          <option v-for="size in sizes" :key="size" :value="size">
+            {{ size === ALL ? 'All' : size }}
+          </option>
         </select>
       </label>
 
-      <nav class="flex items-center gap-1" aria-label="Pages">
+      <!-- no page buttons when everything fits on one page (e.g. "All") -->
+      <nav v-if="pageCount > 1" class="flex items-center gap-1" aria-label="Pages">
         <button
           type="button"
           class="pager-btn"
@@ -104,6 +122,14 @@ function goTo(n) {
   gap: 0.75rem 1.25rem;
   border-top: 1px solid var(--hairline);
   padding: 0.8rem 1.1rem;
+}
+
+/* under a card grid: a card of its own, like the cards above it */
+.table-pager--card {
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-card);
 }
 
 .pager-btn {

@@ -5,7 +5,11 @@
       subtitle="View receipts, inspection reports, product reports and staff documentation."
     />
 
-    <div class="-mx-1 mb-5 flex gap-2 overflow-x-auto px-1 pb-1 sm:mb-6 sm:flex-wrap sm:gap-3 sm:overflow-visible">
+    <!-- type tabs (a new page scrolls back up to here) -->
+    <div
+      ref="tabsRow"
+      class="-mx-1 mb-5 flex scroll-mt-4 gap-2 overflow-x-auto px-1 pb-1 sm:mb-6 sm:flex-wrap sm:gap-3 sm:overflow-visible"
+    >
       <button
         v-for="type in documentTypes"
         :key="type"
@@ -96,21 +100,18 @@
       </div>
     </div>
 
-    <!-- LAZY LOADING: when this line comes near the screen, the next 16 items are shown -->
-    <div
-      v-if="hasMore"
-      ref="sentinel"
-      class="py-8 text-center text-sm text-zinc-500"
-    >
-      Loading more...
-    </div>
-
-    <p
-      v-else-if="filteredDocuments.length > PAGE_SIZE"
-      class="py-6 text-center text-xs text-zinc-600"
-    >
-      All {{ filteredDocuments.length }} documents shown.
-    </p>
+    <!-- 16 or 24 documents a page (4 full rows), or all of them -->
+    <TablePager
+      v-if="filteredDocuments.length > 0"
+      v-model:page="page"
+      v-model:page-size="pageSize"
+      :total="filteredDocuments.length"
+      :sizes="GRID_PAGE_SIZES"
+      label="Per page"
+      noun="documents"
+      card
+      class="mt-5"
+    />
 
     <!-- VIEW MODAL: the same size for every document and never taller than
          the screen, so the window itself doesn't scroll. The picture takes
@@ -201,9 +202,11 @@
 </template>
 
 <script setup>
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { supabase } from '../../lib/supabase'
+import { GRID_PAGE_SIZES, usePagination } from '../../lib/usePagination'
 import PageHeader from '../../components/PageHeader.vue'
+import TablePager from '../../components/TablePager.vue'
 
 const documents = ref([])
 const loading = ref(false)
@@ -222,45 +225,7 @@ const documentTypes = [
   'Inspection Note',
 ]
 
-// ----- Lazy loading: show 16 at a time (4 full rows of 4) -----
-const PAGE_SIZE = 16
-const visibleCount = ref(PAGE_SIZE)
-const sentinel = ref(null)
-let observer = null
-
-onMounted(() => {
-  fetchDocuments()
-
-  observer = new IntersectionObserver(
-    (entries) => {
-      if (entries[0]?.isIntersecting && hasMore.value) {
-        visibleCount.value += PAGE_SIZE
-      }
-    },
-    // start loading a bit BEFORE the user reaches the very end
-    { rootMargin: '400px 0px' }
-  )
-})
-
-onBeforeUnmount(() => observer?.disconnect())
-
-// Watch the "Loading more..." line. After each batch, look again so a tall screen
-// keeps loading until it is filled or everything is shown.
-watch(
-  [sentinel, visibleCount],
-  async () => {
-    await nextTick()
-    if (!observer) return
-    observer.disconnect()
-    if (sentinel.value) observer.observe(sentinel.value)
-  },
-  { flush: 'post' }
-)
-
-// Changing the tab starts again from the first 16.
-watch(selectedType, () => {
-  visibleCount.value = PAGE_SIZE
-})
+onMounted(fetchDocuments)
 
 async function fetchDocuments() {
   loading.value = true
@@ -273,7 +238,6 @@ async function fetchDocuments() {
     documents.value = []
   } else {
     documents.value = data || []
-    visibleCount.value = PAGE_SIZE
   }
 
   loading.value = false
@@ -289,11 +253,22 @@ const filteredDocuments = computed(() => {
   })
 })
 
-const visibleDocuments = computed(() =>
-  filteredDocuments.value.slice(0, visibleCount.value)
-)
+// 16 or 24 documents a page (4 full rows of 4), or all of them. The choice
+// is remembered on this device.
+const tabsRow = ref(null)
+const {
+  page,
+  pageSize,
+  visible: visibleDocuments,
+  reset: resetPage,
+} = usePagination(filteredDocuments, {
+  storageKey: 'documentation',
+  scrollTarget: tabsRow,
+  sizes: GRID_PAGE_SIZES,
+})
 
-const hasMore = computed(() => visibleCount.value < filteredDocuments.value.length)
+// another tab starts again at page 1
+watch(selectedType, resetPage)
 
 function openDocument(document) {
   selectedDocument.value = document
