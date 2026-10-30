@@ -1,4 +1,9 @@
-# For Apache hosting (e.g. InfinityFree). Copied into dist/ by every build.
+# For Apache hosting (Hostinger, InfinityFree). Copied into dist/ by every build.
+
+# The app's page first. A new Hostinger site comes with its own "Coming soon"
+# page (default.php) in the same folder; this makes sure ours is the one shown.
+DirectoryIndex index.html
+
 #
 # The app uses addresses like /inventory or /cashier/pos that exist only
 # inside the app, not as files on the server. Without this, refreshing such

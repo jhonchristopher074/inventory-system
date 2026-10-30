@@ -2,8 +2,8 @@
 #
 # Needs three repository secrets (GitHub > Settings > Secrets and variables
 # > Actions > Secrets), copied from the host's FTP details:
-#   FTP_SERVER    the FTP hostname
-#                   Hostinger: hPanel > Files > FTP Accounts, e.g. ftp.example.com or an IP
+#   FTP_SERVER    the FTP hostname, without "ftp://"
+#                   Hostinger: hPanel > Files > FTP Accounts, e.g. 145.79.30.111
 #                   InfinityFree: Control Panel > FTP Details, e.g. ftpupload.net
 #   FTP_USERNAME  Hostinger: u123456789 (or u123456789.example.com); InfinityFree: if0_12345678
 #   FTP_PASSWORD  the FTP password
