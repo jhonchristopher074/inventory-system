@@ -1,14 +1,22 @@
-# Builds the app and uploads it to InfinityFree (htdocs) on every push to main.
+# Builds the app and uploads it over FTP to the web host on every push to main.
 #
 # Needs three repository secrets (GitHub > Settings > Secrets and variables
-# > Actions), copied from InfinityFree > Control Panel > FTP Details:
-#   FTP_SERVER    the FTP hostname, e.g. ftpupload.net
-#   FTP_USERNAME  e.g. if0_12345678
-#   FTP_PASSWORD  the hosting account password
+# > Actions > Secrets), copied from the host's FTP details:
+#   FTP_SERVER    the FTP hostname
+#                   Hostinger: hPanel > Files > FTP Accounts, e.g. ftp.example.com or an IP
+#                   InfinityFree: Control Panel > FTP Details, e.g. ftpupload.net
+#   FTP_USERNAME  Hostinger: u123456789 (or u123456789.example.com); InfinityFree: if0_12345678
+#   FTP_PASSWORD  the FTP password
 #
-# If InfinityFree refuses a connection now and then, open the failed run in
-# the Actions tab and press "Re-run jobs".
-name: Deploy to InfinityFree
+# And one repository variable (same page > Variables), the website's folder
+# as the FTP account sees it:
+#   FTP_DIR       Hostinger: /public_html/ (or /domains/example.com/public_html/
+#                 when the FTP account opens one level higher)
+#                 InfinityFree: /htdocs/  (used when FTP_DIR isn't set)
+#
+# If the host refuses a connection now and then, open the failed run in the
+# Actions tab and press "Re-run jobs".
+name: Deploy website
 
 on:
   push:
@@ -17,7 +25,7 @@ on:
 
 # one upload at a time, so two quick pushes can't upload over each other
 concurrency:
-  group: deploy-infinityfree
+  group: deploy-website
   cancel-in-progress: false
 
 jobs:
@@ -38,11 +46,11 @@ jobs:
 
       # Uploads only files that changed, and removes files from earlier
       # uploads that no longer exist (old assets/index-*.js etc.).
-      - name: Upload to InfinityFree
+      - name: Upload over FTP
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
           server: ${{ secrets.FTP_SERVER }}
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
           local-dir: ./dist/
-          server-dir: /htdocs/
+          server-dir: ${{ vars.FTP_DIR || '/htdocs/' }}
