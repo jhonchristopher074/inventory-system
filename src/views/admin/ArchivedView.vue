@@ -80,15 +80,7 @@
               </td>
 
               <td data-label="Stock" class="num text-sm font-bold">
-                <!-- one piece, so on phones "low" stays next to the number -->
-                <span :class="Number(product.quantity || 0) <= 10 ? 'text-red-400' : 'text-white'">
-                  {{ count(product.quantity) }}
-                  <span
-                    v-if="Number(product.quantity || 0) <= 10"
-                    class="ml-1 text-[0.6rem] uppercase tracking-wide"
-                    >low</span
-                  >
-                </span>
+                <StockLevel :product="product" />
               </td>
 
               <td data-label="Inspection" class="whitespace-nowrap text-xs text-zinc-400">
@@ -275,7 +267,8 @@ import { supabase } from '../../lib/supabase'
 import { usePagination } from '../../lib/usePagination'
 import PageHeader from '../../components/PageHeader.vue'
 import TablePager from '../../components/TablePager.vue'
-import { count, peso } from '../../lib/format'
+import StockLevel from '../../components/StockLevel.vue'
+import { peso } from '../../lib/format'
 
 const products = ref([])
 const loading = ref(false)

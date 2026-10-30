@@ -221,6 +221,7 @@
 import { onMounted, ref } from 'vue'
 import { supabase } from '../../lib/supabase'
 import { count, peso } from '../../lib/format'
+import { byStockLevel, isLowStock } from '../../lib/stock'
 
 const recentSales = ref([])
 const lowStockProducts = ref([])
@@ -288,9 +289,8 @@ async function fetchProducts() {
 
   availableProducts.value = data?.length || 0
 
-  lowStockProducts.value = data
-    ?.filter(product => Number(product.quantity) <= 10)
-    .slice(0, 5)
+  // the same "low" as everywhere else (lib/stock.js), emptiest first
+  lowStockProducts.value = (data || []).filter(isLowStock).sort(byStockLevel).slice(0, 5)
 }
 
 function formatDate(date) {

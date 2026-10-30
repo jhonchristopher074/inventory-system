@@ -26,7 +26,7 @@
       <div class="dashboard-card">
         <p class="card-label">Low Stock</p>
         <h2 class="card-value text-red-400">{{ count(lowStockProducts.length) }}</h2>
-        <p class="card-sub">Products with 10 or fewer stocks</p>
+        <p class="card-sub">Products with {{ LOW_STOCK }} or fewer in stock</p>
       </div>
 
       <div class="dashboard-card">
@@ -145,6 +145,15 @@
             <h2 class="text-xl font-bold text-white">Low Stock Products</h2>
             <p class="text-sm text-zinc-400">Products that need attention</p>
           </div>
+
+          <!-- Inventory with only these, emptiest first -->
+          <RouterLink
+            v-if="lowStockProducts.length > 0"
+            to="/staff/inventory?stock=low"
+            class="shrink-0 text-sm font-bold text-zinc-400 hover:text-white"
+          >
+            See all ›
+          </RouterLink>
         </div>
 
         <div v-if="lowStockProducts.length === 0" class="text-sm text-zinc-400">
@@ -234,6 +243,7 @@ import { useRouter } from 'vue-router'
 import { supabase } from '../../lib/supabase'
 import PageHeader from '../../components/PageHeader.vue'
 import { count } from '../../lib/format'
+import { LOW_STOCK, byStockLevel, isLowStock } from '../../lib/stock'
 
 const router = useRouter()
 
@@ -279,10 +289,8 @@ const totalProducts = computed(() => {
   return products.value.length
 })
 
-const lowStockProducts = computed(() => {
-  // same level as the admin/cashier dashboards and the low-stock notifications
-  return products.value.filter(item => Number(item.quantity || 0) <= 10)
-})
+// same level as the other dashboards and Inventory (lib/stock.js), emptiest first
+const lowStockProducts = computed(() => products.value.filter(isLowStock).sort(byStockLevel))
 
 const scheduledInspections = computed(() => {
   return products.value.filter(item => item.inspection_date)

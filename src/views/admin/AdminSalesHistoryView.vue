@@ -87,7 +87,8 @@
     <!-- CHART + BEST SELLERS of what's shown -->
     <SalesInsights :sales="filteredSales" :range="range" />
 
-    <!-- what the list shows, and download it: a PDF to read or print, CSV for Excel -->
+    <!-- what the list shows, and download it: a PDF to read or print, an
+         Excel file with every detail -->
     <div class="mb-3 flex flex-wrap items-center justify-between gap-3">
       <!-- one cashier: whose sales these are (the header is scrolled out of
            view by now; its "Back to all sales" button goes back) -->
@@ -109,33 +110,25 @@
       <div class="flex flex-wrap gap-2">
         <button
           class="rounded-xl bg-red-600 px-4 py-2 text-sm font-bold text-white transition hover:bg-red-700 disabled:opacity-50"
-          :disabled="filteredSales.length === 0 || pdfBusy"
+          :disabled="filteredSales.length === 0 || exporting !== ''"
           title="A table of the sales shown, easy to read and print"
-          @click="exportPdf"
+          @click="exportFile('pdf')"
         >
-          {{ pdfBusy ? 'Making PDF…' : '⬇ PDF' }}
+          {{ exporting === 'pdf' ? 'Making PDF…' : '⬇ PDF' }}
         </button>
         <button
           class="rounded-xl border border-white/10 bg-zinc-900 px-4 py-2 text-sm font-bold text-white transition hover:bg-zinc-800 disabled:opacity-50"
-          :disabled="filteredSales.length === 0"
-          title="One row per sale"
-          @click="exportCsv('sales')"
+          :disabled="filteredSales.length === 0 || exporting !== ''"
+          title="The sales shown in Excel: totals, per cashier and per day, every sale, every product sold"
+          @click="exportFile('excel')"
         >
-          ⬇ Sales CSV
-        </button>
-        <button
-          class="rounded-xl border border-white/10 bg-zinc-900 px-4 py-2 text-sm font-bold text-white transition hover:bg-zinc-800 disabled:opacity-50"
-          :disabled="filteredSales.length === 0"
-          title="One row per product sold"
-          @click="exportCsv('items')"
-        >
-          ⬇ Items CSV
+          {{ exporting === 'excel' ? 'Making Excel…' : '⬇ Excel' }}
         </button>
       </div>
     </div>
 
-    <p v-if="pdfError" class="mb-3 rounded-xl bg-red-600/20 p-3 text-sm text-red-400" role="alert">
-      {{ pdfError }}
+    <p v-if="exportError" class="mb-3 rounded-xl bg-red-600/20 p-3 text-sm text-red-400" role="alert">
+      {{ exportError }}
     </p>
 
     <!-- TABLE: 10, 15 or all sales a page -->
@@ -324,6 +317,7 @@ import { supabase } from '../../lib/supabase'
 import { printElement } from '../../lib/printReceipt'
 import { usePagination } from '../../lib/usePagination'
 import { downloadSalesPdf } from '../../lib/salesPdf'
+import { downloadSalesExcel } from '../../lib/salesExcel'
 import SalesPeriodFilter from '../../components/SalesPeriodFilter.vue'
 import SalesInsights from '../../components/SalesInsights.vue'
 import NavIcon from '../../components/NavIcon.vue'
@@ -445,89 +439,14 @@ const {
 // another period, cashier or search starts again at page 1
 watch([range, () => route.query.cashier, cashierSearch], resetPage)
 
-// Downloads the sales shown (date filter + cashier) as a CSV file for Excel.
-//   'sales': one row per sale, its products in one column
-//   'items': one row per product sold (best for totals per product in Excel)
-function exportCsv(kind) {
-  const cell = (value) => {
-    const text = String(value ?? '')
-    return /[",\n]/.test(text) ? '"' + text.replace(/"/g, '""') + '"' : text
-  }
+// Downloads the sales shown (date filter + cashier):
+//   'pdf'    a table to read or print (lib/salesPdf.js)
+//   'excel'  every detail, in sheets Excel can add up and filter (lib/salesExcel.js)
+// Each library is downloaded only the first time its button is pressed.
+const exporting = ref('') // 'pdf' | 'excel' while a file is being made
+const exportError = ref('')
 
-  const when = (sale) => {
-    const date = new Date(sale.created_at)
-    return [
-      date.toLocaleDateString('en-CA'), // 2026-10-19: Excel sorts it right
-      date.toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' }),
-    ]
-  }
-
-  let rows
-
-  if (kind === 'items') {
-    rows = [['Sale ID', 'Date', 'Time', 'Cashier', 'Product', 'Quantity', 'Price (PHP)', 'Subtotal (PHP)']]
-
-    for (const sale of filteredSales.value) {
-      for (const item of sale.sale_items || []) {
-        const quantity = Number(item.quantity || 0)
-        const price = Number(item.price || 0)
-        rows.push([
-          sale.id,
-          ...when(sale),
-          cashierName(sale),
-          item.product_name,
-          quantity,
-          price.toFixed(2),
-          Number(item.subtotal ?? price * quantity).toFixed(2),
-        ])
-      }
-    }
-
-    rows.push(['', '', '', '', 'TOTAL', summaryItems.value, '', summaryTotal.value.toFixed(2)])
-  } else {
-    rows = [['Sale ID', 'Date', 'Time', 'Cashier', 'Products', 'Items sold', 'Total (PHP)']]
-
-    for (const sale of filteredSales.value) {
-      const items = sale.sale_items || []
-      rows.push([
-        sale.id,
-        ...when(sale),
-        cashierName(sale),
-        items.map((i) => `${i.product_name} x${i.quantity}`).join('; '),
-        items.reduce((n, i) => n + Number(i.quantity || 0), 0),
-        Number(sale.total_amount || 0).toFixed(2),
-      ])
-    }
-
-    rows.push(['', '', '', '', 'TOTAL', summaryItems.value, summaryTotal.value.toFixed(2)])
-  }
-
-  // the BOM makes Excel read names with ñ and the like correctly
-  const csv = '﻿' + rows.map((r) => r.map(cell).join(',')).join('\r\n')
-  const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }))
-
-  const { start, end } = range.value
-  const day = (d) => d.toLocaleDateString('en-CA')
-  const period = start
-    ? `${day(start)}_to_${day(end ? new Date(end.getTime() - 86400000) : new Date())}`
-    : 'all'
-  const who = selectedCashier.value?.name || cashierSearch.value.trim()
-
-  const link = document.createElement('a')
-  link.href = url
-  link.download = `${kind === 'items' ? 'items-sold' : 'sales'}_${period}${who ? '_' + who.replace(/[^A-Za-z0-9]+/g, '-') : ''}.csv`
-  document.body.appendChild(link)
-  link.click()
-  link.remove()
-  URL.revokeObjectURL(url)
-}
-
-// Downloads the sales shown (date filter + cashier) as a PDF with a table,
-// easy to read and print (see lib/salesPdf.js).
-const pdfBusy = ref(false)
-const pdfError = ref('')
-
-// whose sales are shown, for the PDF's heading and file name ('' = everyone)
+// whose sales are shown, for the file's heading and name ('' = everyone)
 function cashiersShown() {
   if (selectedCashier.value) return selectedCashier.value.name
   if (!cashierSearch.value.trim()) return ''
@@ -538,25 +457,28 @@ function cashiersShown() {
     : `${names.slice(0, 3).join(', ')} and ${names.length - 3} more`
 }
 
-async function exportPdf() {
-  if (pdfBusy.value || filteredSales.value.length === 0) return
+async function exportFile(kind) {
+  if (exporting.value || filteredSales.value.length === 0) return
 
-  pdfBusy.value = true
-  pdfError.value = ''
+  exporting.value = kind
+  exportError.value = ''
+
+  const options = {
+    sales: filteredSales.value,
+    range: range.value,
+    who: cashiersShown(),
+    cashierOf: cashierName,
+  }
 
   try {
-    await downloadSalesPdf({
-      sales: filteredSales.value,
-      range: range.value,
-      who: cashiersShown(),
-      cashierOf: cashierName,
-    })
+    if (kind === 'excel') await downloadSalesExcel(options)
+    else await downloadSalesPdf(options)
   } catch (err) {
     // e.g. no connection, or the site was updated since this page opened
     console.error(err)
-    pdfError.value = "Couldn't make the PDF. Reload the page and try again."
+    exportError.value = `Couldn't make the ${kind === 'excel' ? 'Excel file' : 'PDF'}. Reload the page and try again.`
   } finally {
-    pdfBusy.value = false
+    exporting.value = ''
   }
 }
 

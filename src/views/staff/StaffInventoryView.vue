@@ -6,7 +6,7 @@
     />
 
     <div class="mb-5 card p-5">
-      <div class="grid gap-4 md:grid-cols-[1fr_220px]">
+      <div class="grid gap-4 md:grid-cols-[1fr_220px_auto]">
         <input
           v-model="search"
           type="text"
@@ -24,6 +24,24 @@
             {{ category }}
           </option>
         </select>
+
+        <!-- only the products running low, emptiest first (?stock=low) -->
+        <button
+          type="button"
+          class="flex items-center justify-center gap-2 rounded-2xl border px-4 py-3 text-sm font-bold transition"
+          :class="lowOnly
+            ? 'border-yellow-400 bg-yellow-400 text-black'
+            : 'border-yellow-500/40 bg-zinc-900 text-yellow-400 hover:bg-yellow-500/10'"
+          :aria-pressed="lowOnly"
+          :title="`Products with ${LOW_STOCK} or fewer left, emptiest first`"
+          @click="stockFilter = lowOnly ? 'all' : 'low'"
+        >
+          <NavIcon name="alert" class="h-4 w-4" />
+          Low stock
+          <span class="rounded-full px-1.5 text-xs" :class="lowOnly ? 'bg-black/15' : 'bg-yellow-500/15'">
+            {{ count(lowCount) }}
+          </span>
+        </button>
       </div>
     </div>
 
@@ -80,15 +98,7 @@
               </td>
 
               <td data-label="Stock" class="num text-sm font-bold">
-                <!-- one piece, so on phones "low" stays next to the number -->
-                <span :class="Number(product.quantity || 0) <= 10 ? 'text-red-400' : 'text-white'">
-                  {{ count(product.quantity) }}
-                  <span
-                    v-if="Number(product.quantity || 0) <= 10"
-                    class="ml-1 text-[0.6rem] uppercase tracking-wide"
-                    >low</span
-                  >
-                </span>
+                <StockLevel :product="product" />
               </td>
 
               <td data-label="Inspection" class="whitespace-nowrap text-xs text-zinc-400">
@@ -109,7 +119,13 @@
 
             <tr v-if="filteredProducts.length === 0">
               <td colspan="6" class="cell-main p-6 text-center text-zinc-500">
-                {{ loading ? 'Loading products...' : 'No products found.' }}
+                {{
+                  loading
+                    ? 'Loading products...'
+                    : lowOnly
+                      ? `No product here is running low (${LOW_STOCK} or fewer left).`
+                      : 'No products found.'
+                }}
               </td>
             </tr>
           </tbody>
@@ -202,9 +218,13 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { supabase } from '../../lib/supabase'
 import { usePagination } from '../../lib/usePagination'
+import { useQueryParam } from '../../lib/useQueryParam'
 import PageHeader from '../../components/PageHeader.vue'
 import TablePager from '../../components/TablePager.vue'
+import NavIcon from '../../components/NavIcon.vue'
+import StockLevel from '../../components/StockLevel.vue'
 import { count, peso } from '../../lib/format'
+import { LOW_STOCK, byStockLevel, isLowStock } from '../../lib/stock'
 
 const products = ref([])
 const loading = ref(false)
@@ -255,7 +275,12 @@ const categories = computed(() => {
   return [...unique]
 })
 
-const filteredProducts = computed(() => {
+// "Low stock" button: ?stock=low in the address
+const stockFilter = useQueryParam('stock', 'all', ['all', 'low'])
+const lowOnly = computed(() => stockFilter.value === 'low')
+
+// the search and the category
+const shownProducts = computed(() => {
   const keyword = search.value.toLowerCase().trim()
 
   return products.value.filter(product => {
@@ -271,6 +296,14 @@ const filteredProducts = computed(() => {
   })
 })
 
+// the number on the Low stock button: of the products shown
+const lowCount = computed(() => shownProducts.value.filter(isLowStock).length)
+
+// what the table lists: with Low stock on, only those, emptiest first
+const filteredProducts = computed(() =>
+  lowOnly.value ? shownProducts.value.filter(isLowStock).sort(byStockLevel) : shownProducts.value
+)
+
 // The table shows 10, 15 or all products a page, with page buttons under it.
 const tableTop = ref(null)
 
@@ -281,8 +314,8 @@ const {
   reset: resetList,
 } = usePagination(filteredProducts, { storageKey: 'staffInventory', scrollTarget: tableTop })
 
-// a new search or category starts again at page 1
-watch([search, selectedCategory], resetList)
+// a new search, category or stock filter starts again at page 1
+watch([search, selectedCategory, stockFilter], resetList)
 
 function openReportModal(product) {
   selectedProduct.value = product

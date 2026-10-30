@@ -60,7 +60,7 @@
           <p class="kpi-sub">{{ salesText(month.count) }} in {{ monthName }}</p>
         </RouterLink>
 
-        <RouterLink to="/inventory" class="kpi">
+        <RouterLink :to="LOW_STOCK_LINK" class="kpi">
           <div class="kpi-top">
             <p class="kpi-label">Low stock</p>
             <span class="kpi-icon"><NavIcon name="inventory" class="h-4 w-4" /></span>
@@ -97,7 +97,7 @@
               <p class="eyebrow">Sales</p>
               <h2 class="card-title">Last 7 days</h2>
               <p v-if="bestDay" class="mt-1 text-xs text-zinc-400">
-                Best day: <b class="text-white">{{ bestDay.long }}</b> · {{ peso(bestDay.total) }}
+                Best day: <b class="text-white">{{ bestDay.title }}</b> · {{ peso(bestDay.total) }}
               </p>
             </div>
 
@@ -107,7 +107,12 @@
             </div>
           </div>
 
-          <SalesWeekChart :days="weekDays" class="min-h-0 flex-1" />
+          <SalesLineChart
+            :points="weekDays"
+            name="Sales of the last 7 days"
+            empty-text="No sales in the last 7 days."
+            class="min-h-0 flex-1"
+          />
 
           <RouterLink to="/admin/sales" class="card-link mt-4">
             Open Sales History <NavIcon name="chevron" class="h-4 w-4" />
@@ -154,8 +159,8 @@
               <p class="eyebrow">Inventory</p>
               <h2 class="card-title">Running low</h2>
             </div>
-            <RouterLink to="/inventory" class="card-link">
-              Inventory <NavIcon name="chevron" class="h-4 w-4" />
+            <RouterLink :to="LOW_STOCK_LINK" class="card-link">
+              See all <NavIcon name="chevron" class="h-4 w-4" />
             </RouterLink>
           </div>
 
@@ -177,21 +182,25 @@
                 <p class="truncate text-xs text-zinc-500">{{ product.category || 'Uncategorized' }}</p>
               </div>
 
-              <span v-if="qty(product) <= 0" class="chip bg-red-600/15 text-red-400">
+              <span v-if="isOutOfStock(product)" class="chip bg-red-600/15 text-red-400">
                 <NavIcon name="alert" class="h-3.5 w-3.5" />
                 Out of stock
               </span>
               <span v-else class="chip bg-yellow-500/15 text-yellow-400">
-                {{ count(qty(product)) }} left
+                {{ count(stockOf(product)) }} left
               </span>
             </li>
           </ul>
 
           <p v-else-if="loaded" class="text-sm text-zinc-500">Every product has more than {{ LOW_STOCK }} in stock.</p>
 
-          <p v-if="lowStock.length > lowStockList.length" class="mt-2 text-xs text-zinc-500">
+          <RouterLink
+            v-if="lowStock.length > lowStockList.length"
+            :to="LOW_STOCK_LINK"
+            class="mt-2 inline-block text-xs text-zinc-500 hover:text-white"
+          >
             and {{ count(lowStock.length - lowStockList.length) }} more in Inventory
-          </p>
+          </RouterLink>
         </div>
 
         <div class="card p-5">
@@ -303,11 +312,12 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { supabase } from '../../lib/supabase'
 import PageHeader from '../../components/PageHeader.vue'
 import NavIcon from '../../components/NavIcon.vue'
-import SalesWeekChart from '../../components/SalesWeekChart.vue'
+import SalesLineChart from '../../components/SalesLineChart.vue'
 import { count, peso } from '../../lib/format'
+import { LOW_STOCK, byStockLevel, isLowStock, isOutOfStock, stockOf } from '../../lib/stock'
 
-// "Low" stock: the same limit as the Inventory page
-const LOW_STOCK = 10
+// Inventory showing only the products running low (emptiest first)
+const LOW_STOCK_LINK = '/inventory?stock=low'
 
 const products = ref([])
 const sales = ref([])
@@ -492,11 +502,11 @@ const weekDays = computed(() => {
     const date = startOfDay(now.value, -back)
     days.push({
       key: dayKey(date),
-      short: back === 0 ? 'Today' : date.toLocaleDateString(undefined, { weekday: 'short' }),
-      long: date.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' }),
+      label: back === 0 ? 'Today' : date.toLocaleDateString(undefined, { weekday: 'short' }),
+      title: date.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' }),
+      current: back === 0,
       total: 0,
       count: 0,
-      isToday: back === 0,
     })
   }
 
@@ -553,20 +563,12 @@ const bestSellers = computed(() => {
 })
 
 /* ------------------------------------------------------------------
-   Stock
+   Stock (what "low" means: lib/stock.js)
 ------------------------------------------------------------------ */
-function qty(product) {
-  return Number(product.quantity || 0)
-}
-
 // emptiest first
-const lowStock = computed(() =>
-  products.value
-    .filter((product) => qty(product) <= LOW_STOCK)
-    .sort((a, b) => qty(a) - qty(b) || String(a.name).localeCompare(String(b.name)))
-)
+const lowStock = computed(() => products.value.filter(isLowStock).sort(byStockLevel))
 
-const outOfStock = computed(() => lowStock.value.filter((product) => qty(product) <= 0))
+const outOfStock = computed(() => lowStock.value.filter(isOutOfStock))
 
 const lowStockList = computed(() => lowStock.value.slice(0, 6))
 
@@ -671,13 +673,13 @@ const attention = computed(() => {
   const lowOnly = lowStock.value.length - outOfStock.value.length
 
   return [
-    { key: 'out', n: outOfStock.value.length, label: (n) => `${noun(n, 'product')} out of stock`, to: '/inventory', icon: 'alert', tone: 'critical' },
+    { key: 'out', n: outOfStock.value.length, label: (n) => `${noun(n, 'product')} out of stock`, to: LOW_STOCK_LINK, icon: 'alert', tone: 'critical' },
     { key: 'overdue', n: overdue, label: (n) => `${noun(n, 'inspection')} overdue`, to: '/calendar', icon: 'calendar', tone: 'critical' },
     { key: 'uploads', n: w.uploads, label: (n) => `supplier ${noun(n, 'receipt')} to approve`, to: '/approval', icon: 'docs', tone: 'task' },
     { key: 'inspections', n: w.inspections, label: (n) => `${noun(n, 'inspection')} to approve`, to: '/approval?tab=inspections', icon: 'approval', tone: 'task' },
     { key: 'prices', n: w.prices, label: (n) => `${noun(n, 'receipt')} with new prices to check`, to: '/approval', icon: 'tag', tone: 'task' },
     { key: 'unsent', n: w.unsent, label: (n) => `approved ${noun(n, 'receipt')} not sent to the scanner`, to: '/approval', icon: 'alert', tone: 'warning' },
-    { key: 'low', n: lowOnly, label: (n) => `${noun(n, 'product')} running low`, to: '/inventory', icon: 'inventory', tone: 'warning' },
+    { key: 'low', n: lowOnly, label: (n) => `${noun(n, 'product')} running low`, to: LOW_STOCK_LINK, icon: 'inventory', tone: 'warning' },
   ]
     .filter((item) => item.n > 0)
     .map((item) => ({ ...item, label: item.label(item.n) }))

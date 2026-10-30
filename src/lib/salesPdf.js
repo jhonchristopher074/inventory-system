@@ -1,13 +1,14 @@
 /**
  * Sales History as a PDF: the shop's name, the period (and cashier) it
- * covers, the totals, then a table with one row per sale (like the
- * "Sales CSV", but easy to read and print).
+ * covers, the totals, then a table with one row per sale (easy to read
+ * and print; the Excel file has every detail).
  *
  *   await downloadSalesPdf({ sales, range, who, cashierOf })
  *
  * The PDF library (about 400 KB) is downloaded only when a PDF is made,
  * not with the page.
  */
+import { reportDay as day, reportFileName, reportPeriod, reportTime as time } from './salesReport'
 
 const SHOP = '10 FIVE 7 Hardware'
 const BRAND_RED = [224, 27, 50]
@@ -35,19 +36,6 @@ function pdfText(value) {
     .trim()
 }
 
-function day(date) {
-  return date.toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })
-}
-
-function time(date) {
-  return date.toLocaleTimeString('en-PH', { hour: 'numeric', minute: '2-digit' })
-}
-
-// 'YYYY-MM-DD' (for the file name)
-function ymd(date) {
-  return date.toLocaleDateString('en-CA')
-}
-
 /**
  * Builds the PDF (without downloading it).
  *
@@ -61,10 +49,7 @@ function ymd(date) {
 export async function buildSalesPdf({ sales, range, who = '', cashierOf = null }) {
   const [{ jsPDF }, { autoTable }] = await Promise.all([import('jspdf'), import('jspdf-autotable')])
 
-  // the last day included (range.end is the midnight after it)
-  const first = range?.start || null
-  const last = first ? (range.end ? new Date(range.end.getTime() - 1) : new Date()) : null
-  const period = !first ? 'All dates' : day(first) === day(last) ? day(first) : `${day(first)} - ${day(last)}`
+  const period = reportPeriod(range).text
 
   const totalAmount = sales.reduce((sum, sale) => sum + Number(sale.total_amount || 0), 0)
   const itemsOf = (sale) => (sale.sale_items || []).reduce((n, item) => n + Number(item.quantity || 0), 0)
@@ -185,10 +170,7 @@ export async function buildSalesPdf({ sales, range, who = '', cashierOf = null }
     doc.text(`Page ${n} of ${pages}`, pageWidth - margin, pageHeight - 8, { align: 'right' })
   }
 
-  const periodPart = first ? `${ymd(first)}_to_${ymd(last)}` : 'all'
-  const whoPart = who ? '_' + who.replace(/[^A-Za-z0-9]+/g, '-') : ''
-
-  return { doc, fileName: `sales_${periodPart}${whoPart}.pdf` }
+  return { doc, fileName: reportFileName(range, who, 'pdf') }
 }
 
 /** Builds the PDF and downloads it. */

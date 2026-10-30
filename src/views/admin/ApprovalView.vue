@@ -699,8 +699,9 @@
 
 <script setup>
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
-import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
+import { onBeforeRouteLeave } from 'vue-router'
 import { supabase, uniqueChannelName } from '../../lib/supabase'
+import { useQueryParam } from '../../lib/useQueryParam'
 import { setLeaveQuestion } from '../../lib/leaveGuard'
 import { count } from '../../lib/format'
 import PageHeader from '../../components/PageHeader.vue'
@@ -1556,38 +1557,12 @@ async function dismissGroup(group) {
    Tabs: Supplier Uploads | Inspection Approvals
 
    The open tab is kept in the address (?tab=inspections), so a refresh
-   keeps it and a notification opens the right one. The tab switches at
-   once and the address follows: every change of address first asks the
-   server who is logged in, and a tab click shouldn't wait for that.
+   keeps it and a notification opens the right one (lib/useQueryParam.js).
 ------------------------------------------------------------------ */
-const route = useRoute()
-const router = useRouter()
-const pagePath = route.path
-
-function tabInAddress() {
-  return route.query.tab === 'inspections' ? 'inspections' : 'uploads'
-}
-
-const activeTab = ref(tabInAddress())
-
-// e.g. a notification opened the other tab while this page was open
-watch(
-  () => route.query.tab,
-  () => {
-    if (route.path === pagePath) activeTab.value = tabInAddress()
-  }
-)
+const activeTab = useQueryParam('tab', 'uploads', ['uploads', 'inspections'])
 
 function openTab(key) {
   activeTab.value = key
-
-  const query = { ...route.query }
-  if (key === 'inspections') query.tab = key
-  else delete query.tab
-
-  router.replace({ query }).catch(() => {
-    // the address couldn't follow (e.g. no connection): the tab is open anyway
-  })
 }
 
 function plural(n, word) {

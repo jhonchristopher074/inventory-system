@@ -5,7 +5,8 @@
 //
 //   <SalesInsights :sales="filteredSales" :range="range" />
 import { computed, ref, watch } from 'vue'
-import { count, niceTop, peso, pesoShort } from '../lib/format'
+import { count, peso } from '../lib/format'
+import SalesLineChart from './SalesLineChart.vue'
 
 const props = defineProps({
   sales: { type: Array, required: true },
@@ -31,7 +32,7 @@ watch(open, (value) => {
 // best sellers: top 5, or all 10 after 'Show top 10'
 const showAllProducts = ref(false)
 
-const MAX_DAY_BARS = 62 // longer periods are shown per month
+const MAX_DAY_POINTS = 62 // longer periods are shown per month
 
 function dayKey(date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
@@ -45,7 +46,7 @@ function money(value) {
   return peso(value)
 }
 
-// ----- Chart: one bar per day (or per month for long periods) -----
+// ----- Chart: one point per day (or per month for long periods) -----
 const chart = computed(() => {
   if (props.sales.length === 0) return null
 
@@ -57,17 +58,34 @@ const chart = computed(() => {
 
   const start = new Date(first.getFullYear(), first.getMonth(), first.getDate())
   const days = Math.round((lastDay - start) / 86400000) + 1
-  const byMonth = days > MAX_DAY_BARS
+  const byMonth = days > MAX_DAY_POINTS
 
   // every day / month of the period, also the ones without sales
   const buckets = []
+  const todayKey = dayKey(new Date())
+  const thisMonth = monthKey(new Date())
+
   if (byMonth) {
     for (let d = new Date(start.getFullYear(), start.getMonth(), 1); d <= lastDay; d = new Date(d.getFullYear(), d.getMonth() + 1, 1)) {
-      buckets.push({ key: monthKey(d), label: d.toLocaleDateString(undefined, { month: 'short', year: 'numeric' }), total: 0, count: 0 })
+      buckets.push({
+        key: monthKey(d),
+        label: d.toLocaleDateString(undefined, { month: 'short', year: 'numeric' }),
+        title: d.toLocaleDateString(undefined, { month: 'long', year: 'numeric' }),
+        current: monthKey(d) === thisMonth,
+        total: 0,
+        count: 0,
+      })
     }
   } else {
     for (let d = new Date(start); d <= lastDay; d = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1)) {
-      buckets.push({ key: dayKey(d), label: d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }), total: 0, count: 0 })
+      buckets.push({
+        key: dayKey(d),
+        label: d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+        title: d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }),
+        current: dayKey(d) === todayKey,
+        total: 0,
+        count: 0,
+      })
     }
   }
 
@@ -80,35 +98,9 @@ const chart = computed(() => {
     buckets[i].count += 1
   }
 
-  const max = Math.max(...buckets.map((b) => b.total), 0)
   const best = buckets.reduce((a, b) => (b.total > a.total ? b : a), buckets[0])
 
-  // show about 8 labels under the chart, whatever the number of points
-  const labelEvery = Math.max(1, Math.ceil(buckets.length / 8))
-
-  // The line: one point per day (or month), in the middle of its column,
-  // drawn on a 100 × 100 box that stretches to the chart's size.
-  const top = niceTop(max)
-  const n = buckets.length
-  for (const [i, b] of buckets.entries()) {
-    b.pct = (b.total / top) * 100
-    b.x = ((i + 0.5) / n) * 100
-  }
-
-  const points = buckets.map((b) => `${b.x},${100 - b.pct}`)
-  const line = `M${points.join('L')}`
-  const area = `M${buckets[0].x},100L${points.join('L')}L${buckets[n - 1].x},100Z`
-
-  return {
-    buckets,
-    best,
-    byMonth,
-    labelEvery,
-    line,
-    area,
-    lines: [top, top / 2, 0], // the scale: top, middle, bottom
-    showDots: n <= 14, // a dot on every point only while they aren't crowded
-  }
+  return { buckets, best, byMonth }
 })
 
 // ----- Best-selling products -----
@@ -161,90 +153,12 @@ const shownProducts = computed(() =>
 
       <p v-if="!chart" class="py-10 text-center text-sm text-zinc-500">No sales to show.</p>
 
-      <div v-else>
-        <div class="flex gap-2">
-          <!-- the scale: three clean amounts, with faint lines across -->
-          <div class="relative h-44 w-12 shrink-0 text-right text-[11px] tabular-nums text-zinc-500" aria-hidden="true">
-            <span
-              v-for="(line, i) in chart.lines"
-              :key="line"
-              class="absolute right-0 -translate-y-1/2 leading-none"
-              :style="{ top: `${i * 50}%` }"
-            >
-              {{ pesoShort(line) }}
-            </span>
-          </div>
-
-          <div class="relative h-44 min-w-0 flex-1">
-            <div
-              v-for="(line, i) in chart.lines"
-              :key="line"
-              class="absolute inset-x-0 border-t"
-              :class="i === chart.lines.length - 1 ? 'border-white/15' : 'border-white/5'"
-              :style="{ top: `${i * 50}%` }"
-              aria-hidden="true"
-            ></div>
-
-            <!-- the line, with a faint wash under it -->
-            <svg
-              class="absolute inset-0 h-full w-full overflow-visible"
-              viewBox="0 0 100 100"
-              preserveAspectRatio="none"
-              aria-hidden="true"
-            >
-              <path :d="chart.area" class="fill-red-500/10" />
-              <path
-                :d="chart.line"
-                fill="none"
-                class="stroke-red-500"
-                stroke-width="2"
-                stroke-linejoin="round"
-                stroke-linecap="round"
-                vector-effect="non-scaling-stroke"
-              />
-            </svg>
-
-            <!-- one strip per day (or month): hover or Tab to it for its
-                 total; a thin line marks the day -->
-            <ul class="absolute inset-0 flex" :aria-label="`Sales per ${chart.byMonth ? 'month' : 'day'}`">
-              <li
-                v-for="(bucket, i) in chart.buckets"
-                :key="bucket.key"
-                class="group relative h-full min-w-0 flex-1 outline-none"
-                tabindex="0"
-                :aria-label="`${bucket.label}: ${money(bucket.total)}, ${count(bucket.count)} sale${bucket.count === 1 ? '' : 's'}`"
-              >
-                <div class="absolute inset-y-0 left-1/2 hidden w-px -translate-x-1/2 bg-white/20 group-hover:block group-focus-visible:block"></div>
-
-                <div
-                  class="absolute left-1/2 h-2.5 w-2.5 -translate-x-1/2 translate-y-1/2 rounded-full bg-red-500 ring-2 ring-zinc-900"
-                  :class="chart.showDots ? '' : 'hidden group-hover:block group-focus-visible:block'"
-                  :style="{ bottom: `${bucket.pct}%` }"
-                ></div>
-
-                <div
-                  class="pointer-events-none absolute z-10 hidden whitespace-nowrap rounded-[10px] bg-black px-2.5 py-1.5 text-xs shadow-xl ring-1 ring-white/10 group-hover:block group-focus-visible:block"
-                  :class="i < chart.buckets.length / 5 ? 'left-0' : i >= (chart.buckets.length * 4) / 5 ? 'right-0' : 'left-1/2 -translate-x-1/2'"
-                  :style="{ bottom: `calc(${bucket.pct}% + 14px)` }"
-                >
-                  <p class="font-bold text-white">{{ money(bucket.total) }}</p>
-                  <p class="text-zinc-400">{{ bucket.label }} · {{ count(bucket.count) }} sale{{ bucket.count === 1 ? '' : 's' }}</p>
-                </div>
-              </li>
-            </ul>
-          </div>
-        </div>
-
-        <div class="mt-2 flex pl-14 text-[10px] text-zinc-500" aria-hidden="true">
-          <span
-            v-for="(bucket, i) in chart.buckets"
-            :key="bucket.key"
-            class="flex min-w-0 flex-1 justify-center whitespace-nowrap"
-          >
-            {{ i % chart.labelEvery === 0 ? bucket.label : '' }}
-          </span>
-        </div>
-      </div>
+      <SalesLineChart
+        v-else
+        :points="chart.buckets"
+        :name="`Sales per ${chart.byMonth ? 'month' : 'day'}`"
+        empty-text="No sales in this period."
+      />
     </section>
 
     <!-- BEST-SELLING PRODUCTS -->
