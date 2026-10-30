@@ -71,6 +71,23 @@ function editExisting() {
   startEdit(category)
 }
 
+// the name box's dropdown: the categories that match, with their size
+const categoryOptions = computed(() =>
+  props.categories.map((category) => ({
+    text: category.name,
+    hint: `${productCount(category.product_count)} · Edit`,
+  }))
+)
+
+// picked from that dropdown: it exists already, so open it to edit
+function editPicked(item) {
+  const category = props.categories.find((c) => c.name === item.text)
+  if (!category) return
+  newName.value = ''
+  newDescription.value = ''
+  startEdit(category)
+}
+
 /* ---- typing what goes in it: the products that match ---- */
 const productOptions = computed(() =>
   props.products.map((product) => ({
@@ -228,13 +245,17 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
       <!-- ADD: the name also finds the categories that match it (list below);
            "what goes in it" suggests the inventory's products as you type -->
       <form class="grid gap-2 border-b border-white/5 p-5 sm:grid-cols-[1fr_1.4fr_auto]" @submit.prevent="add">
-        <input
+        <!-- the categories that match drop down too; picking one opens it to edit -->
+        <TermSuggest
           ref="nameInput"
           v-model="newName"
+          single
+          :options="categoryOptions"
           maxlength="60"
           placeholder="New category, e.g. Plumbing"
           aria-label="Name of the new category"
           class="input"
+          @pick="editPicked"
         />
         <TermSuggest
           v-model="newDescription"

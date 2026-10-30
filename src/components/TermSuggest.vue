@@ -10,6 +10,10 @@
 //
 // Everything else given to it (class, placeholder, maxlength, aria-label)
 // goes on the text box itself. `multiline` makes it a textarea.
+//
+// `single`: the whole box is one name (no commas). Nothing is highlighted
+// until ↓ is pressed, so Enter still sends the form with what was typed.
+// A pick is also sent as the "pick" event.
 import { computed, ref, useId, watch } from 'vue'
 
 defineOptions({ inheritAttrs: false })
@@ -20,9 +24,12 @@ const props = defineProps({
   // [{ text, hint }] (or plain strings): what can be suggested
   options: { type: Array, default: () => [] },
   multiline: { type: Boolean, default: false },
+  single: { type: Boolean, default: false },
   // how many suggestions at most
   limit: { type: Number, default: 6 },
 })
+
+const emit = defineEmits(['pick'])
 
 const box = ref(null)
 const focused = ref(false)
@@ -30,12 +37,16 @@ const dismissed = ref(false) // Esc: closed until the next letter
 const active = ref(0)
 const listId = `suggest-${useId()}`
 
-// the word being typed: after the last comma
-const term = computed(() => model.value.split(',').pop().trim().toLowerCase())
+// the word being typed: after the last comma (or all of it)
+const term = computed(() =>
+  (props.single ? model.value : model.value.split(',').pop()).trim().toLowerCase()
+)
 
 // the ones already written before it aren't suggested again
-const taken = computed(
-  () => new Set(model.value.split(',').slice(0, -1).map((part) => part.trim().toLowerCase()))
+const taken = computed(() =>
+  props.single
+    ? new Set()
+    : new Set(model.value.split(',').slice(0, -1).map((part) => part.trim().toLowerCase()))
 )
 
 // names starting with what's typed first, then names containing it
@@ -68,16 +79,24 @@ const matches = computed(() => {
 
 const open = computed(() => focused.value && !dismissed.value && matches.value.length > 0)
 
+// -1 = none highlighted (single: until ↓ is pressed)
 watch(matches, () => {
-  active.value = 0
+  active.value = props.single ? -1 : 0
 })
 
 function pick(item) {
-  const parts = model.value.split(',')
-  parts[parts.length - 1] = (parts.length > 1 ? ' ' : '') + item.text
-  model.value = parts.join(',') + ', '
+  if (props.single) {
+    model.value = item.text
+  } else {
+    const parts = model.value.split(',')
+    parts[parts.length - 1] = (parts.length > 1 ? ' ' : '') + item.text
+    model.value = parts.join(',') + ', '
+  }
   box.value?.focus()
+  emit('pick', item)
 }
+
+defineExpose({ focus: () => box.value?.focus() })
 
 function onKeydown(event) {
   if (!open.value) return
@@ -89,8 +108,8 @@ function onKeydown(event) {
     active.value = (active.value + 1) % count
   } else if (event.key === 'ArrowUp') {
     event.preventDefault()
-    active.value = (active.value - 1 + count) % count
-  } else if (event.key === 'Enter' || event.key === 'Tab') {
+    active.value = active.value <= 0 ? count - 1 : active.value - 1
+  } else if ((event.key === 'Enter' || event.key === 'Tab') && active.value >= 0) {
     event.preventDefault()
     pick(matches.value[active.value])
   } else if (event.key === 'Escape') {
@@ -118,7 +137,7 @@ function onInput(event) {
       aria-autocomplete="list"
       :aria-expanded="open"
       :aria-controls="listId"
-      :aria-activedescendant="open ? `${listId}-${active}` : undefined"
+      :aria-activedescendant="open && active >= 0 ? `${listId}-${active}` : undefined"
       @input="onInput"
       @keydown="onKeydown"
       @focus="focused = true"
@@ -134,7 +153,7 @@ function onInput(event) {
       aria-autocomplete="list"
       :aria-expanded="open"
       :aria-controls="listId"
-      :aria-activedescendant="open ? `${listId}-${active}` : undefined"
+      :aria-activedescendant="open && active >= 0 ? `${listId}-${active}` : undefined"
       @input="onInput"
       @keydown="onKeydown"
       @focus="focused = true"
