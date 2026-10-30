@@ -3,11 +3,11 @@
 //
 //   left   the categories (search, "+ New category") and, at the top,
 //          Uncategorized: the products that still need one
-//   right  the chosen one. Uncategorized: "Select category" per product, or
-//          tick several. A category: its products (they stay; "Remove" only
-//          undoes a mistake), "Add products" (from Uncategorized), Rename,
-//          Delete, and optional notes for the receipt scanner's AI.
-//          Every change shows a message with Undo.
+//   right  the chosen one: its products, "Add products", Rename, Delete,
+//          and optional notes for the receipt scanner's AI. In
+//          Uncategorized each product has "Select category" (or tick several
+//          and sort them together); in a category each just shows it.
+//          Every move shows a message with Undo.
 //
 // The window keeps one size whatever is typed. Phones: one side at a time
 // (the list; a category opens over it with "‹ All categories").
@@ -175,9 +175,15 @@ function closeEditors() {
   confirmingDelete.value = false
 }
 
-// A product that has a category stays in it: only Uncategorized products get
-// the "Select category" menu (and the tick boxes to sort several at once).
-const categoryNames = computed(() => allCategories.value.map((c) => c.name))
+// where a product can be moved from here: the other categories, and out
+const moveTargets = computed(() => [
+  ...allCategories.value.map((c) => c.name).filter((name) => name !== selectedName.value),
+  ...(isUncategorized.value ? [] : [NO_CATEGORY]),
+])
+
+function targetLabel(name) {
+  return name === NO_CATEGORY ? 'Uncategorized (take out)' : name
+}
 
 // long lists: a filter
 const productFilter = ref('')
@@ -303,7 +309,8 @@ function moved(list, to) {
   return to === NO_CATEGORY ? `Took ${what} out: now Uncategorized.` : `Moved ${what} to ${to}.`
 }
 
-// an Uncategorized product's "Select category" menu
+// an Uncategorized product's "Select category" menu (one that has a
+// category just shows it)
 function moveOne(product, event) {
   const to = event.target.value
   event.target.value = ''
@@ -320,21 +327,19 @@ function moveChecked(event) {
   moveProducts(list.map((product) => ({ product, to })), (done) => moved(done, to))
 }
 
-// a product put here by mistake: back to Uncategorized
-function takeOut(product) {
-  moveProducts([{ product, to: NO_CATEGORY }], (done) => moved(done, NO_CATEGORY))
-}
-
-/* ---- Add products: only ones with no category yet ---- */
+/* ---- Add products ---- */
 const addText = ref('')
 const addBox = ref(null)
 
 const addOptions = computed(() =>
-  (productsIn.value.get(NO_CATEGORY) || []).map((product) => ({ id: product.id, text: product.name }))
+  props.products
+    .filter((product) => categoryOf(product) !== selectedName.value)
+    .map((product) => ({
+      id: product.id,
+      text: product.name,
+      hint: categoryOf(product) === NO_CATEGORY ? 'Uncategorized' : `in ${categoryOf(product)}`,
+    }))
 )
-
-// the notes box suggests any product's name
-const productNames = computed(() => props.products.map((product) => ({ id: product.id, text: product.name })))
 
 function addPicked(item) {
   addText.value = ''
@@ -792,7 +797,6 @@ onBeforeUnmount(() => {
               <div v-if="!isUncategorized">
                 <label class="field-label" for="add-products">Add products to {{ selectedName }}</label>
                 <TermSuggest
-                  v-if="addOptions.length > 0"
                   id="add-products"
                   ref="addBox"
                   v-model="addText"
@@ -800,17 +804,10 @@ onBeforeUnmount(() => {
                   auto-highlight
                   :options="addOptions"
                   placeholder="Type a product name, then Enter"
-                  empty-text="No product without a category matches."
+                  empty-text="No product matches."
                   class="input mt-2"
                   @pick="addPicked"
                 />
-                <p class="mt-1.5 text-xs text-zinc-500">
-                  {{
-                    addOptions.length > 0
-                      ? 'Only products with no category yet. One that has a category stays in it.'
-                      : 'Every product already has a category.'
-                  }}
-                </p>
               </div>
 
               <!-- ITS PRODUCTS -->
@@ -848,7 +845,7 @@ onBeforeUnmount(() => {
                   <b class="text-white">{{ count(checked.size) }} selected</b>
                   <select class="move-select" aria-label="Category for the selected products" @change="moveChecked">
                     <option value="">Select category</option>
-                    <option v-for="name in categoryNames" :key="name" :value="name">{{ name }}</option>
+                    <option v-for="name in moveTargets" :key="name" :value="name">{{ targetLabel(name) }}</option>
                   </select>
                   <button type="button" class="font-bold text-zinc-400 hover:text-white" @click="checked.clear()">
                     Clear
@@ -891,19 +888,13 @@ onBeforeUnmount(() => {
                       @change="moveOne(product, $event)"
                     >
                       <option value="">Select category</option>
-                      <option v-for="name in categoryNames" :key="name" :value="name">{{ name }}</option>
+                      <option v-for="name in moveTargets" :key="name" :value="name">{{ targetLabel(name) }}</option>
                     </select>
-                    <button
-                      v-else
-                      type="button"
-                      class="shrink-0 rounded-lg px-2 py-1 text-xs font-bold text-zinc-500 hover:bg-white/5 hover:text-red-300 disabled:opacity-50"
-                      :disabled="pending.has(product.id)"
-                      :aria-label="`Remove ${product.name} from ${selectedName}`"
-                      title="Back to Uncategorized"
-                      @click="takeOut(product)"
-                    >
-                      Remove
-                    </button>
+                    <!-- it has its category: shown, not changed here -->
+                    <span v-else class="category-chip" :title="`In ${categoryOf(product)}`">
+                      <NavIcon name="tag" class="h-3.5 w-3.5" />
+                      <span class="truncate">{{ categoryOf(product) }}</span>
+                    </span>
                   </li>
 
                   <li v-if="productsHere.length === 0" class="px-3 py-8 text-center text-sm text-zinc-500">
@@ -964,7 +955,7 @@ onBeforeUnmount(() => {
                   <TermSuggest
                     v-model="notesText"
                     multiline
-                    :options="productNames"
+                    :options="addOptions"
                     maxlength="300"
                     rows="3"
                     placeholder="e.g. nails, screws, bolts, rivets"
@@ -1071,6 +1062,21 @@ onBeforeUnmount(() => {
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--color-zinc-500);
+}
+
+/* a product's category, where Uncategorized ones have the menu */
+.category-chip {
+  display: inline-flex;
+  max-width: 11rem;
+  flex: none;
+  align-items: center;
+  gap: 0.35rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  padding: 0.25rem 0.65rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-zinc-300);
 }
 
 .move-select {

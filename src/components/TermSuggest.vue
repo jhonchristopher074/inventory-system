@@ -67,7 +67,8 @@ const matches = computed(() => {
   for (const option of props.options) {
     const item = typeof option === 'string' ? { text: option } : option
     const lower = String(item.text || '').toLowerCase()
-    if (!lower || lower === q || seen.has(lower) || taken.value.has(lower)) continue
+    // a name typed in full: done in a list; in `single` it's the one to pick
+    if (!lower || (lower === q && !props.single) || seen.has(lower) || taken.value.has(lower)) continue
     seen.add(lower)
 
     const at = lower.indexOf(q)
