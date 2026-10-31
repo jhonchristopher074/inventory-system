@@ -48,6 +48,9 @@ const chosenPercent = computed(() => {
   return props.group.percent != null && Number.isFinite(percent) ? percent : null
 })
 
+// products that came without a cost: the profit % can't be added to them
+const noCost = computed(() => items.value.filter((item) => !(Number(item.cost) > 0.01)))
+
 /* ------------------------------------------------------------------
    Prices
 ------------------------------------------------------------------ */
@@ -291,6 +294,18 @@ onBeforeUnmount(() => {
               The receipt scanner added these on its own, not from a receipt you approved, so no
               profit was added. Check each price before confirming.
             </template>
+          </p>
+
+          <p
+            v-else-if="chosenPercent !== null && noCost.length > 0"
+            class="mt-3 flex items-start gap-2 rounded-xl bg-white/5 p-3 text-sm text-zinc-300"
+          >
+            <NavIcon name="alert" class="mt-0.5 h-4 w-4 shrink-0 text-yellow-400" />
+            <span>
+              {{ noCost.length === items.length ? (items.length === 1 ? 'This product' : 'These products') : count(noCost.length) + ' of these' }}
+              came without a cost, so your {{ chosenPercent }}% couldn't be added
+              {{ noCost.length === 1 ? 'to it' : 'to them' }}. Their price stays as it is unless you type a new one.
+            </span>
           </p>
         </header>
 
