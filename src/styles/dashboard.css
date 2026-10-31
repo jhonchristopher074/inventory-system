@@ -1,0 +1,205 @@
+/* The dashboards' tiles and cards (Owner, Staff, Cashier), in one place so
+   they look the same. Each dashboard takes it as its own scoped style:
+     <style scoped src="../../styles/dashboard.css"></style> */
+
+/* ---- the tiles at the top (most open their page) ---- */
+.kpi {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  /* the numbers size themselves to the tile (cqi below) */
+  container-type: inline-size;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--hairline);
+  background: linear-gradient(180deg, var(--surface-raised), var(--surface));
+  box-shadow: var(--shadow-card);
+  padding: 1rem 1.1rem;
+  transition:
+    border-color 0.18s var(--ease),
+    transform 0.18s var(--ease),
+    box-shadow 0.18s var(--ease);
+}
+
+/* crimson top edge, like the other stat tiles */
+.kpi::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--brand), rgba(224, 27, 50, 0));
+}
+
+/* only a tile that opens a page lifts under the mouse */
+a.kpi:hover,
+a.kpi:focus-visible {
+  outline: none;
+  border-color: rgba(224, 27, 50, 0.35);
+  transform: translateY(-2px);
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.5),
+    0 14px 32px -16px rgba(224, 27, 50, 0.45);
+}
+
+.kpi-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.kpi-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--color-zinc-400);
+}
+
+.kpi-icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 1.9rem;
+  height: 1.9rem;
+  border-radius: 0.6rem;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--color-zinc-400);
+}
+
+/* the one big number of the page */
+.kpi-hero {
+  margin-top: 0.35rem;
+  white-space: nowrap;
+  font-size: clamp(1.8rem, 12cqi, 3.4rem);
+  font-weight: 800;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  color: #fff;
+}
+
+.kpi-value {
+  margin-top: 0.35rem;
+  white-space: nowrap;
+  font-size: clamp(1.25rem, 13cqi, 1.9rem);
+  font-weight: 800;
+  line-height: 1.1;
+  color: #fff;
+}
+
+/* "3 products": the word after a big count (a real space before it) */
+.kpi-unit {
+  font-size: 0.4em;
+  font-weight: 700;
+  letter-spacing: 0;
+  color: var(--color-zinc-400);
+}
+
+.kpi-sub {
+  margin-top: 0.35rem;
+  font-size: 0.8rem;
+  color: var(--color-zinc-400);
+}
+
+.kpi-change {
+  margin-top: 0.3rem;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+/* ---- cards ---- */
+.eyebrow {
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-zinc-500);
+}
+
+.card-title {
+  font-size: 1.2rem;
+  font-weight: 800;
+  color: #fff;
+}
+
+.card-head {
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.card-link {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 0.2rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--color-zinc-400);
+}
+
+.card-link:hover {
+  color: #fff;
+}
+
+/* ---- needs your attention ---- */
+.todo {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--hairline);
+  background: rgba(0, 0, 0, 0.2);
+  padding: 0.6rem 0.75rem;
+}
+
+.todo:hover {
+  border-color: rgba(224, 27, 50, 0.35);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.todo-icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.6rem;
+}
+
+/* small state labels: always a word (and an icon when it's a warning) */
+.chip {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 0.3rem;
+  white-space: nowrap;
+  border-radius: 999px;
+  padding: 0.2rem 0.6rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+/* the colour key of a progress bar (Approved / Saved / Submitted) */
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.9rem;
+  font-size: 0.72rem;
+  color: var(--color-zinc-400);
+}
+
+.legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.legend i {
+  display: inline-block;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 999px;
+}

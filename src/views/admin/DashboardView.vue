@@ -318,6 +318,17 @@ import NavIcon from '../../components/NavIcon.vue'
 import SalesLineChart from '../../components/SalesLineChart.vue'
 import { count, peso } from '../../lib/format'
 import { LOW_STOCK, byStockLevel, isLowStock, isOutOfStock, stockOf } from '../../lib/stock'
+import {
+  bestDay as findBestDay,
+  bestSellers as topSellers,
+  changeSinceYesterday,
+  dailyTotals,
+  dayKey,
+  pesoTile,
+  salesText,
+  salesThisMonth,
+  salesToday,
+} from '../../lib/dashboardStats'
 
 // Inventory showing only the products running low (emptiest first)
 const LOW_STOCK_LINK = '/inventory?stock=low'
@@ -413,16 +424,6 @@ onBeforeUnmount(() => document.removeEventListener('visibilitychange', onVisibil
 /* ------------------------------------------------------------------
    Dates (this computer's clock, like the rest of the app)
 ------------------------------------------------------------------ */
-function startOfDay(date, addDays = 0) {
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate() + addDays)
-}
-
-function dayKey(date) {
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const day = String(date.getDate()).padStart(2, '0')
-  return `${date.getFullYear()}-${month}-${day}`
-}
-
 const todayLong = computed(() =>
   now.value.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
 )
@@ -434,136 +435,25 @@ const updatedText = computed(() =>
 )
 
 /* ------------------------------------------------------------------
-   Sales
+   Sales (the sums: lib/dashboardStats.js, shared with the Cashier's)
 ------------------------------------------------------------------ */
-function salesBetween(from, to) {
-  return sales.value.filter((sale) => {
-    const at = new Date(sale.created_at)
-    return at >= from && at < to
-  })
-}
+const today = computed(() => salesToday(sales.value, now.value))
 
-function summarize(list) {
-  return list.reduce(
-    (sum, sale) => {
-      sum.total += Number(sale.total_amount || 0)
-      sum.count += 1
-      sum.items += (sale.sale_items || []).reduce((n, item) => n + Number(item.quantity || 0), 0)
-      return sum
-    },
-    { total: 0, count: 0, items: 0 }
-  )
-}
+// today so far against yesterday up to the same time
+const todayChange = computed(() => changeSinceYesterday(sales.value, now.value))
 
-function salesText(n) {
-  return `${count(n)} sale${n === 1 ? '' : 's'}`
-}
-
-// ₱1,234.50, or ₱1.23M once it no longer fits a small tile
-const MILLIONS = new Intl.NumberFormat('en-PH', { notation: 'compact', maximumFractionDigits: 2 })
-
-function pesoTile(value) {
-  return Math.abs(value) >= 1e6 ? '₱' + MILLIONS.format(value) : peso(value)
-}
-
-const today = computed(() => summarize(salesBetween(startOfDay(now.value), startOfDay(now.value, 1))))
-
-// Today so far against yesterday up to the same time of day, so a morning
-// isn't compared with a whole day.
-const todayChange = computed(() => {
-  const yesterday = startOfDay(now.value, -1)
-  const sameTimeYesterday = new Date(
-    yesterday.getFullYear(),
-    yesterday.getMonth(),
-    yesterday.getDate(),
-    now.value.getHours(),
-    now.value.getMinutes(),
-    now.value.getSeconds()
-  )
-  const before = summarize(salesBetween(yesterday, sameTimeYesterday)).total
-
-  if (!(before > 0)) return null
-
-  const change = Math.round(((today.value.total - before) / before) * 100)
-
-  if (change === 0) return { icon: '', tone: 'text-zinc-400', text: 'Same as this time yesterday' }
-
-  return change > 0
-    ? { icon: 'up', tone: 'text-emerald-400', text: `${count(change)}% more than this time yesterday` }
-    : { icon: 'down', tone: 'text-red-400', text: `${count(-change)}% less than this time yesterday` }
-})
-
-const month = computed(() =>
-  summarize(salesBetween(new Date(now.value.getFullYear(), now.value.getMonth(), 1), startOfDay(now.value, 1)))
-)
+const month = computed(() => salesThisMonth(sales.value, now.value))
 
 // one column per day, oldest first, today last
-const weekDays = computed(() => {
-  const days = []
-
-  for (let back = 6; back >= 0; back--) {
-    const date = startOfDay(now.value, -back)
-    days.push({
-      key: dayKey(date),
-      label: back === 0 ? 'Today' : date.toLocaleDateString(undefined, { weekday: 'short' }),
-      title: date.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' }),
-      current: back === 0,
-      total: 0,
-      count: 0,
-    })
-  }
-
-  const index = new Map(days.map((day, i) => [day.key, i]))
-
-  for (const sale of sales.value) {
-    const i = index.get(dayKey(new Date(sale.created_at)))
-    if (i === undefined) continue
-    days[i].total += Number(sale.total_amount || 0)
-    days[i].count += 1
-  }
-
-  return days
-})
+const weekDays = computed(() => dailyTotals(sales.value, now.value, 7))
 
 const weekTotal = computed(() => weekDays.value.reduce((sum, day) => sum + day.total, 0))
 const weekCount = computed(() => weekDays.value.reduce((sum, day) => sum + day.count, 0))
 
-const bestDay = computed(() => {
-  const best = weekDays.value.reduce((a, b) => (b.total > a.total ? b : a))
-  return best.total > 0 ? best : null
-})
+const bestDay = computed(() => findBestDay(weekDays.value))
 
 // top 5 products of the last 30 days by money taken, with their picture
-const bestSellers = computed(() => {
-  const since = startOfDay(now.value, -29)
-  const imageById = new Map(products.value.map((p) => [String(p.id), p.image_url]))
-  const imageByName = new Map(products.value.map((p) => [p.name, p.image_url]))
-  const rows = new Map()
-
-  for (const sale of sales.value) {
-    if (new Date(sale.created_at) < since) continue
-
-    for (const item of sale.sale_items || []) {
-      const key = item.product_id != null ? `id:${item.product_id}` : `name:${item.product_name}`
-      const row = rows.get(key) || {
-        key,
-        name: item.product_name || 'Unknown product',
-        quantity: 0,
-        total: 0,
-        image: imageById.get(String(item.product_id)) || imageByName.get(item.product_name) || '',
-      }
-
-      row.quantity += Number(item.quantity || 0)
-      row.total += Number(item.subtotal ?? Number(item.price || 0) * Number(item.quantity || 0))
-      rows.set(key, row)
-    }
-  }
-
-  const list = [...rows.values()].sort((a, b) => b.total - a.total).slice(0, 5)
-  const top = list[0]?.total || 0
-
-  return list.map((row) => ({ ...row, share: top ? Math.max((row.total / top) * 100, 2) : 0 }))
-})
+const bestSellers = computed(() => topSellers(sales.value, products.value, now.value))
 
 /* ------------------------------------------------------------------
    Stock (what "low" means: lib/stock.js)
@@ -689,175 +579,4 @@ const attention = computed(() => {
 })
 </script>
 
-<style scoped>
-/* ---- the tiles at the top (each opens its page) ---- */
-.kpi {
-  position: relative;
-  display: block;
-  overflow: hidden;
-  /* the numbers size themselves to the tile (cqi below) */
-  container-type: inline-size;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--hairline);
-  background: linear-gradient(180deg, var(--surface-raised), var(--surface));
-  box-shadow: var(--shadow-card);
-  padding: 1rem 1.1rem;
-  transition:
-    border-color 0.18s var(--ease),
-    transform 0.18s var(--ease),
-    box-shadow 0.18s var(--ease);
-}
-
-/* crimson top edge, like the other stat tiles */
-.kpi::before {
-  content: '';
-  position: absolute;
-  inset: 0 0 auto 0;
-  height: 2px;
-  background: linear-gradient(90deg, var(--brand), rgba(224, 27, 50, 0));
-}
-
-.kpi:hover,
-.kpi:focus-visible {
-  outline: none;
-  border-color: rgba(224, 27, 50, 0.35);
-  transform: translateY(-2px);
-  box-shadow:
-    0 1px 2px rgba(0, 0, 0, 0.5),
-    0 14px 32px -16px rgba(224, 27, 50, 0.45);
-}
-
-.kpi-top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-}
-
-.kpi-label {
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: var(--color-zinc-400);
-}
-
-.kpi-icon {
-  display: grid;
-  flex: none;
-  place-items: center;
-  width: 1.9rem;
-  height: 1.9rem;
-  border-radius: 0.6rem;
-  background: rgba(255, 255, 255, 0.04);
-  color: var(--color-zinc-400);
-}
-
-/* the one big number of the page */
-.kpi-hero {
-  margin-top: 0.35rem;
-  white-space: nowrap;
-  font-size: clamp(1.8rem, 12cqi, 3.4rem);
-  font-weight: 800;
-  line-height: 1.05;
-  letter-spacing: -0.02em;
-  color: #fff;
-}
-
-.kpi-value {
-  margin-top: 0.35rem;
-  white-space: nowrap;
-  font-size: clamp(1.25rem, 13cqi, 1.9rem);
-  font-weight: 800;
-  line-height: 1.1;
-  color: #fff;
-}
-
-.kpi-sub {
-  margin-top: 0.35rem;
-  font-size: 0.8rem;
-  color: var(--color-zinc-400);
-}
-
-.kpi-change {
-  margin-top: 0.3rem;
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
-  font-size: 0.8rem;
-  font-weight: 700;
-}
-
-/* ---- cards ---- */
-.eyebrow {
-  font-size: 0.66rem;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--color-zinc-500);
-}
-
-.card-title {
-  font-size: 1.2rem;
-  font-weight: 800;
-  color: #fff;
-}
-
-.card-head {
-  margin-bottom: 1rem;
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 0.75rem;
-}
-
-.card-link {
-  display: inline-flex;
-  flex: none;
-  align-items: center;
-  gap: 0.2rem;
-  font-size: 0.8rem;
-  font-weight: 700;
-  color: var(--color-zinc-400);
-}
-
-.card-link:hover {
-  color: #fff;
-}
-
-/* ---- needs your attention ---- */
-.todo {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--hairline);
-  background: rgba(0, 0, 0, 0.2);
-  padding: 0.6rem 0.75rem;
-}
-
-.todo:hover {
-  border-color: rgba(224, 27, 50, 0.35);
-  background: rgba(255, 255, 255, 0.03);
-}
-
-.todo-icon {
-  display: grid;
-  flex: none;
-  place-items: center;
-  width: 2rem;
-  height: 2rem;
-  border-radius: 0.6rem;
-}
-
-/* small state labels: always a word (and an icon when it's a warning) */
-.chip {
-  display: inline-flex;
-  flex: none;
-  align-items: center;
-  gap: 0.3rem;
-  white-space: nowrap;
-  border-radius: 999px;
-  padding: 0.2rem 0.6rem;
-  font-size: 0.7rem;
-  font-weight: 700;
-}
-</style>
+<style scoped src="../../styles/dashboard.css"></style>

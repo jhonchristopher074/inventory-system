@@ -332,8 +332,11 @@ import { supabase } from '../../lib/supabase'
 import PageHeader from '../../components/PageHeader.vue'
 import InspectionTable from '../../components/InspectionTable.vue'
 import { count } from '../../lib/format'
+import { useQueryParam } from '../../lib/useQueryParam'
 
-const activeTab = ref('inspection')
+// Inspection / Delivery, kept in the address (?tab=delivery) so the
+// Dashboard's delivery links open that tab and a refresh keeps it
+const activeTab = useQueryParam('tab', 'inspection', ['inspection', 'delivery'])
 
 const inspections = ref([])
 const approvals = ref([])
