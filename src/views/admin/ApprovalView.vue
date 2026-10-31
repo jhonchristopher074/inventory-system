@@ -62,24 +62,43 @@
         <div
           v-for="upload in supplierUploads"
           :key="upload.id"
-          class="rounded-[24px] border border-white/10 bg-zinc-900 p-5"
+          class="rounded-[24px] border bg-zinc-900 p-5"
+          :class="fileMissing(upload) ? 'border-amber-500/40' : 'border-white/10'"
         >
           <div class="flex items-start gap-4">
-            <img
-              v-if="isImage(upload.file_name)"
-              :src="fileUrl(upload)"
-              :alt="upload.file_name"
-              class="h-20 w-20 flex-shrink-0 rounded-xl object-cover"
-            />
+            <!-- the receipt's picture (opens it), "PDF", or why it can't be shown -->
+            <a
+              v-if="fileUrl(upload) && isImage(upload.file_name) && !brokenThumbs.has(upload.id)"
+              :href="fileUrl(upload)"
+              target="_blank"
+              rel="noopener"
+              class="shrink-0"
+              :title="'Open ' + upload.file_name"
+            >
+              <img
+                :src="fileUrl(upload)"
+                :alt="upload.file_name"
+                class="h-20 w-20 rounded-xl object-cover"
+                @error="markBroken(upload)"
+              />
+            </a>
             <div
               v-else
-              class="flex h-20 w-20 flex-shrink-0 items-center justify-center rounded-xl bg-zinc-800 text-xs font-bold text-zinc-400"
+              class="flex h-20 w-20 flex-shrink-0 flex-col items-center justify-center gap-1 rounded-xl px-1 text-center text-xs font-bold"
+              :class="fileMissing(upload) ? 'bg-amber-500/10 text-amber-300' : 'bg-zinc-800 text-zinc-400'"
             >
-              PDF
+              <template v-if="fileMissing(upload)">
+                <NavIcon name="alert" class="h-5 w-5" />
+                File missing
+              </template>
+              <template v-else-if="!isImage(upload.file_name)">PDF</template>
+              <template v-else-if="brokenThumbs.has(upload.id)">No preview</template>
+              <template v-else>…</template>
             </div>
 
             <div class="min-w-0 flex-1">
               <a
+                v-if="fileUrl(upload)"
                 :href="fileUrl(upload)"
                 target="_blank"
                 rel="noopener"
@@ -87,6 +106,7 @@
               >
                 {{ upload.file_name }}
               </a>
+              <p v-else class="truncate text-lg font-bold text-white">{{ upload.file_name }}</p>
 
               <p class="mt-1 text-sm text-zinc-400">
                 From: {{ upload.supplier_name || upload.supplier_email || 'Supplier' }}
@@ -98,10 +118,18 @@
             </div>
           </div>
 
+          <!-- the file left storage before it was approved (approving needs it) -->
+          <p v-if="fileMissing(upload)" class="mt-4 rounded-xl bg-amber-500/10 p-3 text-sm text-amber-200">
+            This receipt's file is no longer in storage, so it can't be shown or approved. It was
+            taken before you approved it, most likely by the receipt scanner. Reject it to clear
+            it from this list.
+          </p>
+
           <div class="mt-5 flex gap-3">
             <button
               class="rounded-2xl bg-emerald-600 px-6 py-3 font-bold text-white hover:bg-emerald-700 disabled:opacity-50"
-              :disabled="isBusy(upload.id)"
+              :disabled="isBusy(upload.id) || fileMissing(upload)"
+              :title="fileMissing(upload) ? 'The receipt\'s file is missing' : ''"
               @click="openReview(upload, 'approve')"
             >
               {{ isBusy(upload.id) ? 'Working...' : 'Approve' }}
@@ -169,17 +197,32 @@
           {{ itemsSuccess }}
         </p>
 
-        <!-- one short card per receipt; "Open" shows its prices in a window -->
+        <!-- one short card per receipt; "Open" shows its prices in a window.
+             Products the scanner added without an approved receipt get their
+             own warning card, so they can't be mistaken for a receipt above. -->
         <div
           v-for="group in reviewGroups"
           :key="group.key"
-          class="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-[24px] border border-emerald-500/30 bg-zinc-900 p-4 sm:p-5"
+          class="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-[24px] border bg-zinc-900 p-4 sm:p-5"
+          :class="group.linked ? 'border-emerald-500/30' : 'border-amber-500/40'"
         >
-          <div class="min-w-0 flex-1 basis-48">
-            <p class="truncate font-bold text-white">{{ group.fileName || 'Receipt' }}</p>
+          <div v-if="group.linked" class="min-w-0 flex-1 basis-48">
+            <p class="truncate font-bold text-white">{{ group.fileName || `Receipt #${group.key}` }}</p>
             <p class="mt-1 text-sm text-zinc-400">
               {{ group.items.length }} product{{ group.items.length === 1 ? '' : 's' }} to check
               · Profit chosen: {{ group.percent != null ? group.percent + '%' : '—' }}
+            </p>
+          </div>
+
+          <div v-else class="min-w-0 flex-1 basis-48">
+            <p class="flex items-center gap-2 font-bold text-amber-300">
+              <NavIcon name="alert" class="h-4 w-4 shrink-0" />
+              Added without your approval
+            </p>
+            <p class="mt-1 text-sm text-zinc-400">
+              {{ group.items.length }} product{{ group.items.length === 1 ? '' : 's' }} the receipt
+              scanner added on its own, not from a receipt you approved. No profit was added to
+              them: check their prices.
             </p>
           </div>
 
@@ -197,8 +240,8 @@
       <div v-if="unsentVisible.length > 0" class="mb-8">
         <h2 class="mb-1 text-lg font-bold text-white">Approved but not sent</h2>
         <p class="mb-3 text-sm text-zinc-400">
-          These were approved, but sending them to "{{ APPROVED_BUCKET }}" failed, so the
-          receipt scanner (n8n) never received them.
+          These were approved, but sending them to the receipt scanner failed, so it never
+          received them. Press "Send again" to try once more.
         </p>
 
         <div class="space-y-3">
@@ -209,6 +252,7 @@
           >
             <div class="min-w-0">
               <a
+                v-if="fileUrl(upload)"
                 :href="fileUrl(upload)"
                 target="_blank"
                 rel="noopener"
@@ -216,16 +260,21 @@
               >
                 {{ upload.file_name }}
               </a>
+              <p v-else class="truncate font-bold text-white">{{ upload.file_name }}</p>
 
               <p class="mt-1 text-sm text-zinc-400">
                 From: {{ upload.supplier_name || upload.supplier_email || 'Supplier' }}
                 · Approved: {{ formatDate(upload.reviewed_at) }}
               </p>
+
+              <p v-if="fileMissing(upload)" class="mt-1 text-sm font-bold text-amber-300">
+                Its file is no longer in storage, so it can't be sent.
+              </p>
             </div>
 
             <button
               class="shrink-0 rounded-2xl bg-amber-500 px-5 py-3 font-bold text-black hover:bg-amber-400 disabled:opacity-50"
-              :disabled="isBusy(upload.id)"
+              :disabled="isBusy(upload.id) || fileMissing(upload)"
               @click="openReview(upload, 'send')"
             >
               {{ isBusy(upload.id) ? 'In line...' : 'Send again' }}
@@ -317,100 +366,21 @@
       </div>
     </section>
 
-    <!-- PRICE CHECK WINDOW: scrolls inside, title row with × stays on top,
-         tapping outside closes it. Closes by itself after Confirm / Keep as is
-         (the receipt then leaves the list). -->
-    <div
+    <!-- PRICE CHECK WINDOW (components/ReceiptPriceCheck.vue): each product's
+         category (saved at once) and new price (saved with Confirm). Closes
+         by itself after Confirm / Keep: the receipt then leaves the list. -->
+    <ReceiptPriceCheck
       v-if="priceWindow"
-      class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-3 sm:p-4"
-      @click.self="openReviewKey = null"
-    >
-      <div
-        class="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-[24px] border border-emerald-500/30 bg-zinc-900 px-4 pb-4 sm:px-5 sm:pb-5"
-        role="dialog"
-        aria-modal="true"
-        :aria-label="'Prices for ' + (priceWindow.fileName || 'receipt')"
-      >
-        <div class="sticky top-0 z-10 -mx-4 mb-3 flex items-start justify-between gap-3 bg-zinc-900/95 px-4 pb-3 pt-4 backdrop-blur sm:-mx-5 sm:px-5 sm:pt-5">
-          <div class="min-w-0">
-            <p class="truncate text-lg font-bold text-white">
-              {{ priceWindow.fileName || 'Receipt' }}
-            </p>
-            <span class="mt-1 inline-block rounded-full bg-emerald-600/20 px-3 py-1 text-xs font-bold text-emerald-400">
-              Profit chosen: {{ priceWindow.percent != null ? priceWindow.percent + '%' : '—' }}
-            </span>
-          </div>
-
-          <button
-            class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/10 text-xl text-white hover:bg-white/20"
-            aria-label="Close"
-            @click="openReviewKey = null"
-          >
-            ×
-          </button>
-        </div>
-
-        <template v-for="group in [priceWindow]" :key="group.key">
-        <div class="space-y-2">
-          <div
-            v-for="item in group.items"
-            :key="item.id"
-            class="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-zinc-800 p-3"
-          >
-            <div class="min-w-0 flex-1 basis-48">
-              <p class="truncate font-bold text-white">{{ item.product_name || 'Product' }}</p>
-              <p class="mt-1 text-xs text-zinc-400">
-                <span
-                  class="mr-1 rounded-full px-2 py-0.5 font-bold"
-                  :class="item.is_new ? 'bg-sky-500/20 text-sky-300' : 'bg-amber-500/20 text-amber-300'"
-                >
-                  {{ item.is_new ? 'NEW' : 'RESTOCK' }}
-                </span>
-                +{{ count(item.qty_added) }} pcs
-                · Cost: {{ item.cost != null ? money(item.cost) : '—' }}
-                <template v-if="!item.is_new"> · Now: {{ money(item.price) }}</template>
-              </p>
-            </div>
-
-            <div class="flex items-center gap-2">
-              <input
-                v-model="priceEdits[item.id]"
-                type="number"
-                inputmode="decimal"
-                min="0"
-                step="0.01"
-                class="input w-28 text-right"
-                :class="isChanged(item) ? 'ring-2 ring-amber-400' : ''"
-                :aria-label="'Price of ' + item.product_name"
-              />
-              <span class="w-20 text-xs text-zinc-400">
-                <template v-if="profitOf(item) !== null">{{ profitOf(item) }}% profit</template>
-                <template v-else>no cost</template>
-              </span>
-            </div>
-          </div>
-        </div>
-
-        <div class="mt-4 flex gap-3">
-          <button
-            class="flex-1 rounded-2xl bg-emerald-600 py-3 font-bold text-white hover:bg-emerald-700 disabled:opacity-50"
-            :disabled="reviewSaving.has(group.key)"
-            @click="confirmGroup(group)"
-          >
-            {{ reviewSaving.has(group.key) ? 'Saving...' : 'Confirm prices' }}
-          </button>
-
-          <button
-            class="rounded-2xl bg-zinc-800 px-5 py-3 font-bold text-white hover:bg-zinc-700 disabled:opacity-50"
-            :disabled="reviewSaving.has(group.key)"
-            @click="dismissGroup(group)"
-          >
-            Keep as is
-          </button>
-        </div>
-        </template>
-      </div>
-    </div>
+      :key="priceWindow.key"
+      :group="priceWindow"
+      :prices="priceEdits"
+      :saving="reviewSaving.has(priceWindow.key)"
+      :error="priceError"
+      @price="setPrice"
+      @confirm="confirmGroup(priceWindow)"
+      @keep="dismissGroup(priceWindow)"
+      @close="openReviewKey = null"
+    />
 
     <!-- ============================================================
          REVIEW WINDOW: opens when Approve / Send again is pressed.
@@ -434,8 +404,12 @@
 
           <!-- receipt preview: click to zoom -->
           <div class="mt-4">
+            <p v-if="!fileUrl(review.upload)" class="rounded-xl bg-black p-6 text-center text-sm text-zinc-400">
+              {{ fileMissing(review.upload) ? "This receipt's file is no longer in storage." : 'Loading the receipt…' }}
+            </p>
+
             <button
-              v-if="isImage(review.upload.file_name)"
+              v-else-if="isImage(review.upload.file_name)"
               type="button"
               class="group relative block w-full overflow-hidden rounded-xl bg-black"
               title="Click to zoom"
@@ -605,7 +579,8 @@
 
           <h2 class="mt-5 text-xl font-bold text-white">{{ processingTitle }}</h2>
           <p class="mt-1 text-sm text-zinc-400">
-            Please keep this page open. The new prices will show up here when it is done.
+            This usually takes a minute or two. Keep this page open: the new prices will
+            appear here as soon as it's done.
           </p>
 
           <!-- steps -->
@@ -704,7 +679,19 @@ import { supabase, uniqueChannelName } from '../../lib/supabase'
 import { useQueryParam } from '../../lib/useQueryParam'
 import { setLeaveQuestion } from '../../lib/leaveGuard'
 import { count } from '../../lib/format'
+import {
+  APPROVED_BUCKET,
+  LINK_SECONDS,
+  RECEIPT_BUCKET,
+  isImageFile,
+  isMissingFile,
+  safeFileName,
+  signReceiptLinks,
+} from '../../lib/receipts'
+import { startingPrice } from '../../lib/receiptPrices'
 import PageHeader from '../../components/PageHeader.vue'
+import NavIcon from '../../components/NavIcon.vue'
+import ReceiptPriceCheck from '../../components/ReceiptPriceCheck.vue'
 
 /* ------------------------------------------------------------------
    Inspection approvals (unchanged)
@@ -786,20 +773,69 @@ function rejectInspection(approval) {
    If the copy fails, the upload is still approved; it's listed under
    "Approved but not sent" until "Send again" gets it through.
 ------------------------------------------------------------------ */
-const BUCKET = 'supplierReceipt'
+const BUCKET = RECEIPT_BUCKET
 
-// A receipt's link, always built from its place in the receipt storage.
-// The link saved with the upload is never used: a supplier calling the
-// database directly could have saved any website there, and this page
-// opens it (preview, download, approve).
+// Approved receipts are copied to APPROVED_BUCKET ('Approved Receipt').
+// A file landing there is what should start the receipt scanner (n8n).
+
+/* ------------------------------------------------------------------
+   Receipt links for showing a receipt on this page: signed links made for
+   the owner from the receipt's place in storage (lib/receipts.js). They
+   work whether or not the bucket is public, and the answer also says when
+   a file isn't in storage any more, so the page says so instead of showing
+   a broken picture. The link saved with an upload is never used: a supplier
+   calling the database directly could have saved any website there.
+------------------------------------------------------------------ */
+const fileLinks = ref(new Map()) // upload id -> { url, missing, at }
+const brokenThumbs = ref(new Set()) // pictures the browser couldn't show
+
 function fileUrl(upload) {
-  if (!upload?.file_path) return ''
-  return supabase.storage.from(BUCKET).getPublicUrl(upload.file_path).data.publicUrl
+  return fileLinks.value.get(upload?.id)?.url || ''
 }
 
-// Approved receipts are copied here. Anything that lands in this bucket
-// triggers the n8n workflow (set up as a Database Webhook in Supabase).
-const APPROVED_BUCKET = 'Approved Receipt'
+function fileMissing(upload) {
+  return fileLinks.value.get(upload?.id)?.missing === true
+}
+
+function markMissing(upload) {
+  const next = new Map(fileLinks.value)
+  next.set(upload.id, { url: '', missing: true, at: Date.now() })
+  fileLinks.value = next
+}
+
+function markBroken(upload) {
+  brokenThumbs.value = new Set(brokenThumbs.value).add(upload.id)
+}
+
+// One request for all the receipts shown. A link that still works is kept
+// (the pictures don't reload); a file gone since is marked missing at once.
+async function refreshFileLinks(uploads) {
+  const list = uploads.filter((upload) => upload?.file_path)
+  if (list.length === 0) return
+
+  let links
+  try {
+    links = await signReceiptLinks(list.map((upload) => upload.file_path))
+  } catch (error) {
+    // no connection etc.: keep what's shown, call nothing missing
+    console.error('Could not make the receipt links:', error)
+    return
+  }
+
+  const now = Date.now()
+  const next = new Map(fileLinks.value)
+
+  for (const upload of list) {
+    const link = links.get(upload.file_path)
+    const before = next.get(upload.id)
+    const stillGood = before?.url && now - before.at < (LINK_SECONDS * 1000) / 2
+
+    if (!link) next.set(upload.id, { url: '', missing: true, at: now })
+    else if (!stillGood) next.set(upload.id, { url: link, missing: false, at: now })
+  }
+
+  fileLinks.value = next
+}
 
 const supplierUploads = ref([])
 const unsentUploads = ref([]) // approved, but never reached the Approved Receipt bucket
@@ -829,6 +865,9 @@ function openReview(upload, mode) {
   reviewError.value = ''
   zoomOpen.value = false
   zoom.value = 1
+
+  // no link yet (e.g. the list was just loaded): make it for the preview
+  if (!fileUrl(upload)) refreshFileLinks([upload])
 }
 
 function closeReview() {
@@ -872,15 +911,6 @@ function confirmReview() {
   }
 }
 
-function money(value) {
-  const number = Number(value)
-  if (value === null || value === '' || !Number.isFinite(number)) return '—'
-  return number.toLocaleString('en-PH', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })
-}
-
 // Esc closes the top-most window: the leave question, the zoom, the
 // profit window, then the price window.
 function onKey(event) {
@@ -897,7 +927,7 @@ function isBusy(id) {
 }
 
 function isImage(fileName) {
-  return /\.(png|jpe?g|webp|gif)$/i.test(fileName || '')
+  return isImageFile(fileName)
 }
 
 // Several suppliers can upload at the same moment, which fires several
@@ -929,28 +959,33 @@ async function fetchSupplierUploads({ silent = false } = {}) {
     }
   } else {
     supplierUploads.value = data || []
+    refreshFileLinks(supplierUploads.value)
   }
 
   supplierLoading.value = false
 }
 
-// Reads a file from storage into memory.
-async function fetchFile(url) {
-  if (!url) throw new Error('This upload has no file.')
+// Reads a receipt from storage into memory, as the logged-in owner (never
+// through a saved link, and with no link that could have expired).
+async function fetchReceipt(upload) {
+  if (!upload?.file_path) throw new Error('This upload has no file.')
 
-  const response = await fetch(url)
+  const { data, error } = await supabase.storage.from(BUCKET).download(upload.file_path)
 
-  if (!response.ok) {
+  if (error || !data) {
+    if (isMissingFile(error)) {
+      markMissing(upload)
+      throw new Error(`"${upload.file_name}" is no longer in storage, so it can't be sent. Reject it to clear it.`)
+    }
     throw new Error('Could not download the file.')
   }
 
-  return response.blob()
+  return data
 }
 
-// Saves the file to this device before it's deleted from storage —
+// Saves the receipt to this device before it's deleted from storage —
 // once deleted there's no other way to get it back.
-async function downloadToDevice(url, fileName) {
-  const blob = await fetchFile(url)
+function saveToDevice(blob, fileName) {
   const objectUrl = URL.createObjectURL(blob)
 
   const link = document.createElement('a')
@@ -961,13 +996,6 @@ async function downloadToDevice(url, fileName) {
   link.remove()
 
   URL.revokeObjectURL(objectUrl)
-
-  return blob // reused to copy the file into the Approved Receipt bucket
-}
-
-// Safe file name for storage: keeps letters, numbers, dot, dash, underscore.
-function safeFileName(name) {
-  return String(name || 'receipt').replace(/[^A-Za-z0-9._-]+/g, '_')
 }
 
 async function approveSupplierUpload(upload, profitPercent) {
@@ -978,8 +1006,10 @@ async function approveSupplierUpload(upload, profitPercent) {
   showProcessing()
 
   try {
-    // 1. save a copy locally before anything is deleted
-    const blob = await downloadToDevice(fileUrl(upload), upload.file_name)
+    // 1. save a copy locally before anything is deleted (the same copy is
+    //    then sent to the Approved Receipt bucket)
+    const blob = await fetchReceipt(upload)
+    saveToDevice(blob, upload.file_name)
 
     // 2. mark approved
     const { data: approved, error } = await supabase.rpc('admin_approve_supplier_upload', {
@@ -1107,7 +1137,7 @@ async function sendQueued(item) {
   const { upload, mode } = item
 
   try {
-    const blob = item.blob || (await fetchFile(fileUrl(upload)))
+    const blob = item.blob || (await fetchReceipt(upload))
     const { deleteFailed, newlySent } = await forwardReceipt(upload, blob, item.percent)
 
     if (newlySent) startScanning(upload)
@@ -1116,8 +1146,8 @@ async function sendQueued(item) {
 
     supplierError.value = ''
     supplierSuccess.value = deleteFailed
-      ? `Sent "${upload.file_name}" to ${APPROVED_BUCKET}, but the original is still in storage — check the bucket's delete policy.`
-      : `Sent "${upload.file_name}" to ${APPROVED_BUCKET} and removed the original.`
+      ? `Sent "${upload.file_name}" to the receipt scanner. Its original couldn't be removed from storage: check the bucket's delete policy.`
+      : `Sent "${upload.file_name}" to the receipt scanner.`
 
     return true
   } catch (sendError) {
@@ -1127,16 +1157,16 @@ async function sendQueued(item) {
 
     if (sendError.alreadySent) {
       supplierError.value =
-        `"${upload.file_name}" was sent to "${APPROVED_BUCKET}", but the app ` +
-        `couldn't record that it was sent (${sendError.message}). If it's listed under ` +
-        `"Approved but not sent", press "Send again": that only records it, it won't be sent twice.`
+        `"${upload.file_name}" reached the receipt scanner, but the app couldn't record that ` +
+        `it was sent (${sendError.message}). If it's listed under "Approved but not sent", ` +
+        `press "Send again": that only records it, it won't be sent twice.`
     } else if (mode === 'send') {
       supplierError.value = `Sending "${upload.file_name}" failed again: ${sendError.message || sendError}`
     } else {
       supplierError.value =
-        `"${upload.file_name}" was approved and saved to your device, but sending it to ` +
-        `"${APPROVED_BUCKET}" failed (${sendError.message}). It's listed under ` +
-        `"Approved but not sent" — press "Send again" to retry.`
+        `"${upload.file_name}" was approved and saved to your device, but sending it to the ` +
+        `receipt scanner failed (${sendError.message}). It's listed under ` +
+        `"Approved but not sent": press "Send again" to retry.`
     }
 
     await fetchUnsentUploads()
@@ -1239,6 +1269,7 @@ async function fetchUnsentUploads() {
   }
 
   unsentUploads.value = data || []
+  refreshFileLinks(unsentUploads.value)
 }
 
 async function resendSupplierUpload(upload, profitPercent) {
@@ -1268,15 +1299,18 @@ async function rejectSupplierUpload(upload) {
   }
 
   // rejected uploads aren't kept — delete the file from storage too
-  const { data: removed, error: removeError } = await supabase.storage
-    .from(BUCKET)
-    .remove([upload.file_path])
+  // (unless it's already gone: then there's nothing to delete)
+  const alreadyGone = fileMissing(upload)
+
+  const { data: removed, error: removeError } = alreadyGone
+    ? { data: [], error: null }
+    : await supabase.storage.from(BUCKET).remove([upload.file_path])
 
   // .remove() can resolve with no error but an empty `removed` array —
   // that also means nothing was actually deleted (e.g. a storage RLS
   // policy silently blocked it), so both cases are checked here rather
   // than just the error.
-  const deleteFailed = removeError || !removed || removed.length === 0
+  const deleteFailed = !alreadyGone && (removeError || !removed || removed.length === 0)
 
   if (deleteFailed) {
     console.error('Rejected, but failed to delete file from storage:', removeError)
@@ -1284,9 +1318,9 @@ async function rejectSupplierUpload(upload) {
 
   busyIds.value.delete(upload.id)
 
-  supplierSuccess.value = deleteFailed
-    ? `Rejected "${upload.file_name}", but it's still sitting in storage — check the bucket's delete policy.`
-    : `Rejected "${upload.file_name}" and removed it from storage.`
+  if (alreadyGone) supplierSuccess.value = `Rejected "${upload.file_name}". Its file was already gone from storage.`
+  else if (deleteFailed) supplierSuccess.value = `Rejected "${upload.file_name}", but it's still sitting in storage — check the bucket's delete policy.`
+  else supplierSuccess.value = `Rejected "${upload.file_name}" and removed it from storage.`
 
   supplierUploads.value = supplierUploads.value.filter((item) => item.id !== upload.id)
 }
@@ -1327,7 +1361,16 @@ const reviewGroups = computed(() => {
     const key = item.upload_ref || 'other'
 
     if (!groups.has(key)) {
-      groups.set(key, { key, fileName: item.file_name, percent: item.percent, items: [] })
+      groups.set(key, {
+        key,
+        // From a receipt the owner approved: the database links the scanner's
+        // products to a receipt approved in the last 15 minutes. With none,
+        // the scanner was started some other way (not by an approval).
+        linked: Boolean(item.upload_ref),
+        fileName: item.file_name,
+        percent: item.percent,
+        items: [],
+      })
     }
 
     groups.get(key).items.push(item)
@@ -1357,14 +1400,11 @@ async function fetchReviewItems() {
 
   reviewItems.value = data || []
 
-  // new rows get their price in the box; boxes the owner already edited are kept
+  // new rows get their starting price in the box (restocked products: cost +
+  // the receipt's percentage, lib/receiptPrices.js); boxes already edited are kept
   const edits = { ...priceEdits.value }
   for (const item of reviewItems.value) {
-    if (!(item.id in edits)) {
-      const suggested = suggestedPrice(item)
-      // restocked products: suggest cost + the receipt's percentage
-      edits[item.id] = String(item.is_new || suggested === null ? (item.price ?? '') : suggested)
-    }
+    if (!(item.id in edits)) edits[item.id] = startingPrice(item)
   }
   priceEdits.value = edits
 
@@ -1415,8 +1455,9 @@ function updateScanning() {
       finished.push(entry)
       itemsSuccess.value = ''
       itemsError.value =
-        `Still no products from "${entry.name}" after 3 minutes. Check the n8n Executions tab, ` +
-        `and make sure 7-receipt-review.sql was run. This page will show them if they arrive later.`
+        `No products from "${entry.name}" yet after 3 minutes. The receipt scanner may still be ` +
+        `busy: they'll show up here by themselves when it's done. If they never do, ask the ` +
+        `person who looks after the receipt scanner to check it.`
     }
   }
 
@@ -1430,9 +1471,10 @@ const processing = computed(
   () => preparing.value > 0 || sendQueue.value.length > 0 || scanning.value.length > 0
 )
 
-const processingSteps = ['Sending the receipt', 'Reading it (n8n)', 'Updating products']
+// what the owner sees: no tool names, just what's happening to the receipt
+const processingSteps = ['Sending the receipt', 'Reading the receipt', 'Updating your products']
 
-// 1 = sending, 2 = n8n is reading, 3 = products are being written
+// 1 = sending, 2 = the scanner is reading it, 3 = products are being updated
 const processingStage = computed(() => {
   if (preparing.value > 0 || sendQueue.value.length > 0) return 1
   if (scanning.value.some((entry) => entry.found <= entry.baseline)) return 2
@@ -1447,7 +1489,7 @@ const processingList = computed(() => {
     name: item.upload.file_name,
     text:
       index > 0
-        ? `Waiting in line (${index} ahead)`
+        ? `In line · ${index} ahead`
         : secondsToNext.value > 0
           ? `Sends in ${secondsToNext.value}s`
           : 'Sending…',
@@ -1458,7 +1500,7 @@ const processingList = computed(() => {
     list.push({
       key: 's' + entry.ref,
       name: entry.name,
-      text: added > 0 ? `Updating products (${added} so far)…` : 'Reading the receipt…',
+      text: added > 0 ? `Updating products · ${added} so far` : 'Reading the receipt…',
     })
   }
 
@@ -1472,31 +1514,17 @@ function showProcessing() {
   overlayHidden.value = false
 }
 
-// cost + the percentage chosen for the receipt (null when the cost is unknown;
-// promo items at 0.01 or less keep their price)
-function suggestedPrice(item) {
-  const cost = Number(item.cost)
-  const percent = Number(item.percent)
+/* ---- the price check window (components/ReceiptPriceCheck.vue) ---- */
+// why Confirm / Keep didn't work, shown inside the window
+const priceError = ref('')
 
-  if (item.cost == null || item.percent == null || !(cost > 0.01) || !Number.isFinite(percent)) {
-    return null
-  }
+// a new window starts without the last one's message
+watch(openReviewKey, () => {
+  priceError.value = ''
+})
 
-  return Math.round(cost * (1 + percent / 100) * 100) / 100
-}
-
-function isChanged(item) {
-  return Number(priceEdits.value[item.id]) !== Number(item.price)
-}
-
-// profit % of the price in the box, compared with the receipt cost
-function profitOf(item) {
-  const cost = Number(item.cost)
-  const price = Number(priceEdits.value[item.id])
-
-  if (!(cost > 0.01) || !Number.isFinite(price)) return null
-
-  return Math.round(((price - cost) / cost) * 1000) / 10
+function setPrice(id, value) {
+  priceEdits.value = { ...priceEdits.value, [id]: value }
 }
 
 function removeGroup(group) {
@@ -1505,6 +1533,7 @@ function removeGroup(group) {
 }
 
 async function confirmGroup(group) {
+  priceError.value = ''
   itemsError.value = ''
   itemsSuccess.value = ''
 
@@ -1514,7 +1543,7 @@ async function confirmGroup(group) {
   }))
 
   if (items.some((item) => !Number.isFinite(item.price) || item.price < 0)) {
-    itemsError.value = 'Every price must be a number, 0 or more.'
+    priceError.value = 'Every price must be a number, 0 or more.'
     return
   }
 
@@ -1525,7 +1554,7 @@ async function confirmGroup(group) {
   reviewSaving.value.delete(group.key)
 
   if (error) {
-    itemsError.value = error.message
+    priceError.value = `Couldn't save the prices: ${error.message}`
     return
   }
 
@@ -1534,6 +1563,7 @@ async function confirmGroup(group) {
 }
 
 async function dismissGroup(group) {
+  priceError.value = ''
   itemsError.value = ''
   itemsSuccess.value = ''
   reviewSaving.value.add(group.key)
@@ -1545,12 +1575,12 @@ async function dismissGroup(group) {
   reviewSaving.value.delete(group.key)
 
   if (error) {
-    itemsError.value = error.message
+    priceError.value = `Couldn't close this check: ${error.message}`
     return
   }
 
   removeGroup(group)
-  itemsSuccess.value = 'Kept the prices as they are.'
+  itemsSuccess.value = 'Kept the current prices.'
 }
 
 /* ------------------------------------------------------------------
