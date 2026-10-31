@@ -1,6 +1,8 @@
 <script setup>
 // "Type your password to confirm" popup for sensitive admin actions.
 import { nextTick, onMounted, ref, watch } from 'vue'
+// pasted text loses the invisible characters it brought along (an email its spaces too)
+import { vClean } from '../lib/cleanText'
 
 // With textLabel set, it also asks for a value (e.g. a new name) and emits
 // confirm(password, value).
@@ -22,6 +24,8 @@ const show = ref(false)
 const input = ref(null)
 const text = ref(props.textValue)
 const textInput = ref(null)
+// how v-clean treats the text box: an email loses spaces too
+const cleanAs = props.textType === 'email' ? 'email' : 'text'
 
 onMounted(() => nextTick(() => (props.textLabel ? textInput : input).value?.focus()))
 
@@ -75,7 +79,7 @@ function submit() {
       <template v-if="textLabel">
         <label class="ap-label" for="ap-text">{{ textLabel }}</label>
         <div class="ap-field">
-          <input id="ap-text" ref="textInput" v-model="text" :type="textType"
+          <input id="ap-text" ref="textInput" v-model="text" v-clean:[cleanAs] :type="textType"
                  :maxlength="textType === 'email' ? 254 : 80" autocomplete="off"
                  autocapitalize="off" spellcheck="false" />
         </div>
@@ -83,7 +87,7 @@ function submit() {
 
       <label class="ap-label" for="ap-password">Your password</label>
       <div class="ap-field">
-        <input id="ap-password" ref="input" v-model="password"
+        <input id="ap-password" ref="input" v-model="password" v-clean:password
                :type="show ? 'text' : 'password'" autocomplete="current-password" />
         <button type="button" class="ap-toggle" @click="show = !show"
                 :aria-label="show ? 'Hide password' : 'Show password'">

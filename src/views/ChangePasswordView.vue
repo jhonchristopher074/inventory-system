@@ -3,6 +3,9 @@ import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { supabase } from '../lib/supabase' // adjust to your project's Supabase client path
 import { PASSWORD_RULES, EXPIRED_MESSAGE } from '../lib/passwordStatus'
+// pasted passwords lose invisible characters; the temporary one (letters and
+// numbers only) loses spaces too
+import { vClean } from '../lib/cleanText'
 
 const router = useRouter()
 
@@ -131,7 +134,7 @@ async function logout() {
 
       <label class="cp-label" for="cp-current">Temporary password</label>
       <div class="cp-field">
-        <input id="cp-current" v-model="currentPassword" :type="showCurrent ? 'text' : 'password'"
+        <input id="cp-current" v-model="currentPassword" v-clean:nospaces :type="showCurrent ? 'text' : 'password'"
                autocomplete="current-password" required />
         <button type="button" class="cp-toggle" @click="showCurrent = !showCurrent"
                 :aria-label="showCurrent ? 'Hide password' : 'Show password'">
@@ -141,7 +144,7 @@ async function logout() {
 
       <label class="cp-label" for="cp-new">New password</label>
       <div class="cp-field">
-        <input id="cp-new" v-model="newPassword" :type="showNew ? 'text' : 'password'"
+        <input id="cp-new" v-model="newPassword" v-clean:password :type="showNew ? 'text' : 'password'"
                autocomplete="new-password" required />
         <button type="button" class="cp-toggle" @click="showNew = !showNew"
                 :aria-label="showNew ? 'Hide password' : 'Show password'">
@@ -161,7 +164,7 @@ async function logout() {
 
       <label class="cp-label" for="cp-confirm">Confirm new password</label>
       <div class="cp-field">
-        <input id="cp-confirm" v-model="confirmPassword" :type="showConfirm ? 'text' : 'password'"
+        <input id="cp-confirm" v-model="confirmPassword" v-clean:password :type="showConfirm ? 'text' : 'password'"
                autocomplete="new-password" required />
         <button type="button" class="cp-toggle" @click="showConfirm = !showConfirm"
                 :aria-label="showConfirm ? 'Hide password' : 'Show password'">

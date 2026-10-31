@@ -13,7 +13,7 @@
       <!-- FORGOT PASSWORD, step 2: the 6-digit code from the email -->
       <form v-if="mode === 'forgot' && resetSent" @submit.prevent="verifyCode" class="mt-8 space-y-4">
         <p class="text-sm text-zinc-400">
-          We sent a code to <b class="text-white">{{ resetEmail.trim() }}</b>.
+          We sent a code to <b class="text-white">{{ cleanEmail(resetEmail) }}</b>.
           Enter it below (or use the link in the email).
         </p>
 
@@ -76,9 +76,12 @@
           <input
             ref="resetEmailInput"
             v-model="resetEmail"
+            v-clean:email
             type="email"
             required
             autocomplete="email"
+            autocapitalize="off"
+            spellcheck="false"
             class="mt-2 w-full rounded-2xl border border-white/10 bg-black px-4 py-3 outline-none focus:border-red-500"
             placeholder="Enter email"
           />
@@ -112,10 +115,16 @@
         <div>
           <label class="text-sm text-zinc-400">Email</label>
 
+          <!-- v-clean: a pasted email (e.g. from Messenger) loses the
+               invisible characters and spaces it brought along -->
           <input
             v-model="email"
+            v-clean:email
             type="email"
             required
+            autocomplete="email"
+            autocapitalize="off"
+            spellcheck="false"
             class="mt-2 w-full rounded-2xl border border-white/10 bg-black px-4 py-3 outline-none focus:border-red-500"
             placeholder="Enter email"
           />
@@ -127,6 +136,7 @@
           <div class="relative mt-2">
             <input
               v-model="password"
+              v-clean:password
               :type="showPassword ? 'text' : 'password'"
               required
               autocomplete="current-password"
@@ -215,6 +225,7 @@ import { afterLogin } from '../../lib/passwordStatus'
 import { markActivity } from '../../lib/idleLogout'
 import { markLoggedIn } from '../../lib/browserSession'
 import { startPasswordRecovery } from '../../lib/passwordRecovery'
+import { cleanEmail, vClean, withoutInvisible } from '../../lib/cleanText'
 
 const router = useRouter()
 const route = useRoute()
@@ -254,7 +265,7 @@ const resetEmailInput = ref(null)
 
 function showForgot() {
   mode.value = 'forgot'
-  resetEmail.value = email.value.trim() // keep what was already typed
+  resetEmail.value = cleanEmail(email.value) // keep what was already typed
   resetSent.value = false
   errorMessage.value = ''
   nextTick(() => resetEmailInput.value?.focus())
@@ -263,8 +274,13 @@ function showForgot() {
 // The toast (if any) stays until it hides itself.
 function showLogin() {
   mode.value = 'login'
-  if (resetEmail.value.trim()) email.value = resetEmail.value.trim()
+  if (cleanEmail(resetEmail.value)) email.value = cleanEmail(resetEmail.value)
   errorMessage.value = ''
+}
+
+// Supabase's answer to a wrong email or password
+function isWrongLogin(error) {
+  return error?.code === 'invalid_credentials' || /invalid login credentials/i.test(error?.message || '')
 }
 
 async function login() {
@@ -272,13 +288,22 @@ async function login() {
   errorMessage.value = ''
   infoMessage.value = ''
 
-  const { data, error } = await supabase.auth.signInWithPassword({
-    email: email.value.trim(),
-    password: password.value,
-  })
+  // what's in the boxes, without anything invisible a paste brought along
+  const address = cleanEmail(email.value)
+  const typed = withoutInvisible(password.value)
+
+  let { data, error } = await supabase.auth.signInWithPassword({ email: address, password: typed })
+
+  // Pasted with a space before or after it? (Copying a word on Windows takes
+  // the space after it too.) The password exactly as typed goes first,
+  // because a space can be part of one; only if that's wrong, without them.
+  if (error && isWrongLogin(error) && typed.trim() && typed.trim() !== typed) {
+    const retry = await supabase.auth.signInWithPassword({ email: address, password: typed.trim() })
+    if (!retry.error) ({ data, error } = retry)
+  }
 
   if (error) {
-    errorMessage.value = error.message
+    errorMessage.value = isWrongLogin(error) ? 'Wrong email or password. Check them and try again.' : error.message
     loading.value = false
     return
   }
@@ -363,7 +388,7 @@ async function forgotPassword() {
   errorMessage.value = ''
   infoMessage.value = ''
 
-  const address = resetEmail.value.trim()
+  const address = cleanEmail(resetEmail.value)
 
   if (!address) {
     errorMessage.value = 'Enter your email.'
@@ -403,7 +428,7 @@ async function verifyCode() {
   verifying.value = true
 
   const { error } = await supabase.auth.verifyOtp({
-    email: resetEmail.value.trim(),
+    email: cleanEmail(resetEmail.value),
     token: resetCode.value,
     type: 'recovery',
   })

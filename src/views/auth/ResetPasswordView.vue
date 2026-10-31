@@ -7,6 +7,8 @@ import { useRouter } from 'vue-router'
 import { supabase } from '../../lib/supabase'
 import { PASSWORD_RULES } from '../../lib/passwordStatus'
 import { isPasswordRecovery, endPasswordRecovery } from '../../lib/passwordRecovery'
+// a pasted password loses the invisible characters it brought along
+import { vClean } from '../../lib/cleanText'
 
 const router = useRouter()
 
@@ -130,6 +132,7 @@ async function cancel() {
         <input
           id="rp-new"
           v-model="newPassword"
+          v-clean:password
           :type="show ? 'text' : 'password'"
           autocomplete="new-password"
           required
@@ -155,6 +158,7 @@ async function cancel() {
         <input
           id="rp-confirm"
           v-model="confirmPassword"
+          v-clean:password
           :type="show ? 'text' : 'password'"
           autocomplete="new-password"
           required

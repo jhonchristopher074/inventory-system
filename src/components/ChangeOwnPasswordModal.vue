@@ -7,6 +7,8 @@ import { computed, nextTick, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { supabase } from '../lib/supabase'
 import { PASSWORD_RULES } from '../lib/passwordStatus'
+// a pasted password loses the invisible characters it brought along
+import { vClean } from '../lib/cleanText'
 
 const emit = defineEmits(['close'])
 const router = useRouter()
@@ -116,7 +118,7 @@ async function saveNew() {
 
       <label class="ap-label" for="op-current">Your password</label>
       <div class="ap-field">
-        <input id="op-current" ref="firstInput" v-model="currentPassword"
+        <input id="op-current" ref="firstInput" v-model="currentPassword" v-clean:password
                :type="show ? 'text' : 'password'" autocomplete="current-password" />
         <button type="button" class="ap-toggle" @click="show = !show">
           {{ show ? 'Hide' : 'Show' }}
@@ -140,7 +142,7 @@ async function saveNew() {
 
       <label class="ap-label" for="op-new">New password</label>
       <div class="ap-field">
-        <input id="op-new" ref="firstInput" v-model="newPassword"
+        <input id="op-new" ref="firstInput" v-model="newPassword" v-clean:password
                :type="show ? 'text' : 'password'" autocomplete="new-password" />
         <button type="button" class="ap-toggle" @click="show = !show">
           {{ show ? 'Hide' : 'Show' }}
@@ -155,7 +157,7 @@ async function saveNew() {
 
       <label class="ap-label" for="op-confirm">Confirm new password</label>
       <div class="ap-field">
-        <input id="op-confirm" v-model="confirmPassword"
+        <input id="op-confirm" v-model="confirmPassword" v-clean:password
                :type="show ? 'text' : 'password'" autocomplete="new-password" />
       </div>
 

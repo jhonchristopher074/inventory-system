@@ -4,6 +4,9 @@
 import { ref } from 'vue'
 import { supabase } from '../lib/supabase' // adjust to your project's Supabase client path
 import TempPasswordReveal from './TempPasswordReveal.vue'
+// a pasted name or email loses the invisible characters it brought along
+// (the email its spaces too)
+import { cleanEmail, vClean } from '../lib/cleanText'
 
 const emit = defineEmits(['created'])
 
@@ -23,7 +26,7 @@ async function submit() {
   loading.value = true
   try {
     const { data, error: fnError } = await supabase.functions.invoke('create-employee', {
-      body: { email: email.value, full_name: fullName.value, role: role.value },
+      body: { email: cleanEmail(email.value), full_name: fullName.value.trim(), role: role.value },
     })
     if (fnError) {
       error.value = (await readError(fnError)) || 'Could not create the account.'
@@ -48,10 +51,11 @@ function closeReveal() {
     <h2>Add employee</h2>
 
     <label for="ce-name">Full name</label>
-    <input id="ce-name" v-model="fullName" type="text" required autocomplete="off" />
+    <input id="ce-name" v-model="fullName" v-clean type="text" required autocomplete="off" />
 
     <label for="ce-email">Email</label>
-    <input id="ce-email" v-model="email" type="email" required autocomplete="off" />
+    <input id="ce-email" v-model="email" v-clean:email type="email" required autocomplete="off"
+           autocapitalize="off" spellcheck="false" />
 
     <label for="ce-role">Role</label>
     <select id="ce-role" v-model="role">
