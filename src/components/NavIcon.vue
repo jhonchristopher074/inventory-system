@@ -124,6 +124,12 @@
       <path d="M12 5v14M6 13l6 6 6-6" />
     </template>
 
+    <!-- upload (arrow out of a tray) -->
+    <template v-else-if="name === 'upload'">
+      <path d="M12 15V4M7 9l5-5 5 5" />
+      <path d="M4 15v4a1 1 0 001 1h14a1 1 0 001-1v-4" />
+    </template>
+
     <!-- refresh -->
     <template v-else-if="name === 'refresh'">
       <path d="M20 12a8 8 0 11-2.34-5.66L20 8.5" />
