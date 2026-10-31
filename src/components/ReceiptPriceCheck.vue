@@ -8,13 +8,16 @@
 //   <ReceiptPriceCheck :group="group" :prices="priceEdits" :saving="..." :error="..."
 //                      @price="(id, value) => ..." @confirm="..." @keep="..." @close="..." />
 //
-//   group   { key, linked, fileName, percent, items } (see ApprovalView's reviewGroups)
+//   group   { key, linked, waiting, fileName, percent, items } (see ApprovalView's reviewGroups)
 //   prices  what's in each price box: { [item id]: '123.45' }
+//
+// A waiting receipt (group.waiting) isn't in stock yet: Confirm adds its
+// pieces at these prices, and "keep" becomes Reject (asks first, adds nothing).
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import { supabase } from '../lib/supabase'
 import { NO_CATEGORY, fetchCategories } from '../lib/categories'
 import { count, peso } from '../lib/format'
-import { isPrice, profitPercent, startingPrice } from '../lib/receiptPrices'
+import { isPrice, needsPrice, profitPercent, startingPrice } from '../lib/receiptPrices'
 import NavIcon from './NavIcon.vue'
 
 const props = defineProps({
@@ -53,8 +56,24 @@ function priceOf(item) {
 }
 
 function isValid(item) {
-  return isPrice(priceOf(item))
+  return isPrice(priceOf(item)) && !needsPrice(item, priceOf(item))
 }
+
+const waiting = computed(() => Boolean(props.group.waiting))
+
+// Reject on a waiting receipt asks once, in the footer, before anything is sent
+const askingReject = ref(false)
+
+function onKeep() {
+  if (waiting.value && !askingReject.value) {
+    askingReject.value = true
+    return
+  }
+  askingReject.value = false
+  emit('keep')
+}
+
+const freeNew = computed(() => items.value.filter((item) => needsPrice(item, priceOf(item))))
 
 // the price will change when confirmed
 function isChanged(item) {
@@ -253,7 +272,10 @@ onBeforeUnmount(() => {
             </span>
             <span v-if="newCount > 0" class="pill bg-sky-500/15 text-sky-300">{{ count(newCount) }} new</span>
             <span v-if="restockCount > 0" class="pill bg-white/5 text-zinc-300">{{ count(restockCount) }} restocked</span>
-            <span class="pill bg-white/5 text-zinc-300">+{{ count(piecesAdded) }} pcs added</span>
+            <span v-if="waiting" class="pill bg-sky-500/15 text-sky-300">
+              +{{ count(piecesAdded) }} pcs to add · not in stock yet
+            </span>
+            <span v-else class="pill bg-white/5 text-zinc-300">+{{ count(piecesAdded) }} pcs added</span>
           </div>
 
           <p
@@ -261,8 +283,14 @@ onBeforeUnmount(() => {
             class="mt-3 flex items-start gap-2 rounded-xl bg-amber-500/10 p-3 text-sm text-amber-200"
           >
             <NavIcon name="alert" class="mt-0.5 h-4 w-4 shrink-0" />
-            The receipt scanner added these on its own, not from a receipt you approved, so no
-            profit was added. Check each price before confirming.
+            <template v-if="waiting">
+              The receipt scanner read these on its own, not from a receipt you approved, so no
+              profit was added. Nothing is in stock yet: reject them if you don't know this receipt.
+            </template>
+            <template v-else>
+              The receipt scanner added these on its own, not from a receipt you approved, so no
+              profit was added. Check each price before confirming.
+            </template>
           </p>
         </header>
 
@@ -310,7 +338,7 @@ onBeforeUnmount(() => {
                       <span class="badge" :class="item.is_new ? 'bg-sky-500/20 text-sky-300' : 'bg-amber-500/20 text-amber-300'">
                         {{ item.is_new ? 'New' : 'Restock' }}
                       </span>
-                      +{{ count(item.qty_added) }} pcs
+                      +{{ count(item.qty_added) }} pcs<template v-if="waiting"> on confirm</template>
                     </p>
                   </div>
                 </td>
@@ -408,22 +436,52 @@ onBeforeUnmount(() => {
         >
           <div class="min-w-0 text-sm">
             <p v-if="error" class="font-bold text-red-400" role="alert">{{ error }}</p>
+            <p v-else-if="askingReject" class="font-bold text-amber-300" role="alert">
+              Reject this receipt? Nothing from it will be added to stock.
+            </p>
+            <p v-else-if="freeNew.length > 0" class="font-bold text-red-400">
+              Give every new product a selling price above ₱0.
+            </p>
             <p v-else-if="!allValid" class="font-bold text-red-400">Every price must be a number, 0 or more.</p>
+            <p v-else-if="waiting" class="text-zinc-400">
+              Nothing is in stock yet. Confirm adds <b class="text-white">{{ count(piecesAdded) }} pcs</b>
+              at these prices. Categories save as you pick them.
+            </p>
             <p v-else class="text-zinc-400">
               <b class="text-white">{{ count(changedCount) }}</b> of {{ count(items.length) }}
               price{{ items.length === 1 ? '' : 's' }} will change. Categories save as you pick them.
             </p>
           </div>
 
-          <div class="flex shrink-0 gap-2">
+          <!-- a waiting receipt: Reject asks first, here -->
+          <div v-if="askingReject" class="flex shrink-0 gap-2">
+            <button
+              type="button"
+              class="flex-1 rounded-2xl bg-zinc-800 px-5 py-3 font-bold text-white hover:bg-zinc-700 sm:flex-none"
+              @click="askingReject = false"
+            >
+              Back
+            </button>
+            <button
+              type="button"
+              class="flex-1 rounded-2xl bg-red-600 px-6 py-3 font-bold text-white hover:bg-red-700 disabled:opacity-50 sm:flex-none"
+              :disabled="saving"
+              @click="onKeep"
+            >
+              {{ saving ? 'Rejecting…' : 'Yes, reject' }}
+            </button>
+          </div>
+
+          <div v-else class="flex shrink-0 gap-2">
             <button
               type="button"
               class="flex-1 rounded-2xl bg-zinc-800 px-5 py-3 font-bold text-white hover:bg-zinc-700 disabled:opacity-50 sm:flex-none"
+              :class="{ 'hover:bg-red-600': waiting }"
               :disabled="saving"
-              title="Close this check without changing any price"
-              @click="emit('keep')"
+              :title="waiting ? 'Add nothing from this receipt to stock' : 'Close this check without changing any price'"
+              @click="onKeep"
             >
-              Keep current prices
+              {{ waiting ? 'Reject' : 'Keep current prices' }}
             </button>
             <button
               type="button"
@@ -431,7 +489,7 @@ onBeforeUnmount(() => {
               :disabled="saving || !allValid"
               @click="emit('confirm')"
             >
-              {{ saving ? 'Saving…' : 'Confirm prices' }}
+              {{ saving ? 'Saving…' : waiting ? 'Confirm & add to stock' : 'Confirm prices' }}
             </button>
           </div>
         </footer>

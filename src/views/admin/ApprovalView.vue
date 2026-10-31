@@ -186,8 +186,8 @@
       <div v-if="reviewGroups.length > 0 || itemsError || itemsSuccess" class="mb-8">
         <h2 class="mb-1 text-lg font-bold text-white">New prices to check</h2>
         <p class="mb-3 text-sm text-zinc-400">
-          The receipt scanner finished. These products were added or restocked. Check the
-          price of each one, change it if you want, then press Confirm.
+          The receipt scanner finished. Open a receipt, check the price of each product,
+          change any you want, then press Confirm.
         </p>
 
         <p v-if="itemsError" class="mb-3 rounded-xl bg-red-600/20 p-4 text-red-400">
@@ -211,15 +211,20 @@
             <p class="mt-1 text-sm text-zinc-400">
               {{ group.items.length }} product{{ group.items.length === 1 ? '' : 's' }} to check
               · Profit chosen: {{ group.percent != null ? group.percent + '%' : '—' }}
+              <span v-if="group.waiting" class="font-bold text-sky-300">· Not in stock yet</span>
             </p>
           </div>
 
           <div v-else class="min-w-0 flex-1 basis-48">
             <p class="flex items-center gap-2 font-bold text-amber-300">
               <NavIcon name="alert" class="h-4 w-4 shrink-0" />
-              Added without your approval
+              {{ group.waiting ? 'Not from a receipt you approved' : 'Added without your approval' }}
             </p>
-            <p class="mt-1 text-sm text-zinc-400">
+            <p v-if="group.waiting" class="mt-1 text-sm text-zinc-400">
+              {{ group.items.length }} product{{ group.items.length === 1 ? '' : 's' }} the receipt
+              scanner read on its own. Nothing is in stock yet: open it to check, or reject it.
+            </p>
+            <p v-else class="mt-1 text-sm text-zinc-400">
               {{ group.items.length }} product{{ group.items.length === 1 ? '' : 's' }} the receipt
               scanner added on its own, not from a receipt you approved. No profit was added to
               them: check their prices.
@@ -688,7 +693,7 @@ import {
   safeFileName,
   signReceiptLinks,
 } from '../../lib/receipts'
-import { startingPrice } from '../../lib/receiptPrices'
+import { isWaiting, needsPrice, startingPrice } from '../../lib/receiptPrices'
 import PageHeader from '../../components/PageHeader.vue'
 import NavIcon from '../../components/NavIcon.vue'
 import ReceiptPriceCheck from '../../components/ReceiptPriceCheck.vue'
@@ -1367,13 +1372,17 @@ const reviewGroups = computed(() => {
         // products to a receipt approved in the last 15 minutes. With none,
         // the scanner was started some other way (not by an approval).
         linked: Boolean(item.upload_ref),
+        // held: nothing of it is in stock until Confirm (Reject adds nothing)
+        waiting: false,
         fileName: item.file_name,
         percent: item.percent,
         items: [],
       })
     }
 
-    groups.get(key).items.push(item)
+    const group = groups.get(key)
+    group.items.push(item)
+    if (isWaiting(item)) group.waiting = true
   }
 
   return [...groups.values()]
@@ -1449,7 +1458,11 @@ function updateScanning() {
       if (entry.stable >= 1) {
         finished.push(entry)
         itemsError.value = ''
-        itemsSuccess.value = `"${entry.name}": ${itemsNow - entry.baseline} product${itemsNow - entry.baseline === 1 ? '' : 's'} updated. Press Open to check the prices.`
+        const found = itemsNow - entry.baseline
+        const held = reviewItems.value.some((item) => item.upload_ref === entry.ref && isWaiting(item))
+        itemsSuccess.value = held
+          ? `"${entry.name}": ${found} product${found === 1 ? '' : 's'} read. Press Open to check the prices and add them to stock.`
+          : `"${entry.name}": ${found} product${found === 1 ? '' : 's'} updated. Press Open to check the prices.`
       }
     } else if (Date.now() - entry.startedAt > SCAN_TIMEOUT_MS) {
       finished.push(entry)
@@ -1547,6 +1560,13 @@ async function confirmGroup(group) {
     return
   }
 
+  // a new product can't go on sale for free by accident
+  const free = group.items.filter((item) => needsPrice(item, priceEdits.value[item.id]))
+  if (free.length > 0) {
+    priceError.value = `Enter a selling price for: ${free.map((item) => item.product_name).join(', ')}.`
+    return
+  }
+
   reviewSaving.value.add(group.key)
 
   const { error } = await supabase.rpc('admin_confirm_receipt_review', { p_items: items })
@@ -1559,7 +1579,10 @@ async function confirmGroup(group) {
   }
 
   removeGroup(group)
-  itemsSuccess.value = `Prices saved for ${items.length} product${items.length === 1 ? '' : 's'}.`
+  const products = `${items.length} product${items.length === 1 ? '' : 's'}`
+  itemsSuccess.value = group.waiting
+    ? `Prices saved and ${products} added to stock.`
+    : `Prices saved for ${products}.`
 }
 
 async function dismissGroup(group) {
@@ -1575,12 +1598,16 @@ async function dismissGroup(group) {
   reviewSaving.value.delete(group.key)
 
   if (error) {
-    priceError.value = `Couldn't close this check: ${error.message}`
+    priceError.value = group.waiting
+      ? `Couldn't reject this receipt: ${error.message}`
+      : `Couldn't close this check: ${error.message}`
     return
   }
 
   removeGroup(group)
-  itemsSuccess.value = 'Kept the current prices.'
+  itemsSuccess.value = group.waiting
+    ? `Rejected "${group.fileName || 'the receipt'}". Nothing from it was added to stock.`
+    : 'Kept the current prices.'
 }
 
 /* ------------------------------------------------------------------
