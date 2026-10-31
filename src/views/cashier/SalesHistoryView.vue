@@ -29,27 +29,8 @@
     <!-- CHART + BEST SELLERS of your sales shown (opens with its button) -->
     <SalesInsights :sales="filteredSales" :range="range" />
 
-    <!-- what the list shows, and download it as a PDF to read or print -->
-    <div class="mb-3 flex flex-wrap items-center justify-between gap-3">
-      <p class="text-sm text-zinc-400">
-        {{ count(filteredSales.length) }} sale{{ filteredSales.length === 1 ? '' : 's' }}
-      </p>
-
-      <button
-        class="rounded-xl bg-red-600 px-4 py-2 text-sm font-bold text-white transition hover:bg-red-700 disabled:opacity-50"
-        :disabled="filteredSales.length === 0 || pdfBusy"
-        title="A table of the sales shown, easy to read and print"
-        @click="exportPdf"
-      >
-        {{ pdfBusy ? 'Making PDF…' : '⬇ PDF' }}
-      </button>
-    </div>
-
-    <p v-if="pdfError" class="mb-3 rounded-xl bg-red-600/20 p-3 text-sm text-red-400" role="alert">
-      {{ pdfError }}
-    </p>
-
-    <!-- TABLE: 10, 15 or all sales a page -->
+    <!-- TABLE: 10, 15 or all sales a page. No report download here: sales
+         reports (PDF, Excel) are made by the owner, in their Sales History. -->
     <div ref="tableTop" class="scroll-mt-4 overflow-hidden rounded-[24px] border border-white/10 bg-zinc-900">
       <!-- resp-table: each sale becomes a small card on phones -->
       <table class="resp-table w-full border-collapse text-left">
@@ -246,7 +227,6 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { supabase } from '../../lib/supabase'
 import { printElement } from '../../lib/printReceipt'
 import { usePagination } from '../../lib/usePagination'
-import { downloadSalesPdf } from '../../lib/salesPdf'
 import { newestFirst } from '../../lib/salesReport'
 import SalesPeriodFilter from '../../components/SalesPeriodFilter.vue'
 import SalesInsights from '../../components/SalesInsights.vue'
@@ -295,36 +275,6 @@ const {
 // another period starts again at page 1
 watch(range, resetPage)
 
-// Downloads the sales shown (date filter) as a PDF with a table, easy to
-// read and print (see lib/salesPdf.js).
-const pdfBusy = ref(false)
-const pdfError = ref('')
-
-function myName() {
-  try {
-    return JSON.parse(localStorage.getItem('currentUser') || '{}').full_name || ''
-  } catch {
-    return ''
-  }
-}
-
-async function exportPdf() {
-  if (pdfBusy.value || filteredSales.value.length === 0) return
-
-  pdfBusy.value = true
-  pdfError.value = ''
-
-  try {
-    await downloadSalesPdf({ sales: filteredSales.value, range: range.value, who: myName() })
-  } catch (err) {
-    // e.g. no connection, or the site was updated since this page opened
-    console.error(err)
-    pdfError.value = "Couldn't make the PDF. Reload the page and try again."
-  } finally {
-    pdfBusy.value = false
-  }
-}
-
 async function fetchSales() {
   loading.value = true
   errorMessage.value = ''
@@ -339,7 +289,7 @@ async function fetchSales() {
     return
   }
 
-  // the latest sale first, the same order as in the PDF
+  // the latest sale first, the same order as the owner's reports
   sales.value = newestFirst(data || [])
 }
 
