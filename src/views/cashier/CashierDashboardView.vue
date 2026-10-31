@@ -1,9 +1,10 @@
 <template>
   <!-- Built like the Owner's Dashboard (same tiles and cards: styles/dashboard.css),
-       with the cashier's own sales. @container: the layout follows the width
-       of the page area (the sidebar takes part of the window). -->
+       about what a cashier does: selling. Stock isn't here: restocking is the
+       owner's and staff's job, and the POS shows each product's stock.
+       @container: the layout follows the width of the page area. -->
   <div class="@container">
-    <PageHeader title="Dashboard" :subtitle="`${todayLong} · Your sales and the stock you sell.`">
+    <PageHeader title="Dashboard" :subtitle="`${todayLong} · Your sales at a glance.`">
       <div class="flex flex-wrap items-center gap-2 sm:gap-3">
         <span v-if="updatedAt" class="text-xs text-zinc-500">Updated {{ updatedText }}</span>
         <button
@@ -32,7 +33,8 @@
     <!-- while refreshing, the numbers stay where they are (dimmed) -->
     <div class="transition-opacity" :class="{ 'opacity-60': refreshing && loaded }">
       <!-- ============================================================
-           AT A GLANCE: your sales today is the big number
+           AT A GLANCE: your sales today is the big number; each tile
+           opens your Sales History
       ============================================================ -->
       <section class="mb-5 grid grid-cols-2 gap-3 @min-[900px]:grid-cols-5" aria-label="At a glance">
         <RouterLink to="/cashier/sales" class="kpi col-span-2">
@@ -67,36 +69,29 @@
           <p class="kpi-sub">{{ salesText(month.count) }} in {{ monthName }}</p>
         </RouterLink>
 
-        <!-- stock: to tell customers what's running out (nothing to open:
-             a cashier has no Inventory page) -->
-        <div class="kpi">
+        <RouterLink to="/cashier/sales" class="kpi">
           <div class="kpi-top">
-            <p class="kpi-label">Low stock</p>
+            <p class="kpi-label">Average sale</p>
+            <span class="kpi-icon"><NavIcon name="pos" class="h-4 w-4" /></span>
+          </div>
+
+          <p class="kpi-value" :title="peso(monthAverage)">{{ loaded ? pesoTile(monthAverage) : '—' }}</p>
+          <p class="kpi-sub">{{ month.count > 0 ? `per sale in ${monthName}` : `No sales yet in ${monthName}` }}</p>
+        </RouterLink>
+
+        <RouterLink to="/cashier/sales" class="kpi">
+          <div class="kpi-top">
+            <p class="kpi-label">Items sold</p>
             <span class="kpi-icon"><NavIcon name="inventory" class="h-4 w-4" /></span>
           </div>
 
-          <p class="kpi-value">{{ loaded ? count(lowStock.length) : '—' }}</p>
-          <p class="kpi-sub">of {{ count(products.length) }} products</p>
-
-          <p v-if="outOfStock.length > 0" class="kpi-change text-red-400">
-            <NavIcon name="alert" class="h-3.5 w-3.5 shrink-0" />
-            {{ count(outOfStock.length) }} out of stock
-          </p>
-        </div>
-
-        <div class="kpi">
-          <div class="kpi-top">
-            <p class="kpi-label">Ready to sell</p>
-            <span class="kpi-icon"><NavIcon name="check" class="h-4 w-4" /></span>
-          </div>
-
-          <p class="kpi-value">{{ loaded ? count(inStock.length) : '—' }}</p>
-          <p class="kpi-sub">products in stock</p>
-        </div>
+          <p class="kpi-value">{{ loaded ? count(month.items) : '—' }}</p>
+          <p class="kpi-sub">pcs in {{ monthName }}</p>
+        </RouterLink>
       </section>
 
       <!-- ============================================================
-           YOUR WEEK + YOUR LATEST SALES
+           YOUR WEEK + YOUR BEST SELLERS
       ============================================================ -->
       <section class="mb-5 grid gap-5 @min-[1000px]:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
         <!-- the chart grows to the height of the card beside it -->
@@ -128,99 +123,6 @@
           <RouterLink to="/cashier/sales" class="card-link mt-4">
             Open Sales History <NavIcon name="chevron" class="h-4 w-4" />
           </RouterLink>
-        </div>
-
-        <div class="card flex flex-col p-5">
-          <div class="card-head">
-            <div>
-              <p class="eyebrow">Your sales</p>
-              <h2 class="card-title">Recent sales</h2>
-            </div>
-            <RouterLink to="/cashier/sales" class="card-link">
-              See all <NavIcon name="chevron" class="h-4 w-4" />
-            </RouterLink>
-          </div>
-
-          <ul v-if="recentSales.length > 0" class="divide-y divide-white/5">
-            <li v-for="sale in recentSales" :key="sale.id" class="flex items-center gap-3 py-2.5">
-              <span class="grid h-10 w-10 shrink-0 place-items-center rounded-[10px] bg-white/5 text-zinc-400">
-                <NavIcon name="pos" class="h-5 w-5" />
-              </span>
-
-              <div class="min-w-0 flex-1">
-                <p class="truncate text-sm font-bold text-white">
-                  Sale #{{ sale.id }}
-                  <span class="font-normal text-zinc-500">· {{ dayAndTime(sale.created_at, now) }}</span>
-                </p>
-                <p class="truncate text-xs text-zinc-500">{{ itemsText(sale) }}</p>
-              </div>
-
-              <p class="shrink-0 text-sm font-extrabold text-white">{{ peso(sale.total_amount) }}</p>
-            </li>
-          </ul>
-
-          <div
-            v-else-if="loaded"
-            class="flex flex-1 flex-col items-center justify-center gap-3 rounded-2xl bg-black/20 p-6 text-center"
-          >
-            <p class="text-sm text-zinc-400">No recent sales yet.</p>
-            <RouterLink to="/cashier/pos" class="rounded-xl bg-red-600 px-4 py-2 text-sm font-bold text-white">
-              Make a sale
-            </RouterLink>
-          </div>
-
-          <p v-else class="text-sm text-zinc-500">Loading…</p>
-        </div>
-      </section>
-
-      <!-- ============================================================
-           STOCK RUNNING LOW · YOUR BEST SELLERS
-      ============================================================ -->
-      <section class="grid gap-5 @min-[700px]:grid-cols-2">
-        <div class="card p-5">
-          <div class="card-head">
-            <div>
-              <p class="eyebrow">Stock</p>
-              <h2 class="card-title">Running low</h2>
-            </div>
-            <RouterLink to="/cashier/pos" class="card-link">
-              POS <NavIcon name="chevron" class="h-4 w-4" />
-            </RouterLink>
-          </div>
-
-          <ul v-if="lowStockList.length > 0" class="divide-y divide-white/5">
-            <li v-for="product in lowStockList" :key="product.id" class="flex items-center gap-3 py-2.5">
-              <img
-                v-if="product.image_url"
-                :src="product.image_url"
-                alt=""
-                loading="lazy"
-                class="h-10 w-10 shrink-0 rounded-[10px] object-cover"
-              />
-              <span v-else class="grid h-10 w-10 shrink-0 place-items-center rounded-[10px] bg-white/5 text-zinc-500">
-                <NavIcon name="inventory" class="h-5 w-5" />
-              </span>
-
-              <div class="min-w-0 flex-1">
-                <p class="truncate text-sm font-bold text-white">{{ product.name }}</p>
-                <p class="truncate text-xs text-zinc-500">{{ product.category || 'Uncategorized' }}</p>
-              </div>
-
-              <span v-if="isOutOfStock(product)" class="chip bg-red-600/15 text-red-400">
-                <NavIcon name="alert" class="h-3.5 w-3.5" />
-                Out of stock
-              </span>
-              <span v-else class="chip bg-yellow-500/15 text-yellow-400">
-                {{ count(stockOf(product)) }} left
-              </span>
-            </li>
-          </ul>
-
-          <p v-else-if="loaded" class="text-sm text-zinc-500">Every product has more than {{ LOW_STOCK }} in stock.</p>
-
-          <p v-if="lowStock.length > lowStockList.length" class="mt-2 text-xs text-zinc-500">
-            and {{ count(lowStock.length - lowStockList.length) }} more
-          </p>
         </div>
 
         <div class="card p-5">
@@ -268,6 +170,57 @@
           <p v-else-if="loaded" class="text-sm text-zinc-500">No sales in the last 30 days.</p>
         </div>
       </section>
+
+      <!-- ============================================================
+           YOUR LATEST SALES (the whole list: Sales History)
+      ============================================================ -->
+      <section class="card overflow-hidden" aria-labelledby="recent-sales-title">
+        <div class="card-head px-5 pt-5">
+          <div>
+            <p class="eyebrow">Your sales</p>
+            <h2 id="recent-sales-title" class="card-title">Recent sales</h2>
+          </div>
+          <RouterLink to="/cashier/sales" class="card-link">
+            See all <NavIcon name="chevron" class="h-4 w-4" />
+          </RouterLink>
+        </div>
+
+        <div v-if="recentSales.length > 0" class="overflow-x-auto">
+          <table class="data-table resp-table">
+            <thead>
+              <tr>
+                <th>Sale</th>
+                <th>When</th>
+                <th>Items</th>
+                <th class="num">Total</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              <tr v-for="sale in recentSales" :key="sale.id">
+                <td class="cell-main font-bold text-white">Sale #{{ sale.id }}</td>
+                <td data-label="When" class="whitespace-nowrap text-sm text-zinc-400">
+                  {{ dayAndTime(sale.created_at, now) }}
+                </td>
+                <td data-label="Items" class="text-sm text-zinc-300">{{ itemsText(sale) }}</td>
+                <td data-label="Total" class="num text-sm font-extrabold text-white">{{ peso(sale.total_amount) }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div
+          v-else-if="loaded"
+          class="mx-5 mb-5 flex flex-col items-center justify-center gap-3 rounded-2xl bg-black/20 p-6 text-center"
+        >
+          <p class="text-sm text-zinc-400">No recent sales yet.</p>
+          <RouterLink to="/cashier/pos" class="rounded-xl bg-red-600 px-4 py-2 text-sm font-bold text-white">
+            Make a sale
+          </RouterLink>
+        </div>
+
+        <p v-else class="px-5 pb-5 text-sm text-zinc-500">Loading…</p>
+      </section>
     </div>
   </div>
 </template>
@@ -279,7 +232,6 @@ import PageHeader from '../../components/PageHeader.vue'
 import NavIcon from '../../components/NavIcon.vue'
 import SalesLineChart from '../../components/SalesLineChart.vue'
 import { count, dayAndTime, peso } from '../../lib/format'
-import { LOW_STOCK, byStockLevel, isLowStock, isOutOfStock, stockOf } from '../../lib/stock'
 import {
   bestDay as findBestDay,
   bestSellers as topSellers,
@@ -292,6 +244,7 @@ import {
   startOfDay,
 } from '../../lib/dashboardStats'
 
+// products: only for the best sellers' pictures
 const products = ref([])
 const sales = ref([]) // this cashier's own sales only (list_my_sales_since)
 
@@ -306,7 +259,8 @@ const now = ref(new Date())
 
 /* ------------------------------------------------------------------
    Loading: your sales far enough back for this month, yesterday and the
-   last 30 days, and the products (for stock and best sellers' pictures).
+   last 30 days. The products only add the best sellers' pictures, so if
+   they fail the dashboard still shows (without pictures).
 ------------------------------------------------------------------ */
 async function rpc(name, params) {
   const { data, error } = await supabase.rpc(name, params)
@@ -326,15 +280,16 @@ async function load() {
     rpc('list_products', { p_filter: 'active', p_order_by: 'id_asc' }),
   ])
 
-  const problems = []
-
-  if (salesResult.status === 'fulfilled') sales.value = salesResult.value
-  else problems.push(`your sales (${salesResult.reason?.message || salesResult.reason})`)
+  if (salesResult.status === 'fulfilled') {
+    sales.value = salesResult.value
+    errorMessage.value = ''
+  } else {
+    errorMessage.value = `Couldn't load your sales (${salesResult.reason?.message || salesResult.reason}).`
+  }
 
   if (productsResult.status === 'fulfilled') products.value = productsResult.value
-  else problems.push(`the products (${productsResult.reason?.message || productsResult.reason})`)
+  else console.error(productsResult.reason)
 
-  errorMessage.value = problems.length ? `Couldn't load ${problems.join(' and ')}.` : ''
   now.value = new Date()
   updatedAt.value = now.value
   loaded.value = true
@@ -377,6 +332,9 @@ const today = computed(() => salesToday(sales.value, now.value))
 const todayChange = computed(() => changeSinceYesterday(sales.value, now.value))
 const month = computed(() => salesThisMonth(sales.value, now.value))
 
+// money taken per sale this month
+const monthAverage = computed(() => (month.value.count > 0 ? month.value.total / month.value.count : 0))
+
 const weekDays = computed(() => dailyTotals(sales.value, now.value, 7))
 const weekTotal = computed(() => weekDays.value.reduce((sum, day) => sum + day.total, 0))
 const weekCount = computed(() => weekDays.value.reduce((sum, day) => sum + day.count, 0))
@@ -399,15 +357,6 @@ function itemsText(sale) {
 
   return more > 0 ? `${shown.join(', ')} +${more} more` : shown.join(', ')
 }
-
-/* ------------------------------------------------------------------
-   Stock (what "low" means: lib/stock.js)
------------------------------------------------------------------- */
-// emptiest first
-const lowStock = computed(() => products.value.filter(isLowStock).sort(byStockLevel))
-const outOfStock = computed(() => lowStock.value.filter(isOutOfStock))
-const lowStockList = computed(() => lowStock.value.slice(0, 6))
-const inStock = computed(() => products.value.filter((product) => !isOutOfStock(product)))
 </script>
 
 <style scoped src="../../styles/dashboard.css"></style>
