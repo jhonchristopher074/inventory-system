@@ -112,9 +112,15 @@
             <p class="mt-3 text-xs text-zinc-500">PNG, JPG or PDF, up to 10 MB</p>
           </div>
 
-          <!-- a file is chosen: send it, or take it off -->
+          <!-- a file is chosen: see it, then send it or take it off -->
           <div v-else class="w-full text-center">
-            <span class="drop-icon is-ready"><NavIcon name="check" class="h-7 w-7" /></span>
+            <img
+              v-if="previewUrl"
+              :src="previewUrl"
+              :alt="selectedFile.name"
+              class="mx-auto max-h-56 max-w-full rounded-xl object-contain shadow-lg"
+            />
+            <span v-else class="drop-icon is-ready"><NavIcon name="check" class="h-7 w-7" /></span>
             <p class="mx-auto mt-4 max-w-md truncate text-lg font-extrabold text-white" :title="selectedFile.name">
               {{ selectedFile.name }}
             </p>
@@ -212,6 +218,7 @@
                 <th>Receipt</th>
                 <th>Uploaded</th>
                 <th>Status</th>
+                <th><span class="sr-only">Open</span></th>
               </tr>
             </thead>
 
@@ -219,7 +226,17 @@
               <tr v-for="row in visibleRows" :key="row.id">
                 <td class="cell-main">
                   <div class="flex min-w-0 items-center gap-3">
-                    <span class="file-badge" aria-hidden="true">{{ fileKind(row.file_name) }}</span>
+                    <!-- its picture (opens it), or PDF / IMG when there's none to show -->
+                    <button
+                      v-if="thumbOf(row)"
+                      type="button"
+                      class="thumb"
+                      :aria-label="'View ' + row.file_name"
+                      @click="openViewer(row)"
+                    >
+                      <img :src="thumbOf(row)" alt="" loading="lazy" @error="thumbFailed(row)" />
+                    </button>
+                    <span v-else class="file-badge" aria-hidden="true">{{ fileKind(row.file_name) }}</span>
                     <p class="min-w-0 max-w-xs truncate font-bold text-white sm:max-w-md" :title="row.file_name">
                       {{ row.file_name }}
                     </p>
@@ -235,10 +252,24 @@
                     {{ row.state.kind === 'countdown' ? 'Sends in ' + clock(row.state.left) : row.state.text }}
                   </span>
                 </td>
+
+                <td class="cell-actions">
+                  <div class="row-actions">
+                    <button
+                      v-if="canView(row)"
+                      type="button"
+                      class="rounded-lg bg-zinc-800 px-3 py-1.5 text-xs font-bold text-zinc-200 hover:bg-zinc-700"
+                      @click="openViewer(row)"
+                    >
+                      View
+                    </button>
+                    <span v-else-if="row.status === 'rejected'" class="text-xs text-zinc-500">Not kept</span>
+                  </div>
+                </td>
               </tr>
 
               <tr v-if="shownRows.length === 0">
-                <td colspan="3" class="cell-main p-6 text-center text-zinc-500">{{ emptyText }}</td>
+                <td colspan="4" class="cell-main p-6 text-center text-zinc-500">{{ emptyText }}</td>
               </tr>
             </tbody>
           </table>
@@ -253,6 +284,61 @@
         />
       </div>
     </section>
+
+    <!-- VIEW: one of your receipts, big (Esc or tapping outside closes it) -->
+    <div
+      v-if="viewer"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-3 sm:p-4"
+      @click.self="closeViewer"
+    >
+      <div
+        class="flex max-h-[94vh] w-full max-w-3xl flex-col overflow-hidden rounded-[24px] border border-white/10 bg-zinc-900 shadow-2xl"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="viewer-title"
+      >
+        <div class="flex items-start justify-between gap-3 border-b border-white/5 px-4 py-3 sm:px-5">
+          <div class="min-w-0">
+            <p id="viewer-title" class="truncate font-bold text-white">{{ viewer.row.file_name }}</p>
+            <p class="mt-0.5 text-xs text-zinc-400">Uploaded {{ dayAndTime(viewer.row.created_at) }}</p>
+          </div>
+
+          <div class="flex shrink-0 gap-2">
+            <a
+              v-if="viewer.state === 'ready'"
+              :href="viewer.url"
+              target="_blank"
+              rel="noopener"
+              class="rounded-xl bg-zinc-800 px-3 py-2 text-sm font-bold text-white hover:bg-zinc-700"
+            >
+              Open
+            </a>
+            <button
+              type="button"
+              class="rounded-xl bg-red-600 px-3 py-2 text-sm font-bold text-white"
+              @click="closeViewer"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+
+        <div class="grid min-h-[40vh] flex-1 place-items-center overflow-auto bg-black p-2">
+          <p v-if="viewer.state === 'loading'" class="text-sm text-zinc-400">Loading…</p>
+          <p v-else-if="viewer.state === 'gone'" class="max-w-sm p-6 text-center text-sm text-zinc-400">
+            This receipt's file isn't stored any more.
+          </p>
+          <img
+            v-else-if="isImageFile(viewer.row.file_name)"
+            :src="viewer.url"
+            :alt="viewer.row.file_name"
+            class="max-h-[78vh] max-w-full object-contain"
+            @error="viewerFailed"
+          />
+          <iframe v-else :src="viewer.url" class="h-[78vh] w-full rounded-xl bg-white" title="Receipt"></iframe>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -265,16 +351,21 @@ import TablePager from '../../components/TablePager.vue'
 import { usePagination } from '../../lib/usePagination'
 import { useQueryParam } from '../../lib/useQueryParam'
 import { count, dayAndTime } from '../../lib/format'
+import {
+  APPROVED_BUCKET,
+  LINK_SECONDS,
+  RECEIPT_BUCKET,
+  approvedCopyName,
+  isImageFile,
+  signReceiptLinks,
+} from '../../lib/receipts'
 
 /* ------------------------------------------------------------------
   Config
-  The original code used two different, inconsistently-spelled bucket
-  names ('supplierReceipt' on upload, 'supplierReceipts' on delete).
-  This is the one real bucket — matches what's actually in Supabase
-  Storage. Needs insert/select/delete policies on storage.objects for
-  it (see supplier_receipts_storage_policy.sql).
+  Uploads go to the supplierReceipt bucket (lib/receipts.js), which the
+  supplier who uploaded a file and the owner can read.
 ------------------------------------------------------------------ */
-const BUCKET = 'supplierReceipt'
+const BUCKET = RECEIPT_BUCKET
 const MAX_BYTES = 10 * 1024 * 1024 // 10 MB
 
 // My uploads holds up to this many (the newest). The database gives at
@@ -427,6 +518,19 @@ function pickFile(file) {
   successMessage.value = ''
   selectedFile.value = file
 }
+
+// The chosen picture, shown before it's sent so the supplier can check it's
+// the right receipt (made on this device: nothing is uploaded for it).
+const previewUrl = ref('')
+
+watch(selectedFile, (file, _before, onCleanup) => {
+  previewUrl.value = ''
+  if (!file || !isImageFile(file.name)) return
+
+  const url = URL.createObjectURL(file)
+  previewUrl.value = url
+  onCleanup(() => URL.revokeObjectURL(url))
+})
 
 // the drop zone was clicked (or Enter / Space on it): the file chooser
 function browse() {
@@ -604,6 +708,124 @@ const {
 // another filter or search starts again at page 1
 watch([statusFilter, search], resetPage)
 
+/* ------------------------------------------------------------------
+  Seeing your own receipts: a small picture in the table, and View.
+  Where a receipt is now:
+    waiting, or approved but not sent yet   your upload, in supplierReceipt
+    sent to the scanner                     the approved copy, in Approved Receipt
+    denied                                  not kept
+  (supplierReceipt needs the file's place from the database:
+  supabase/migrations/20261031000002_supplier_upload_files.sql. Until that
+  is run, only receipts already sent can be opened.)
+------------------------------------------------------------------ */
+function placeOf(row) {
+  if (row.status === 'rejected') return null
+  if (row.status === 'approved' && row.forwarded_at) return { bucket: APPROVED_BUCKET, path: approvedCopyName(row) }
+  return row.file_path ? { bucket: RECEIPT_BUCKET, path: row.file_path } : null
+}
+
+function canView(row) {
+  return placeOf(row) !== null
+}
+
+function placeKey(place) {
+  return `${place.bucket}/${place.path}`
+}
+
+function publicLink(place) {
+  return supabase.storage.from(place.bucket).getPublicUrl(place.path).data.publicUrl
+}
+
+// place -> link of its picture (null: none to show)
+const thumbs = ref(new Map())
+
+function thumbOf(row) {
+  const place = placeOf(row)
+  if (!place || !isImageFile(row.file_name)) return ''
+  return thumbs.value.get(placeKey(place)) || ''
+}
+
+function thumbFailed(row) {
+  const place = placeOf(row)
+  if (!place) return
+  thumbs.value = new Map(thumbs.value).set(placeKey(place), null)
+}
+
+// links for the pictures on the page shown: one request for those in your
+// own bucket; the approved copies have plain links
+async function loadThumbs(rows) {
+  const wanted = rows.filter((row) => {
+    const place = placeOf(row)
+    return place && isImageFile(row.file_name) && !thumbs.value.has(placeKey(place))
+  })
+  if (wanted.length === 0) return
+
+  const own = wanted.filter((row) => placeOf(row).bucket === RECEIPT_BUCKET)
+  let signed
+
+  try {
+    signed = await signReceiptLinks(own.map((row) => row.file_path))
+  } catch (error) {
+    console.error('Could not make the picture links:', error)
+    return
+  }
+
+  const next = new Map(thumbs.value)
+  for (const row of wanted) {
+    const place = placeOf(row)
+    next.set(placeKey(place), place.bucket === RECEIPT_BUCKET ? signed.get(place.path) || null : publicLink(place))
+  }
+  thumbs.value = next
+}
+
+// only when the rows on the page (or where their files are) change, not on
+// every tick of the countdown
+watch(
+  () => visibleRows.value.map((row) => `${row.id}:${row.status}:${row.forwarded_at || ''}:${row.file_path || ''}`).join(','),
+  () => loadThumbs(visibleRows.value),
+  { immediate: true }
+)
+
+// ---- View: one receipt, big ----
+const viewer = ref(null) // { row, url, state: 'loading' | 'ready' | 'gone' }
+
+async function openViewer(row) {
+  const place = placeOf(row)
+  if (!place) return
+
+  viewer.value = { row, url: '', state: 'loading' }
+  let url
+
+  if (place.bucket === RECEIPT_BUCKET) {
+    const { data } = await supabase.storage.from(RECEIPT_BUCKET).createSignedUrl(place.path, LINK_SECONDS)
+    url = data?.signedUrl || ''
+  } else {
+    // the approved copy may have been cleared away after the scanner read it
+    url = publicLink(place)
+    const stillThere = await fetch(url, { method: 'HEAD' })
+      .then((response) => response.ok)
+      .catch(() => false)
+    if (!stillThere) url = ''
+  }
+
+  // closed, or another one opened meanwhile
+  if (viewer.value?.row.id !== row.id) return
+
+  viewer.value = { row, url, state: url ? 'ready' : 'gone' }
+}
+
+function closeViewer() {
+  viewer.value = null
+}
+
+function viewerFailed() {
+  if (viewer.value) viewer.value = { ...viewer.value, url: '', state: 'gone' }
+}
+
+function onKey(event) {
+  if (event.key === 'Escape' && viewer.value) closeViewer()
+}
+
 // waiting for approval or not sent yet: the number on the My uploads tab
 const openCount = computed(() => myUploads.value.filter(isOpen).length)
 
@@ -697,6 +919,7 @@ let pollTimer = null
 onMounted(() => {
   fetchMyUploads()
   setupDecisionAlerts()
+  window.addEventListener('keydown', onKey)
 
   tickTimer = setInterval(() => {
     nowMs.value = Date.now()
@@ -709,6 +932,7 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  window.removeEventListener('keydown', onKey)
   clearInterval(tickTimer)
   clearInterval(pollTimer)
   clearTimeout(refreshTimer)
@@ -781,6 +1005,28 @@ onUnmounted(() => {
 .drop-icon.is-ready {
   background: var(--color-emerald-600);
   box-shadow: 0 6px 20px -6px rgba(16, 185, 129, 0.5);
+}
+
+/* a receipt's small picture in the table (opens View) */
+.thumb {
+  flex: none;
+  width: 2.6rem;
+  height: 2.6rem;
+  overflow: hidden;
+  border-radius: 10px;
+  border: 1px solid var(--hairline);
+  background: var(--surface-sunken);
+}
+
+.thumb:hover,
+.thumb:focus-visible {
+  border-color: rgba(224, 27, 50, 0.55);
+}
+
+.thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 /* "PDF" / "IMG" in front of a file's name */
