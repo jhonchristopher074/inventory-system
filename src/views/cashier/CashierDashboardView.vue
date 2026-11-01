@@ -4,7 +4,14 @@
        owner's and staff's job, and the POS shows each product's stock.
        @container: the layout follows the width of the page area. -->
   <div class="@container">
-    <PageHeader title="Dashboard" :subtitle="`${todayLong} · Your sales at a glance.`">
+    <DashboardHero
+      tone="green"
+      icon="pos"
+      role="Cashier"
+      place="Sales counter"
+      subtitle="Your sales at the counter, at a glance."
+      :now="now"
+    >
       <div class="flex flex-wrap items-center gap-2 sm:gap-3">
         <span v-if="updatedAt" class="text-xs text-zinc-500">Updated {{ updatedText }}</span>
         <button
@@ -18,13 +25,13 @@
         </button>
         <RouterLink
           to="/cashier/pos"
-          class="flex items-center gap-2 rounded-xl bg-red-600 px-4 py-2 text-sm font-bold text-white"
+          class="flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-bold text-white hover:bg-emerald-500"
         >
           <NavIcon name="pos" class="h-4 w-4" />
           Open POS
         </RouterLink>
       </div>
-    </PageHeader>
+    </DashboardHero>
 
     <p v-if="errorMessage" class="mb-4 rounded-xl bg-red-600/20 p-3 text-sm text-red-400" role="alert">
       {{ errorMessage }}
@@ -37,7 +44,7 @@
            opens your Sales History
       ============================================================ -->
       <section class="mb-5 grid grid-cols-2 gap-3 @min-[900px]:grid-cols-5" aria-label="At a glance">
-        <RouterLink to="/cashier/sales" class="kpi tone-red col-span-2">
+        <RouterLink to="/cashier/sales" class="kpi tone-green col-span-2">
           <div class="kpi-top">
             <p class="kpi-label">Your sales today</p>
             <span class="kpi-icon"><NavIcon name="sales" class="h-4 w-4" /></span>
@@ -69,7 +76,7 @@
           <p class="kpi-sub">{{ salesText(month.count) }} in {{ monthName }}</p>
         </RouterLink>
 
-        <RouterLink to="/cashier/sales" class="kpi tone-green">
+        <RouterLink to="/cashier/sales" class="kpi tone-red">
           <div class="kpi-top">
             <p class="kpi-label">Average sale</p>
             <span class="kpi-icon"><NavIcon name="pos" class="h-4 w-4" /></span>
@@ -228,7 +235,7 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { supabase } from '../../lib/supabase'
-import PageHeader from '../../components/PageHeader.vue'
+import DashboardHero from '../../components/DashboardHero.vue'
 import NavIcon from '../../components/NavIcon.vue'
 import SalesLineChart from '../../components/SalesLineChart.vue'
 import { count, dayAndTime, peso } from '../../lib/format'
@@ -315,10 +322,6 @@ onBeforeUnmount(() => document.removeEventListener('visibilitychange', onVisibil
 /* ------------------------------------------------------------------
    Dates
 ------------------------------------------------------------------ */
-const todayLong = computed(() =>
-  now.value.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
-)
-
 const monthName = computed(() => now.value.toLocaleDateString(undefined, { month: 'long' }))
 
 const updatedText = computed(() =>

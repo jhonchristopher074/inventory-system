@@ -149,3 +149,10 @@ export function bestSellers(sales, products, now, { days = 30, limit = 5 } = {})
 
   return list.map((row) => ({ ...row, share: top ? Math.max((row.total / top) * 100, 2) : 0 }))
 }
+
+// A few names for an alert line: "Steel nails, Cement 40kg and 3 more"
+export function namesText(names, shown = 3) {
+  const list = names.filter(Boolean)
+  if (list.length <= shown) return list.join(', ')
+  return `${list.slice(0, shown).join(', ')} and ${count(list.length - shown)} more`
+}

@@ -3,7 +3,14 @@
        with what staff work on: inspections, deliveries and stock.
        @container: the layout follows the width of the page area. -->
   <div class="@container">
-    <PageHeader title="Dashboard" :subtitle="`${todayLong} · Inspections, deliveries and stock to keep an eye on.`">
+    <DashboardHero
+      tone="violet"
+      icon="approval"
+      role="Staff"
+      place="Inspection desk"
+      subtitle="Inspections, deliveries and stock to keep an eye on."
+      :now="now"
+    >
       <div class="flex flex-wrap items-center gap-2 sm:gap-3">
         <span v-if="updatedAt" class="text-xs text-zinc-500">Updated {{ updatedText }}</span>
         <button
@@ -17,13 +24,13 @@
         </button>
         <RouterLink
           :to="CALENDAR"
-          class="flex items-center gap-2 rounded-xl bg-red-600 px-4 py-2 text-sm font-bold text-white"
+          class="flex items-center gap-2 rounded-xl bg-violet-500 px-4 py-2 text-sm font-bold text-white hover:bg-violet-400"
         >
           <NavIcon name="calendar" class="h-4 w-4" />
           Open Calendar
         </RouterLink>
       </div>
-    </PageHeader>
+    </DashboardHero>
 
     <p v-if="errorMessage" class="mb-4 rounded-xl bg-red-600/20 p-3 text-sm text-red-400" role="alert">
       {{ errorMessage }}
@@ -31,11 +38,18 @@
 
     <!-- while refreshing, the numbers stay where they are (dimmed) -->
     <div class="transition-opacity" :class="{ 'opacity-60': refreshing && loaded }">
+      <!-- what's wrong right now (late, empty), in red or amber -->
+      <DashboardAlerts
+        :alerts="alerts"
+        :loaded="loaded"
+        ok-text="All good. Nothing is overdue and stock is fine."
+      />
+
       <!-- ============================================================
            AT A GLANCE: what to inspect now is the big number
       ============================================================ -->
       <section class="mb-5 grid grid-cols-2 gap-3 @min-[900px]:grid-cols-5" aria-label="At a glance">
-        <RouterLink :to="CALENDAR" class="kpi tone-red col-span-2">
+        <RouterLink :to="CALENDAR" class="kpi tone-violet col-span-2">
           <div class="kpi-top">
             <p class="kpi-label">To inspect now</p>
             <span class="kpi-icon"><NavIcon name="approval" class="h-4 w-4" /></span>
@@ -85,14 +99,16 @@
           </p>
         </RouterLink>
 
-        <RouterLink :to="LOW_STOCK_LINK" class="kpi tone-amber">
+        <!-- red when something is out of stock, amber when running low,
+             green when every product has enough -->
+        <RouterLink :to="LOW_STOCK_LINK" class="kpi" :class="stockTile.class">
           <div class="kpi-top">
             <p class="kpi-label">Low stock</p>
-            <span class="kpi-icon"><NavIcon name="inventory" class="h-4 w-4" /></span>
+            <span class="kpi-icon"><NavIcon :name="stockTile.icon" class="h-4 w-4" /></span>
           </div>
 
           <p class="kpi-value">{{ loaded ? count(lowStock.length) : '—' }}</p>
-          <p class="kpi-sub">of {{ count(products.length) }} products</p>
+          <p class="kpi-sub">{{ lowStock.length > 0 || !loaded ? `of ${count(products.length)} products` : 'Every product has enough' }}</p>
 
           <p v-if="outOfStock.length > 0" class="kpi-change text-red-400">
             <NavIcon name="alert" class="h-3.5 w-3.5 shrink-0" />
@@ -169,7 +185,7 @@
 
         <div class="card p-5">
           <p class="eyebrow tone-blue">To do</p>
-          <h2 class="card-title mb-4">Needs your attention</h2>
+          <h2 class="card-title mb-4">Your tasks</h2>
 
           <ul v-if="attention.length > 0" class="space-y-2">
             <li v-for="item in attention" :key="item.key">
@@ -190,7 +206,7 @@
             class="flex items-center gap-3 rounded-2xl bg-emerald-600/10 p-4 text-sm font-bold text-emerald-400"
           >
             <NavIcon name="check" class="h-5 w-5 shrink-0" />
-            All caught up. Nothing needs your attention.
+            All caught up. No tasks right now.
           </p>
 
           <p v-else class="text-sm text-zinc-500">Loading…</p>
@@ -336,11 +352,12 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { supabase } from '../../lib/supabase'
-import PageHeader from '../../components/PageHeader.vue'
+import DashboardHero from '../../components/DashboardHero.vue'
+import DashboardAlerts from '../../components/DashboardAlerts.vue'
 import NavIcon from '../../components/NavIcon.vue'
 import { count } from '../../lib/format'
 import { LOW_STOCK, byStockLevel, isLowStock, isOutOfStock, stockOf } from '../../lib/stock'
-import { dayKey, startOfDay } from '../../lib/dashboardStats'
+import { dayKey, namesText, startOfDay } from '../../lib/dashboardStats'
 
 const CALENDAR = '/staff/calendar'
 // the Calendar's Delivery tab
@@ -452,10 +469,6 @@ onBeforeUnmount(() => document.removeEventListener('visibilitychange', onVisibil
    Dates (this computer's clock, like the rest of the app)
 ------------------------------------------------------------------ */
 const todayKey = computed(() => dayKey(now.value))
-
-const todayLong = computed(() =>
-  now.value.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
-)
 
 const updatedText = computed(() =>
   updatedAt.value ? updatedAt.value.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : ''
@@ -626,32 +639,74 @@ const outOfStock = computed(() => lowStock.value.filter(isOutOfStock))
 const lowStockList = computed(() => lowStock.value.slice(0, 6))
 
 /* ------------------------------------------------------------------
-   Needs your attention
+   Alerts (what's late or empty) and your tasks
 ------------------------------------------------------------------ */
-// red = something is late or empty, amber = soon, blue = a task for you
-// (the same colours as everywhere else)
+// amber = soon, blue = a task for you (the same colours as everywhere else)
 const TONES = {
-  critical: 'bg-red-600/15 text-red-400',
   warning: 'bg-yellow-500/15 text-yellow-400',
   task: 'bg-sky-500/15 text-sky-300',
 }
 
-// most urgent first; only what has something in it
-const attention = computed(() => {
-  const lowOnly = lowStock.value.length - outOfStock.value.length
+const lowOnly = computed(() => lowStock.value.filter((product) => !isOutOfStock(product)))
 
-  return [
-    { key: 'overdue', n: overdue.value.length, label: (n) => `${noun(n, 'inspection')} overdue`, to: CALENDAR, icon: 'alert', tone: 'critical' },
-    { key: 'late', n: deliveriesOverdue.value.length, label: (n) => `${noun(n, 'delivery', 'deliveries')} overdue`, to: DELIVERIES, icon: 'alert', tone: 'critical' },
-    { key: 'out', n: outOfStock.value.length, label: (n) => `${noun(n, 'product')} out of stock`, to: LOW_STOCK_LINK, icon: 'alert', tone: 'critical' },
+// worst first, with the names so you don't have to open the page to know which
+const alerts = computed(() => {
+  const list = []
+
+  if (overdue.value.length > 0) {
+    const n = overdue.value.length
+    list.push({
+      key: 'overdue', level: 'critical', to: CALENDAR, action: 'Calendar',
+      text: `${count(n)} ${noun(n, 'inspection')} overdue`,
+      detail: namesText(overdue.value.map((row) => row.item.name)),
+    })
+  }
+  if (deliveriesOverdue.value.length > 0) {
+    const n = deliveriesOverdue.value.length
+    list.push({
+      key: 'late', level: 'critical', to: DELIVERIES, action: 'Deliveries',
+      text: `${count(n)} ${noun(n, 'delivery', 'deliveries')} overdue`,
+      detail: namesText(deliveriesOverdue.value.map((delivery) => delivery.title || 'Delivery')),
+    })
+  }
+  if (outOfStock.value.length > 0) {
+    const n = outOfStock.value.length
+    list.push({
+      key: 'out', level: 'critical', to: LOW_STOCK_LINK, action: 'See list',
+      text: `${count(n)} ${noun(n, 'product')} out of stock`,
+      detail: namesText(outOfStock.value.map((product) => product.name)),
+    })
+  }
+  if (lowOnly.value.length > 0) {
+    const n = lowOnly.value.length
+    list.push({
+      key: 'low', level: 'warning', to: LOW_STOCK_LINK, action: 'See list',
+      text: `${count(n)} ${noun(n, 'product')} running low`,
+      detail: namesText(lowOnly.value.map((product) => `${product.name} (${count(stockOf(product))})`)),
+    })
+  }
+
+  return list
+})
+
+// the Low stock tile's colour and icon
+const stockTile = computed(() => {
+  if (outOfStock.value.length > 0) return { class: 'tone-red kpi-alert', icon: 'alert' }
+  if (lowStock.value.length > 0) return { class: 'tone-amber', icon: 'inventory' }
+  return { class: 'tone-green', icon: 'check' }
+})
+
+// your tasks, soonest first (problems are in the alerts above, so they
+// aren't listed twice)
+const attention = computed(() =>
+  [
     { key: 'today', n: dueToday.value.length, label: (n) => `${noun(n, 'inspection')} to do today`, to: CALENDAR, icon: 'calendar', tone: 'warning' },
     { key: 'saved', n: mySaved.value.length, label: (n) => `saved ${noun(n, 'inspection')} to submit`, to: CALENDAR, icon: 'approval', tone: 'task' },
     { key: 'arriving', n: deliveriesToday.value.length, label: (n) => `${noun(n, 'delivery', 'deliveries')} arriving today`, to: DELIVERIES, icon: 'inventory', tone: 'task' },
-    { key: 'low', n: lowOnly, label: (n) => `${noun(n, 'product')} running low`, to: LOW_STOCK_LINK, icon: 'inventory', tone: 'warning' },
   ]
     .filter((item) => item.n > 0)
     .map((item) => ({ ...item, label: item.label(item.n) }))
-})
+)
 </script>
 
 <style scoped src="../../styles/dashboard.css"></style>

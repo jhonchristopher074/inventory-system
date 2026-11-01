@@ -3,11 +3,12 @@
     <div class="w-full max-w-md rounded-3xl border border-white/10 bg-zinc-950 p-8 shadow-2xl">
       <div class="flex items-center gap-4">
         <img
-          src="/logo.svg"
+          :src="logoUrl"
           alt=""
           width="56"
           height="56"
-          class="h-14 w-14 shrink-0 drop-shadow-[0_6px_14px_rgba(224,27,50,0.4)]"
+          class="h-14 w-14 shrink-0 object-contain drop-shadow-[0_6px_14px_rgba(224,27,50,0.4)]"
+          @error="showDefaultLogo"
         />
         <div>
           <h1 class="text-3xl font-extrabold text-red-500">10 FIVE 7</h1>
@@ -235,6 +236,7 @@ import { markActivity } from '../../lib/idleLogout'
 import { markLoggedIn } from '../../lib/browserSession'
 import { startPasswordRecovery } from '../../lib/passwordRecovery'
 import { cleanEmail, vClean, withoutInvisible } from '../../lib/cleanText'
+import { logoUrl, showDefaultLogo } from '../../lib/storeLogo'
 
 const router = useRouter()
 const route = useRoute()

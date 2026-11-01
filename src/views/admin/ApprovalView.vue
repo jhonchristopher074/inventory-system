@@ -8,15 +8,15 @@
     <!-- TABS: one list at a time; the number is what's waiting in each.
          The open tab is in the address (?tab=inspections), so a refresh
          keeps it and a notification opens the right one. -->
-    <div class="-mx-1 mb-5 flex gap-2 overflow-x-auto px-1 pb-1 sm:mb-6 sm:gap-3">
+    <div class="mb-4 inline-flex max-w-full gap-1 overflow-x-auto rounded-2xl border border-white/5 bg-zinc-900 p-1">
       <button
         v-for="tab in tabs"
         :key="tab.key"
         type="button"
-        class="flex shrink-0 items-center gap-2 whitespace-nowrap rounded-2xl px-4 py-2.5 text-sm font-bold transition sm:px-5 sm:py-3 sm:text-base"
+        class="flex shrink-0 items-center gap-2 whitespace-nowrap rounded-xl px-3.5 py-2 text-sm font-bold transition"
         :class="activeTab === tab.key
           ? 'bg-red-600 text-white'
-          : 'bg-zinc-900 text-zinc-300 hover:bg-zinc-800 hover:text-white'"
+          : 'text-zinc-400 hover:bg-white/5 hover:text-white'"
         :aria-pressed="activeTab === tab.key"
         :title="tab.hint"
         @click="openTab(tab.key)"
@@ -26,7 +26,7 @@
         <span class="hidden sm:inline">{{ tab.label }}</span>
         <span
           v-if="tab.count > 0"
-          class="grid h-6 min-w-6 place-items-center rounded-full px-1.5 text-xs font-extrabold"
+          class="grid h-5 min-w-5 place-items-center rounded-full px-1.5 text-[0.7rem] font-extrabold"
           :class="activeTab === tab.key ? 'bg-white text-red-600' : 'bg-red-600 text-white'"
         >
           {{ count(tab.count) }}
@@ -36,36 +36,25 @@
 
     <!-- ============================================================
          SUPPLIER UPLOADS TAB: receipts to approve, then what happens to
-         the approved ones (in line to be sent, new prices, not sent)
+         the approved ones (in line to be sent, new prices, not sent).
+         Each list is one card with a short row per receipt; the longer
+         explanations are in the hover hints.
     ============================================================ -->
-    <section v-if="activeTab === 'uploads'" aria-label="Supplier uploads">
-      <p v-if="supplierLoading" class="text-sm text-zinc-400">
-        Loading supplier uploads...
-      </p>
+    <section v-if="activeTab === 'uploads'" aria-label="Supplier uploads" class="space-y-4">
+      <p v-if="supplierError" class="msg msg-error" role="alert">{{ supplierError }}</p>
+      <p v-if="supplierSuccess" class="msg msg-ok">{{ supplierSuccess }}</p>
 
-      <p v-if="supplierError" class="mb-4 rounded-xl bg-red-600/20 p-4 text-red-400">
-        {{ supplierError }}
-      </p>
+      <div class="list-card border-white/10">
+        <div class="list-head">
+          <h2 class="list-title">Receipts to approve</h2>
+          <span v-if="supplierUploads.length > 0" class="list-count bg-red-600/20 text-red-400">{{ count(supplierUploads.length) }}</span>
+        </div>
 
-      <p v-if="supplierSuccess" class="mb-4 rounded-xl bg-emerald-600/20 p-4 text-emerald-400">
-        {{ supplierSuccess }}
-      </p>
+        <p v-if="supplierLoading && supplierUploads.length === 0" class="list-empty">Loading…</p>
+        <p v-else-if="supplierUploads.length === 0" class="list-empty">Nothing to approve.</p>
 
-      <div
-        v-if="!supplierLoading && supplierUploads.length === 0"
-        class="mb-8 rounded-[24px] border border-white/10 bg-zinc-900 p-5 text-zinc-400"
-      >
-        No pending supplier uploads.
-      </div>
-
-      <div v-else class="mb-8 space-y-5">
-        <div
-          v-for="upload in supplierUploads"
-          :key="upload.id"
-          class="rounded-[24px] border bg-zinc-900 p-5"
-          :class="fileMissing(upload) ? 'border-amber-500/40' : 'border-white/10'"
-        >
-          <div class="flex items-start gap-4">
+        <ul v-else class="divide-y divide-white/5">
+          <li v-for="upload in supplierUploads" :key="upload.id" class="row">
             <!-- the receipt's picture (opens it), "PDF", or why it can't be shown -->
             <a
               v-if="fileUrl(upload) && isImage(upload.file_name) && !brokenThumbs.has(upload.id)"
@@ -78,296 +67,267 @@
               <img
                 :src="fileUrl(upload)"
                 :alt="upload.file_name"
-                class="h-20 w-20 rounded-xl object-cover"
+                class="thumb object-cover"
                 @error="markBroken(upload)"
               />
             </a>
-            <div
+            <span
               v-else
-              class="flex h-20 w-20 flex-shrink-0 flex-col items-center justify-center gap-1 rounded-xl px-1 text-center text-xs font-bold"
+              class="thumb text-[0.65rem] font-bold"
               :class="fileMissing(upload) ? 'bg-amber-500/10 text-amber-300' : 'bg-zinc-800 text-zinc-400'"
             >
-              <template v-if="fileMissing(upload)">
-                <NavIcon name="alert" class="h-5 w-5" />
-                File missing
-              </template>
+              <NavIcon v-if="fileMissing(upload)" name="alert" class="h-4 w-4" />
               <template v-else-if="!isImage(upload.file_name)">PDF</template>
-              <template v-else-if="brokenThumbs.has(upload.id)">No preview</template>
+              <template v-else-if="brokenThumbs.has(upload.id)">—</template>
               <template v-else>…</template>
-            </div>
+            </span>
 
-            <div class="min-w-0 flex-1">
+            <div class="row-main">
               <a
                 v-if="fileUrl(upload)"
                 :href="fileUrl(upload)"
                 target="_blank"
                 rel="noopener"
-                class="block truncate text-lg font-bold text-white hover:text-red-400"
+                class="row-name text-white hover:text-red-400"
               >
                 {{ upload.file_name }}
               </a>
-              <p v-else class="truncate text-lg font-bold text-white">{{ upload.file_name }}</p>
+              <p v-else class="row-name text-white">{{ upload.file_name }}</p>
 
-              <p class="mt-1 text-sm text-zinc-400">
-                From: {{ upload.supplier_name || upload.supplier_email || 'Supplier' }}
+              <!-- the file left storage before it was approved (approving needs it) -->
+              <p
+                v-if="fileMissing(upload)"
+                class="row-sub font-bold text-amber-300"
+                title="The file is no longer in storage, most likely taken by the receipt scanner before you approved it, so it can't be shown or approved. Reject it to clear it from this list."
+              >
+                File missing · reject to clear it
               </p>
-
-              <p class="mt-1 text-sm text-zinc-400">
-                Date: {{ formatDate(upload.created_at) }}
+              <p v-else class="row-sub text-zinc-500">
+                {{ upload.supplier_name || upload.supplier_email || 'Supplier' }} · {{ formatDate(upload.created_at) }}
               </p>
             </div>
-          </div>
 
-          <!-- the file left storage before it was approved (approving needs it) -->
-          <p v-if="fileMissing(upload)" class="mt-4 rounded-xl bg-amber-500/10 p-3 text-sm text-amber-200">
-            This receipt's file is no longer in storage, so it can't be shown or approved. It was
-            taken before you approved it, most likely by the receipt scanner. Reject it to clear
-            it from this list.
-          </p>
-
-          <div class="mt-5 flex gap-3">
-            <button
-              class="rounded-2xl bg-emerald-600 px-6 py-3 font-bold text-white hover:bg-emerald-700 disabled:opacity-50"
-              :disabled="isBusy(upload.id) || fileMissing(upload)"
-              :title="fileMissing(upload) ? 'The receipt\'s file is missing' : ''"
-              @click="openReview(upload, 'approve')"
-            >
-              {{ isBusy(upload.id) ? 'Working...' : 'Approve' }}
-            </button>
-
-            <button
-              class="rounded-2xl bg-red-600 px-6 py-3 font-bold text-white hover:bg-red-700 disabled:opacity-50"
-              :disabled="isBusy(upload.id)"
-              @click="rejectSupplierUpload(upload)"
-            >
-              Reject
-            </button>
-          </div>
-        </div>
+            <div class="row-buttons">
+              <button
+                type="button"
+                class="btn-sm btn-approve"
+                :disabled="isBusy(upload.id) || fileMissing(upload)"
+                :title="fileMissing(upload) ? 'The file is missing' : 'Choose the profit and send it to the receipt scanner'"
+                @click="openReview(upload, 'approve')"
+              >
+                {{ isBusy(upload.id) ? 'Working…' : 'Approve' }}
+              </button>
+              <button
+                type="button"
+                class="btn-sm btn-reject"
+                :disabled="isBusy(upload.id)"
+                @click="rejectSupplierUpload(upload)"
+              >
+                Reject
+              </button>
+            </div>
+          </li>
+        </ul>
       </div>
 
       <!-- Approved receipts waiting their turn to be sent to n8n.
            They are sent one at a time so each gets its own profit percentage. -->
-      <div
-        v-if="sendQueue.length > 0"
-        class="mb-8 rounded-[24px] border border-sky-500/30 bg-zinc-900 p-5"
-      >
-        <h2 class="mb-1 text-lg font-bold text-white">Waiting to be sent to the scanner</h2>
-        <p class="mb-3 text-sm text-zinc-400">
-          Approved receipts are sent one at a time, about {{ SEND_GAP_MS / 1000 }} seconds
-          apart, so every receipt gets its own profit percentage. Keep this page open
-          until the list is empty.
-        </p>
-
-        <ul class="space-y-2">
-          <li
-            v-for="(item, index) in sendQueue"
-            :key="item.upload.id"
-            class="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-zinc-800 px-4 py-3 text-sm"
+      <div v-if="sendQueue.length > 0" class="list-card border-sky-500/25">
+        <div class="list-head">
+          <h2 class="list-title">Sending to the scanner</h2>
+          <span class="list-count bg-sky-500/15 text-sky-300">{{ count(sendQueue.length) }}</span>
+          <span
+            class="list-hint"
+            :title="`Approved receipts are sent one at a time, about ${SEND_GAP_MS / 1000} seconds apart, so every receipt gets its own profit percentage.`"
           >
-            <span class="min-w-0 truncate font-bold text-white">
-              {{ item.upload.file_name }}
-              <span class="font-normal text-zinc-400">· {{ item.percent }}% profit</span>
-            </span>
-            <span class="shrink-0 font-bold text-sky-300">
+            Keep this page open
+          </span>
+        </div>
+
+        <ul class="divide-y divide-white/5">
+          <li v-for="(item, index) in sendQueue" :key="item.upload.id" class="row">
+            <div class="row-main">
+              <p class="row-name text-white">{{ item.upload.file_name }}</p>
+              <p class="row-sub text-zinc-500">{{ item.percent }}% profit</p>
+            </div>
+            <span class="shrink-0 text-sm font-bold text-sky-300">
               <template v-if="index > 0">{{ index }} ahead</template>
-              <template v-else-if="secondsToNext > 0">sends in {{ secondsToNext }}s</template>
-              <template v-else>sending now…</template>
+              <template v-else-if="secondsToNext > 0">in {{ secondsToNext }}s</template>
+              <template v-else>sending…</template>
             </span>
           </li>
         </ul>
       </div>
 
       <!-- ============================================================
-           NEW PRICES TO CHECK
+           PRICES TO CHECK
            Shown after n8n has finished and the products table is updated:
            every product the receipt added or restocked, with its price.
       ============================================================ -->
-      <div v-if="reviewGroups.length > 0 || itemsError || itemsSuccess" class="mb-8">
-        <h2 class="mb-1 text-lg font-bold text-white">New prices to check</h2>
-        <p class="mb-3 text-sm text-zinc-400">
-          The receipt scanner finished. Open a receipt, check the price of each product,
-          change any you want, then press Confirm.
-        </p>
+      <p v-if="itemsError" class="msg msg-error" role="alert">{{ itemsError }}</p>
+      <p v-if="itemsSuccess" class="msg msg-ok">{{ itemsSuccess }}</p>
 
-        <p v-if="itemsError" class="mb-3 rounded-xl bg-red-600/20 p-4 text-red-400">
-          {{ itemsError }}
-        </p>
-        <p v-if="itemsSuccess" class="mb-3 rounded-xl bg-emerald-600/20 p-4 text-emerald-400">
-          {{ itemsSuccess }}
-        </p>
-
-        <!-- one short card per receipt; "Open" shows its prices in a window.
-             Products the scanner added without an approved receipt get their
-             own warning card, so they can't be mistaken for a receipt above. -->
-        <div
-          v-for="group in reviewGroups"
-          :key="group.key"
-          class="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-[24px] border bg-zinc-900 p-4 sm:p-5"
-          :class="group.linked ? 'border-emerald-500/30' : 'border-amber-500/40'"
-        >
-          <div v-if="group.linked" class="min-w-0 flex-1 basis-48">
-            <p class="truncate font-bold text-white">{{ group.fileName || `Receipt #${group.key}` }}</p>
-            <p class="mt-1 text-sm text-zinc-400">
-              {{ group.items.length }} product{{ group.items.length === 1 ? '' : 's' }} to check
-              · Profit chosen: {{ group.percent != null ? group.percent + '%' : '—' }}
-              <span v-if="group.waiting" class="font-bold text-sky-300">· Not in stock yet</span>
-            </p>
-          </div>
-
-          <div v-else class="min-w-0 flex-1 basis-48">
-            <p class="flex items-center gap-2 font-bold text-amber-300">
-              <NavIcon name="alert" class="h-4 w-4 shrink-0" />
-              {{ group.waiting ? 'Not from a receipt you approved' : 'Added without your approval' }}
-            </p>
-            <p v-if="group.waiting" class="mt-1 text-sm text-zinc-400">
-              {{ group.items.length }} product{{ group.items.length === 1 ? '' : 's' }} the receipt
-              scanner read on its own. Nothing is in stock yet: open it to check, or reject it.
-            </p>
-            <p v-else class="mt-1 text-sm text-zinc-400">
-              {{ group.items.length }} product{{ group.items.length === 1 ? '' : 's' }} the receipt
-              scanner added on its own, not from a receipt you approved. No profit was added to
-              them: check their prices.
-            </p>
-          </div>
-
-          <button
-            class="rounded-2xl bg-emerald-600 px-6 py-3 font-bold text-white hover:bg-emerald-700"
-            @click="openReviewKey = group.key"
+      <div v-if="reviewGroups.length > 0" class="list-card border-white/10">
+        <div class="list-head">
+          <h2 class="list-title">Prices to check</h2>
+          <span class="list-count bg-emerald-600/15 text-emerald-400">{{ count(reviewGroups.length) }}</span>
+          <span
+            class="list-hint"
+            title="The receipt scanner finished. Open a receipt, check the price of each product, then confirm."
           >
-            Open
-          </button>
+            Open, check, confirm
+          </span>
         </div>
+
+        <!-- one row per receipt; "Open" shows its prices in a window.
+             Products the scanner added without an approved receipt are
+             marked in amber, so they can't be mistaken for a receipt. -->
+        <ul class="divide-y divide-white/5">
+          <li v-for="group in reviewGroups" :key="group.key" class="row">
+            <span
+              class="thumb"
+              :class="group.linked ? 'bg-emerald-600/15 text-emerald-400' : 'bg-amber-500/10 text-amber-300'"
+            >
+              <NavIcon :name="group.linked ? 'tag' : 'alert'" class="h-4 w-4" />
+            </span>
+
+            <div v-if="group.linked" class="row-main">
+              <p class="row-name text-white">{{ group.fileName || `Receipt #${group.key}` }}</p>
+              <p class="row-sub text-zinc-500">
+                {{ plural(group.items.length, 'product') }}
+                · {{ group.percent != null ? group.percent + '% profit' : 'no profit chosen' }}
+                <span v-if="group.waiting" class="font-bold text-sky-300">· not in stock yet</span>
+              </p>
+            </div>
+
+            <div
+              v-else
+              class="row-main"
+              :title="group.waiting
+                ? 'Products the receipt scanner read on its own. Nothing is in stock yet: open it to check, or reject it.'
+                : 'Products the receipt scanner added on its own, not from a receipt you approved. No profit was added to them: check their prices.'"
+            >
+              <p class="row-name text-amber-300">
+                {{ group.waiting ? 'Not from a receipt you approved' : 'Added without your approval' }}
+              </p>
+              <p class="row-sub text-zinc-500">
+                {{ plural(group.items.length, 'product') }} · {{ group.waiting ? 'not in stock yet' : 'no profit added' }}
+              </p>
+            </div>
+
+            <div class="row-buttons">
+              <button type="button" class="btn-sm btn-approve" @click="openReviewKey = group.key">Open</button>
+            </div>
+          </li>
+        </ul>
       </div>
 
       <!-- Approved, but copying to the Approved Receipt bucket failed,
            so n8n never received them. Only shown when there are any. -->
-      <div v-if="unsentVisible.length > 0" class="mb-8">
-        <h2 class="mb-1 text-lg font-bold text-white">Approved but not sent</h2>
-        <p class="mb-3 text-sm text-zinc-400">
-          These were approved, but sending them to the receipt scanner failed, so it never
-          received them. Press "Send again" to try once more.
-        </p>
-
-        <div class="space-y-3">
-          <div
-            v-for="upload in unsentVisible"
-            :key="upload.id"
-            class="flex flex-wrap items-center justify-between gap-4 rounded-[24px] border border-amber-500/30 bg-zinc-900 p-5"
+      <div v-if="unsentVisible.length > 0" class="list-card border-amber-500/30">
+        <div class="list-head">
+          <h2 class="list-title">Approved but not sent</h2>
+          <span class="list-count bg-amber-500/15 text-amber-300">{{ count(unsentVisible.length) }}</span>
+          <span
+            class="list-hint"
+            title="These were approved, but sending them to the receipt scanner failed, so it never received them."
           >
-            <div class="min-w-0">
+            Sending failed
+          </span>
+        </div>
+
+        <ul class="divide-y divide-white/5">
+          <li v-for="upload in unsentVisible" :key="upload.id" class="row">
+            <div class="row-main">
               <a
                 v-if="fileUrl(upload)"
                 :href="fileUrl(upload)"
                 target="_blank"
                 rel="noopener"
-                class="block truncate font-bold text-white hover:text-red-400"
+                class="row-name text-white hover:text-red-400"
               >
                 {{ upload.file_name }}
               </a>
-              <p v-else class="truncate font-bold text-white">{{ upload.file_name }}</p>
+              <p v-else class="row-name text-white">{{ upload.file_name }}</p>
 
-              <p class="mt-1 text-sm text-zinc-400">
-                From: {{ upload.supplier_name || upload.supplier_email || 'Supplier' }}
-                · Approved: {{ formatDate(upload.reviewed_at) }}
+              <p v-if="fileMissing(upload)" class="row-sub font-bold text-amber-300">
+                File missing · it can't be sent
               </p>
-
-              <p v-if="fileMissing(upload)" class="mt-1 text-sm font-bold text-amber-300">
-                Its file is no longer in storage, so it can't be sent.
+              <p v-else class="row-sub text-zinc-500">
+                {{ upload.supplier_name || upload.supplier_email || 'Supplier' }} · approved {{ formatDate(upload.reviewed_at) }}
               </p>
             </div>
 
-            <button
-              class="shrink-0 rounded-2xl bg-amber-500 px-5 py-3 font-bold text-black hover:bg-amber-400 disabled:opacity-50"
-              :disabled="isBusy(upload.id) || fileMissing(upload)"
-              @click="openReview(upload, 'send')"
-            >
-              {{ isBusy(upload.id) ? 'In line...' : 'Send again' }}
-            </button>
-          </div>
-        </div>
+            <div class="row-buttons">
+              <button
+                type="button"
+                class="btn-sm bg-amber-500 text-black hover:bg-amber-400"
+                :disabled="isBusy(upload.id) || fileMissing(upload)"
+                @click="openReview(upload, 'send')"
+              >
+                {{ isBusy(upload.id) ? 'In line…' : 'Send again' }}
+              </button>
+            </div>
+          </li>
+        </ul>
       </div>
     </section>
 
     <!-- ============================================================
-         INSPECTION APPROVALS TAB
+         INSPECTION APPROVALS TAB: one row per inspection the staff
+         submitted (every one here is submitted, so that isn't repeated)
     ============================================================ -->
-    <section v-else aria-label="Inspection approvals">
-      <p v-if="loading" class="text-sm text-zinc-400">
-        Loading approvals...
-      </p>
+    <section v-else aria-label="Inspection approvals" class="space-y-4">
+      <p v-if="errorMessage" class="msg msg-error" role="alert">{{ errorMessage }}</p>
+      <p v-if="successMessage" class="msg msg-ok">{{ successMessage }}</p>
 
-      <p
-        v-if="errorMessage"
-        class="mb-4 rounded-xl bg-red-600/20 p-4 text-red-400"
-      >
-        {{ errorMessage }}
-      </p>
-
-      <p
-        v-if="successMessage"
-        class="mb-4 rounded-xl bg-emerald-600/20 p-4 text-emerald-400"
-      >
-        {{ successMessage }}
-      </p>
-
-      <div
-        v-if="!loading && approvals.length === 0"
-        class="rounded-[24px] border border-white/10 bg-zinc-900 p-5 text-zinc-400"
-      >
-        No pending inspection approvals.
-      </div>
-
-      <div v-else class="space-y-5">
-        <div
-          v-for="approval in approvals"
-          :key="approval.id"
-          class="rounded-[24px] border border-white/10 bg-zinc-900 p-5"
-        >
-          <h2 class="text-2xl font-bold text-white">
-            {{ approval.product_name }}
-          </h2>
-
-          <p class="mt-2 text-sm text-zinc-400">
-            Requested by: {{ approval.requested_by || 'Staff' }}
-          </p>
-
-          <p class="mt-1 text-sm text-zinc-400">
-            Date: {{ formatDate(approval.created_at) }}
-          </p>
-
-          <div class="mt-4 flex flex-wrap gap-2">
-            <span class="rounded-full bg-emerald-600/20 px-3 py-1 text-xs font-bold text-emerald-400">
-              Approved: {{ count(approval.approved_qty) }}
-            </span>
-
-            <span class="rounded-full bg-red-600/20 px-3 py-1 text-xs font-bold text-red-400">
-              Return: {{ count(approval.return_qty) }}
-            </span>
-
-            <span class="rounded-full bg-yellow-500/20 px-3 py-1 text-xs font-bold text-yellow-400">
-              Submitted
-            </span>
-          </div>
-
-          <div class="mt-5 flex gap-3">
-            <button
-              class="rounded-2xl bg-emerald-600 px-6 py-3 font-bold text-white hover:bg-emerald-700 disabled:opacity-50"
-              :disabled="decidingIds.has(approval.id)"
-              @click="approveInspection(approval)"
-            >
-              {{ decidingIds.has(approval.id) ? 'Working...' : 'Approve' }}
-            </button>
-
-            <button
-              class="rounded-2xl bg-red-600 px-6 py-3 font-bold text-white hover:bg-red-700 disabled:opacity-50"
-              :disabled="decidingIds.has(approval.id)"
-              @click="rejectInspection(approval)"
-            >
-              Reject
-            </button>
-          </div>
+      <div class="list-card border-white/10">
+        <div class="list-head">
+          <h2 class="list-title">Inspections to approve</h2>
+          <span v-if="approvals.length > 0" class="list-count bg-red-600/20 text-red-400">{{ count(approvals.length) }}</span>
         </div>
+
+        <p v-if="loading && approvals.length === 0" class="list-empty">Loading…</p>
+        <p v-else-if="approvals.length === 0" class="list-empty">Nothing to approve.</p>
+
+        <ul v-else class="divide-y divide-white/5">
+          <li v-for="approval in approvals" :key="approval.id" class="row">
+            <span class="thumb bg-white/5 text-zinc-400">
+              <NavIcon name="approval" class="h-4 w-4" />
+            </span>
+
+            <div class="row-main">
+              <p class="row-name text-white">{{ approval.product_name }}</p>
+              <p class="row-sub text-zinc-500">{{ approval.requested_by || 'Staff' }} · {{ formatDate(approval.created_at) }}</p>
+            </div>
+
+            <div class="flex shrink-0 gap-1.5">
+              <span class="chip-sm bg-emerald-600/15 text-emerald-400">{{ count(approval.approved_qty) }} approved</span>
+              <span v-if="Number(approval.return_qty) > 0" class="chip-sm bg-red-600/15 text-red-400">
+                {{ count(approval.return_qty) }} return
+              </span>
+            </div>
+
+            <div class="row-buttons">
+              <button
+                type="button"
+                class="btn-sm btn-approve"
+                :disabled="decidingIds.has(approval.id)"
+                @click="approveInspection(approval)"
+              >
+                {{ decidingIds.has(approval.id) ? 'Working…' : 'Approve' }}
+              </button>
+              <button
+                type="button"
+                class="btn-sm btn-reject"
+                :disabled="decidingIds.has(approval.id)"
+                @click="rejectInspection(approval)"
+              >
+                Reject
+              </button>
+            </div>
+          </li>
+        </ul>
       </div>
     </section>
 
@@ -1734,7 +1694,7 @@ function formatDate(date) {
 
   return new Date(date).toLocaleDateString(undefined, {
     year: 'numeric',
-    month: 'long',
+    month: 'short',
     day: 'numeric',
   })
 }
@@ -1780,3 +1740,159 @@ onUnmounted(() => {
   if (uploadsChannel) supabase.removeChannel(uploadsChannel)
 })
 </script>
+
+<style scoped>
+/* The lists on this page: one card per list, a short row per item.
+   Colours are left to the Tailwind classes in the markup: these rules
+   aren't in a CSS layer, so a colour here would beat any bg-* / text-*
+   class on the same element. */
+.list-card {
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+  border-width: 1px;
+  background: var(--surface);
+}
+
+.list-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  border-bottom: 1px solid var(--hairline-soft);
+  padding: 0.8rem 1rem;
+}
+
+.list-title {
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: #fff;
+}
+
+.list-count {
+  display: grid;
+  place-items: center;
+  min-width: 1.4rem;
+  height: 1.4rem;
+  border-radius: 999px;
+  padding: 0 0.4rem;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+/* a short hint on the right; the full explanation is its hover text */
+.list-hint {
+  margin-left: auto;
+  font-size: 0.75rem;
+  color: var(--color-zinc-500);
+  cursor: help;
+}
+
+.list-empty {
+  padding: 1rem;
+  font-size: 0.875rem;
+  color: var(--color-zinc-500);
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem 0.85rem;
+  padding: 0.7rem 1rem;
+}
+
+.thumb {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 0.65rem;
+}
+
+.row-main {
+  min-width: 0;
+  flex: 1 1 12rem;
+}
+
+.row-name {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.92rem;
+  font-weight: 700;
+}
+
+.row-sub {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.75rem;
+}
+
+.row-buttons {
+  display: flex;
+  flex: none;
+  gap: 0.4rem;
+  margin-left: auto;
+}
+
+.chip-sm {
+  white-space: nowrap;
+  border-radius: 999px;
+  padding: 0.15rem 0.55rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.btn-sm {
+  border-radius: 0.7rem;
+  padding: 0.45rem 0.9rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.btn-sm:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-approve {
+  background: var(--color-emerald-600);
+  color: #fff;
+}
+
+.btn-approve:not(:disabled):hover {
+  background: var(--color-emerald-500);
+}
+
+/* quieter than Approve until you point at it */
+.btn-reject {
+  border: 1px solid rgba(224, 27, 50, 0.35);
+  color: var(--color-red-400);
+}
+
+.btn-reject:not(:disabled):hover {
+  border-color: var(--brand);
+  background: var(--brand);
+  color: #fff;
+}
+
+.msg {
+  border-radius: 0.8rem;
+  padding: 0.7rem 0.9rem;
+  font-size: 0.875rem;
+}
+
+.msg-error {
+  background: rgba(224, 27, 50, 0.15);
+  color: var(--color-red-400);
+}
+
+.msg-ok {
+  background: rgba(5, 150, 105, 0.15);
+  color: var(--color-emerald-400);
+}
+</style>

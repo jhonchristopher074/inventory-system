@@ -12,7 +12,7 @@
       <aside class="app-side">
         <div class="side-top">
           <div class="brand-card">
-            <img src="/logo.svg" alt="" class="brand-mark" width="40" height="40" />
+            <img :src="logoUrl" alt="" class="brand-mark" width="40" height="40" @error="showDefaultLogo" />
             <div class="brand-name">
               <h1 class="brand-title">10 <span>FIVE</span> 7</h1>
               <p class="brand-sub">Hardware</p>
@@ -21,7 +21,7 @@
           </div>
 
           <!-- the sidebar folded to icons shows the logo only -->
-          <img src="/logo.svg" alt="10 FIVE 7 Hardware" class="side-mark" width="32" height="32" />
+          <img :src="logoUrl" alt="10 FIVE 7 Hardware" class="side-mark" width="32" height="32" @error="showDefaultLogo" />
 
           <button
             class="side-toggle"
@@ -161,6 +161,7 @@ import { watchIdle, IDLE_MESSAGE } from './lib/idleLogout'
 import { confirmLeave } from './lib/leaveGuard'
 import { currentRole } from './router'
 import { roleLabel } from './lib/roles'
+import { loadStoreLogo, logoUrl, showDefaultLogo } from './lib/storeLogo'
 
 const router = useRouter()
 const route = useRoute()
@@ -205,6 +206,9 @@ function applyWidth() {
   if (userChoseState) return
   collapsed.value = window.innerWidth < NARROW
 }
+
+// the Owner's logo, if one was uploaded (lib/storeLogo.js)
+loadStoreLogo()
 
 onMounted(() => {
   let saved

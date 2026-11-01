@@ -10,6 +10,9 @@
       <!-- ADD USER: the server generates a one-time temporary password.
            Phones: behind a button, so the user list isn't pushed down. -->
       <div class="lg:sticky lg:top-5">
+        <!-- the store's logo: change it (crop, then your password) -->
+        <StoreLogoCard class="mb-4" />
+
         <button
           type="button"
           class="phone-only w-full rounded-2xl bg-red-600 py-3 font-bold text-white hover:bg-red-700"
@@ -275,6 +278,7 @@ import CreateEmployeeForm from '../../components/CreateEmployeeForm.vue'
 import AdminPasswordPrompt from '../../components/AdminPasswordPrompt.vue'
 import TempPasswordReveal from '../../components/TempPasswordReveal.vue'
 import ChangeOwnPasswordModal from '../../components/ChangeOwnPasswordModal.vue'
+import StoreLogoCard from '../../components/StoreLogoCard.vue'
 
 const showOwnPassword = ref(false)
 

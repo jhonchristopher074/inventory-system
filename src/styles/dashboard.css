@@ -49,6 +49,19 @@ a.kpi:focus-visible {
     0 14px 32px -16px color-mix(in srgb, var(--tone, var(--brand)) 45%, transparent);
 }
 
+/* a tile showing a problem (e.g. something out of stock): border, glow
+   and number in its colour, so it stands out from the others */
+.kpi-alert {
+  border-color: color-mix(in srgb, var(--tone, var(--brand)) 55%, transparent);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--tone, var(--brand)) 22%, transparent),
+    0 12px 30px -14px color-mix(in srgb, var(--tone, var(--brand)) 70%, transparent);
+}
+
+.kpi-alert .kpi-value {
+  color: var(--tone, var(--brand-bright));
+}
+
 .kpi-top {
   display: flex;
   align-items: center;
