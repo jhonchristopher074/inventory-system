@@ -1,194 +1,199 @@
 <template>
-  <div class="flex min-h-screen items-center justify-center bg-black px-4 text-white">
-    <div class="w-full max-w-md rounded-3xl border border-white/10 bg-zinc-950 p-8 shadow-2xl">
-      <div class="flex items-center gap-4">
-        <img
-          :src="logoUrl"
-          alt=""
-          width="56"
-          height="56"
-          class="h-14 w-14 shrink-0 object-contain drop-shadow-[0_6px_14px_rgba(224,27,50,0.4)]"
-          @error="showDefaultLogo"
-        />
-        <div>
-          <h1 class="text-3xl font-extrabold text-red-500">10 FIVE 7</h1>
-          <p class="text-lg font-bold tracking-wide text-white">HARDWARE</p>
-        </div>
+  <!-- Two halves on computers: the store's panel on the left, the form on
+       the right. Phones and narrow windows: only the form, with the logo
+       above it. -->
+  <div class="login-page">
+    <!-- LEFT: what this is and whose it is -->
+    <section class="brand">
+      <div class="wordmark">
+        <img :src="logoUrl" alt="" width="52" height="52" class="wordmark-logo" @error="showDefaultLogo" />
+        <div class="wordmark-text">10 <span>FIVE</span> 7<small>HARDWARE</small></div>
       </div>
 
-      <p class="mt-2 text-zinc-400">
-        {{ mode === 'forgot' ? 'Reset your password' : 'Login to Inventory Management System' }}
-      </p>
+      <div class="pitch">
+        <h2>Everything the store runs on, in one place.</h2>
+        <p>Stock, sales at the counter, inspections and supplier receipts for the 10 FIVE 7 team.</p>
+        <ul class="ticks">
+          <li><i aria-hidden="true">✓</i> Live stock with low-stock alerts</li>
+          <li><i aria-hidden="true">✓</i> Point of sale and sales history</li>
+          <li><i aria-hidden="true">✓</i> Supplier receipts checked before they count</li>
+        </ul>
+      </div>
 
-      <!-- FORGOT PASSWORD, step 2: the 6-digit code from the email -->
-      <form v-if="mode === 'forgot' && resetSent" @submit.prevent="verifyCode" class="mt-8 space-y-4">
-        <p class="text-sm text-zinc-400">
-          We sent a code to <b class="text-white">{{ cleanEmail(resetEmail) }}</b>.
-          Enter it below (or use the link in the email).
-        </p>
+      <p class="legal">© {{ year }} 10 FIVE 7 Hardware · For authorized staff only</p>
+    </section>
 
-        <div>
-          <label class="text-sm text-zinc-400" for="reset-code">Code</label>
-
-          <input
-            id="reset-code"
-            ref="resetCodeInput"
-            v-model="resetCode"
-            inputmode="numeric"
-            autocomplete="one-time-code"
-            maxlength="10"
-            required
-            class="mt-2 w-full rounded-2xl border border-white/10 bg-black px-4 py-3 text-center text-2xl font-bold tracking-[0.5em] outline-none focus:border-red-500"
-            placeholder="••••••"
-            @input="resetCode = resetCode.replace(/\D/g, ''); errorMessage = ''"
-          />
+    <!-- RIGHT: the form -->
+    <section class="side">
+      <div class="form-box">
+        <!-- narrow screens: the left panel is hidden, so the logo goes here -->
+        <div class="wordmark wordmark-small">
+          <img :src="logoUrl" alt="" width="44" height="44" class="wordmark-logo" @error="showDefaultLogo" />
+          <div class="wordmark-text">10 <span>FIVE</span> 7<small>HARDWARE</small></div>
         </div>
 
-        <p
-          v-if="errorMessage"
-          class="rounded-xl bg-red-500/10 p-3 text-sm text-red-400"
-        >
-          {{ errorMessage }}
-        </p>
+        <!-- FORGOT PASSWORD, step 2: the 6-digit code from the email -->
+        <template v-if="mode === 'forgot' && resetSent">
+          <h1 class="title">Enter the code</h1>
+          <p class="sub">
+            We sent a code to <b>{{ cleanEmail(resetEmail) }}</b>. Enter it below (or use the link in the email).
+          </p>
 
-        <button
-          type="submit"
-          :disabled="verifying || resetCode.length < 6"
-          class="w-full rounded-2xl bg-red-600 py-3 font-bold transition hover:bg-red-700 disabled:opacity-50"
-        >
-          {{ verifying ? 'Checking...' : 'Continue' }}
-        </button>
+          <form @submit.prevent="verifyCode">
+            <div class="field">
+              <label for="reset-code">Code</label>
+              <input
+                id="reset-code"
+                ref="resetCodeInput"
+                v-model="resetCode"
+                class="code-input"
+                inputmode="numeric"
+                autocomplete="one-time-code"
+                maxlength="10"
+                required
+                placeholder="••••••"
+                @input="resetCode = resetCode.replace(/\D/g, ''); errorMessage = ''"
+              />
+            </div>
 
-        <div class="flex justify-between gap-3 text-sm font-semibold">
-          <button type="button" class="text-zinc-400 hover:text-red-400" @click="resetSent = false">
-            ← Change email
-          </button>
-          <button
-            type="button"
-            class="text-zinc-400 hover:text-red-400 disabled:opacity-50"
-            :disabled="sendingReset"
-            @click="forgotPassword"
-          >
-            {{ sendingReset ? 'Sending...' : 'Send a new code' }}
-          </button>
-        </div>
-      </form>
+            <p v-if="errorMessage" class="error" role="alert">{{ errorMessage }}</p>
 
-      <!-- FORGOT PASSWORD, step 1: its own screen, asks only for the email -->
-      <form v-else-if="mode === 'forgot'" @submit.prevent="forgotPassword" class="mt-8 space-y-4">
-        <p class="text-sm text-zinc-400">
-          Enter the email of your account. We'll send you a code to choose a new password.
-        </p>
-
-        <div>
-          <label class="text-sm text-zinc-400">Email</label>
-
-          <input
-            ref="resetEmailInput"
-            v-model="resetEmail"
-            v-clean:email
-            type="email"
-            required
-            autocomplete="email"
-            autocapitalize="off"
-            spellcheck="false"
-            class="mt-2 w-full rounded-2xl border border-white/10 bg-black px-4 py-3 outline-none focus:border-red-500"
-            placeholder="Enter email"
-          />
-        </div>
-
-        <p
-          v-if="errorMessage"
-          class="rounded-xl bg-red-500/10 p-3 text-sm text-red-400"
-        >
-          {{ errorMessage }}
-        </p>
-
-        <button
-          type="submit"
-          :disabled="sendingReset"
-          class="w-full rounded-2xl bg-red-600 py-3 font-bold transition hover:bg-red-700 disabled:opacity-50"
-        >
-          {{ sendingReset ? 'Sending...' : 'Send code' }}
-        </button>
-
-        <button
-          type="button"
-          class="mt-3 w-full text-sm font-semibold text-zinc-400 hover:text-red-400"
-          @click="showLogin"
-        >
-          ← Back to login
-        </button>
-      </form>
-
-      <form v-else @submit.prevent="login" class="mt-8 space-y-4">
-        <div>
-          <label class="text-sm text-zinc-400">Email</label>
-
-          <!-- v-clean: a pasted email (e.g. from Messenger) loses the
-               invisible characters and spaces it brought along -->
-          <input
-            v-model="email"
-            v-clean:email
-            type="email"
-            required
-            autocomplete="email"
-            autocapitalize="off"
-            spellcheck="false"
-            class="mt-2 w-full rounded-2xl border border-white/10 bg-black px-4 py-3 outline-none focus:border-red-500"
-            placeholder="Enter email"
-          />
-        </div>
-
-        <div>
-          <label class="text-sm text-zinc-400">Password</label>
-
-          <div class="relative mt-2">
-            <input
-              v-model="password"
-              v-clean:password
-              :type="showPassword ? 'text' : 'password'"
-              required
-              autocomplete="current-password"
-              class="w-full rounded-2xl border border-white/10 bg-black py-3 pl-4 pr-20 outline-none focus:border-red-500"
-              placeholder="Enter password"
-            />
-
-            <button
-              type="button"
-              class="absolute inset-y-0 right-0 px-4 text-sm font-semibold text-zinc-400 hover:text-white"
-              :aria-label="showPassword ? 'Hide password' : 'Show password'"
-              @click="showPassword = !showPassword"
-            >
-              {{ showPassword ? 'Hide' : 'Show' }}
+            <button type="submit" class="submit" :disabled="verifying || resetCode.length < 6">
+              {{ verifying ? 'Checking…' : 'Continue' }}
             </button>
-          </div>
-        </div>
 
-        <p
-          v-if="errorMessage"
-          class="rounded-xl bg-red-500/10 p-3 text-sm text-red-400"
-        >
-          {{ errorMessage }}
-        </p>
+            <div class="links-row">
+              <button type="button" class="text-link" @click="resetSent = false">← Change email</button>
+              <button type="button" class="text-link" :disabled="sendingReset" @click="forgotPassword">
+                {{ sendingReset ? 'Sending…' : 'Send a new code' }}
+              </button>
+            </div>
+          </form>
+        </template>
 
-        <button
-          type="submit"
-          :disabled="loading"
-          class="w-full rounded-2xl bg-red-600 py-3 font-bold transition hover:bg-red-700 disabled:opacity-50"
-        >
-          {{ loading ? 'Logging in...' : 'Login' }}
-        </button>
+        <!-- FORGOT PASSWORD, step 1: asks only for the email -->
+        <template v-else-if="mode === 'forgot'">
+          <h1 class="title">Reset your password</h1>
+          <p class="sub">Enter the email of your account. We'll send you a code to choose a new password.</p>
 
-        <button
-          type="button"
-          class="mt-3 w-full text-sm font-semibold text-zinc-400 hover:text-red-400"
-          @click="showForgot"
-        >
-          Forgot password?
-        </button>
-      </form>
-    </div>
+          <form @submit.prevent="forgotPassword">
+            <div class="field">
+              <label for="reset-email">Email</label>
+              <div class="control">
+                <svg class="control-icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <rect x="3" y="5" width="18" height="14" rx="2" /><path d="m3 7 9 6 9-6" />
+                </svg>
+                <input
+                  id="reset-email"
+                  ref="resetEmailInput"
+                  v-model="resetEmail"
+                  v-clean:email
+                  type="email"
+                  required
+                  autocomplete="email"
+                  autocapitalize="off"
+                  spellcheck="false"
+                  placeholder="you@example.com"
+                />
+              </div>
+            </div>
+
+            <p v-if="errorMessage" class="error" role="alert">{{ errorMessage }}</p>
+
+            <button type="submit" class="submit" :disabled="sendingReset">
+              {{ sendingReset ? 'Sending…' : 'Send code' }}
+            </button>
+
+            <button type="button" class="text-link back" @click="showLogin">← Back to login</button>
+          </form>
+        </template>
+
+        <!-- LOGIN -->
+        <template v-else>
+          <h1 class="title">Welcome back</h1>
+          <p class="sub">Log in to your account.</p>
+
+          <form @submit.prevent="login">
+            <div class="field">
+              <label for="login-email">Email</label>
+              <div class="control">
+                <svg class="control-icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <rect x="3" y="5" width="18" height="14" rx="2" /><path d="m3 7 9 6 9-6" />
+                </svg>
+                <!-- v-clean: a pasted email (e.g. from Messenger) loses the
+                     invisible characters and spaces it brought along -->
+                <input
+                  id="login-email"
+                  v-model="email"
+                  v-clean:email
+                  type="email"
+                  required
+                  autocomplete="email"
+                  autocapitalize="off"
+                  spellcheck="false"
+                  placeholder="you@example.com"
+                />
+              </div>
+            </div>
+
+            <div class="field">
+              <label for="login-password">Password</label>
+              <div class="control">
+                <svg class="control-icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <rect x="4" y="11" width="16" height="10" rx="2" /><path d="M8 11V7a4 4 0 0 1 8 0v4" />
+                </svg>
+                <input
+                  id="login-password"
+                  v-model="password"
+                  v-clean:password
+                  :type="showPassword ? 'text' : 'password'"
+                  required
+                  autocomplete="current-password"
+                  placeholder="Your password"
+                />
+                <button
+                  type="button"
+                  class="eye"
+                  :aria-label="showPassword ? 'Hide password' : 'Show password'"
+                  :title="showPassword ? 'Hide password' : 'Show password'"
+                  @click="showPassword = !showPassword"
+                >
+                  <svg v-if="!showPassword" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z" /><circle cx="12" cy="12" r="3" />
+                  </svg>
+                  <svg v-else viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M3 3l18 18M10.6 5.1A10 10 0 0 1 12 5c6.5 0 10 7 10 7a17 17 0 0 1-3.2 4.1M6.6 6.6C3.8 8.4 2 12 2 12s3.5 7 10 7a9.7 9.7 0 0 0 5.4-1.6" />
+                    <path d="M9.9 9.9a3 3 0 0 0 4.2 4.2" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <div class="options-row">
+              <label class="remember">
+                <input v-model="rememberEmail" type="checkbox" />
+                Remember this email
+              </label>
+              <button type="button" class="text-link accent" @click="showForgot">Forgot password?</button>
+            </div>
+
+            <p v-if="errorMessage" class="error" role="alert">{{ errorMessage }}</p>
+
+            <button type="submit" class="submit" :disabled="loading">
+              {{ loading ? 'Logging in…' : 'Log in' }}
+            </button>
+
+            <p class="secure">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6z" /><path d="m9 12 2 2 4-4" />
+              </svg>
+              Secure login · your password is never shown to anyone
+            </p>
+            <p class="help">Can't log in? Ask the store owner to reset your account.</p>
+          </form>
+        </template>
+      </div>
+    </section>
 
     <!-- TOAST: good news pops up at the bottom and hides itself -->
     <div class="pointer-events-none fixed inset-x-0 bottom-6 z-50 flex justify-center px-4">
@@ -225,6 +230,376 @@
   opacity: 0;
   transform: translateY(12px);
 }
+
+/* ---------------- the two halves ---------------- */
+.login-page {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: #0a0a0c;
+  color: #ececf1;
+}
+
+/* LEFT: crimson panel with a faint grid */
+.brand {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 2rem;
+  padding: 3rem clamp(2rem, 5vw, 4.5rem);
+  background:
+    radial-gradient(120% 90% at 0% 0%, rgba(244, 52, 76, 0.45), transparent 55%),
+    radial-gradient(90% 80% at 100% 100%, rgba(224, 27, 50, 0.25), transparent 60%),
+    linear-gradient(160deg, #2a0a10, #0d0d10 70%);
+}
+
+.brand::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+  background-size: 36px 36px;
+  -webkit-mask-image: linear-gradient(180deg, transparent, #000 30%, #000 70%, transparent);
+  mask-image: linear-gradient(180deg, transparent, #000 30%, #000 70%, transparent);
+}
+
+.brand > * {
+  position: relative;
+  z-index: 1;
+}
+
+.wordmark {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+}
+
+.wordmark-logo {
+  width: 3.25rem;
+  height: 3.25rem;
+  border-radius: 0.75rem;
+  object-fit: contain;
+  filter: drop-shadow(0 6px 14px rgba(224, 27, 50, 0.4));
+}
+
+.wordmark-text {
+  font-size: 1.5rem;
+  font-weight: 800;
+  line-height: 1;
+  color: #fff;
+}
+
+.wordmark-text span {
+  color: #f4344c;
+}
+
+.wordmark-text small {
+  display: block;
+  margin-top: 0.4rem;
+  font-size: 0.68rem;
+  letter-spacing: 0.3em;
+  color: #d2d2db;
+}
+
+.pitch {
+  max-width: 30rem;
+}
+
+.pitch h2 {
+  margin: 0 0 0.85rem;
+  font-size: clamp(1.9rem, 3.2vw, 2.6rem);
+  font-weight: 800;
+  line-height: 1.12;
+  letter-spacing: -0.02em;
+  color: #fff;
+}
+
+.pitch p {
+  margin: 0 0 1.4rem;
+  font-size: 1.05rem;
+  line-height: 1.5;
+  color: #c9c9d3;
+}
+
+.ticks {
+  display: grid;
+  gap: 0.65rem;
+  font-size: 1rem;
+  color: #e6e6ec;
+}
+
+.ticks li {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.ticks i {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 1.4rem;
+  height: 1.4rem;
+  border-radius: 999px;
+  background: rgba(52, 211, 153, 0.18);
+  color: #34d399;
+  font-size: 0.8rem;
+  font-style: normal;
+  font-weight: 800;
+}
+
+.legal {
+  font-size: 0.85rem;
+  color: #8b8b97;
+}
+
+/* RIGHT: the form */
+.side {
+  display: grid;
+  place-items: center;
+  padding: 2.5rem 1.5rem;
+}
+
+.form-box {
+  width: 100%;
+  max-width: 26rem;
+}
+
+.wordmark-small {
+  display: none;
+  margin-bottom: 2rem;
+}
+
+.title {
+  font-size: 1.9rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: #fff;
+}
+
+.sub {
+  margin: 0.35rem 0 0.4rem;
+  font-size: 1rem;
+  color: #a5a5b2;
+}
+
+.sub b {
+  color: #fff;
+}
+
+.field {
+  display: grid;
+  gap: 0.45rem;
+  margin-top: 1.1rem;
+}
+
+.field label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #ececf1;
+}
+
+.control {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.control-icon {
+  position: absolute;
+  left: 0.9rem;
+  width: 1.15rem;
+  height: 1.15rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  color: #8b8b97;
+  pointer-events: none;
+}
+
+.control input,
+.code-input {
+  width: 100%;
+  border-radius: 0.85rem;
+  border: 1px solid #2a2a32;
+  background: #151519;
+  color: #fff;
+  font-size: 1rem;
+  outline: none;
+}
+
+.control input {
+  padding: 0.85rem 3rem 0.85rem 2.75rem;
+}
+
+.control input::placeholder,
+.code-input::placeholder {
+  color: #6c6c79;
+}
+
+.control input:focus,
+.code-input:focus {
+  border-color: #f4344c;
+  box-shadow: 0 0 0 3px rgba(224, 27, 50, 0.18);
+}
+
+.code-input {
+  padding: 0.85rem 1rem;
+  text-align: center;
+  font-size: 1.6rem;
+  font-weight: 800;
+  letter-spacing: 0.5em;
+}
+
+.eye {
+  position: absolute;
+  right: 0.45rem;
+  display: grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 0.6rem;
+  color: #a5a5b2;
+}
+
+.eye:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+}
+
+.eye svg,
+.secure svg {
+  width: 1.15rem;
+  height: 1.15rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.options-row,
+.links-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-top: 0.9rem;
+  font-size: 0.875rem;
+}
+
+.remember {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #a5a5b2;
+  cursor: pointer;
+}
+
+.remember input {
+  width: 1rem;
+  height: 1rem;
+  accent-color: #e01b32;
+}
+
+.text-link {
+  font-weight: 700;
+  color: #a5a5b2;
+}
+
+.text-link:hover {
+  color: #ff6b7d;
+}
+
+.text-link:disabled {
+  opacity: 0.5;
+}
+
+.text-link.accent {
+  color: #ff6b7d;
+}
+
+.text-link.accent:hover {
+  color: #fff;
+}
+
+.text-link.back {
+  display: block;
+  width: 100%;
+  margin-top: 1rem;
+  text-align: center;
+}
+
+.error {
+  margin-top: 1rem;
+  border-radius: 0.75rem;
+  background: rgba(224, 27, 50, 0.12);
+  padding: 0.75rem;
+  font-size: 0.875rem;
+  color: #ff6b7d;
+}
+
+.submit {
+  width: 100%;
+  margin-top: 1.25rem;
+  border-radius: 0.85rem;
+  background: #e01b32;
+  padding: 0.9rem;
+  font-size: 1rem;
+  font-weight: 800;
+  color: #fff;
+  box-shadow: 0 10px 24px -10px rgba(224, 27, 50, 0.8);
+}
+
+.submit:not(:disabled):hover {
+  background: #f4344c;
+}
+
+.submit:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.secure {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  margin-top: 1.1rem;
+  font-size: 0.82rem;
+  color: #a5a5b2;
+}
+
+.help {
+  margin-top: 0.4rem;
+  text-align: center;
+  font-size: 0.82rem;
+  color: #a5a5b2;
+}
+
+/* narrow windows and phones: only the form */
+@media (max-width: 900px) {
+  .login-page {
+    grid-template-columns: 1fr;
+  }
+
+  .brand {
+    display: none;
+  }
+
+  .wordmark-small {
+    display: flex;
+  }
+}
 </style>
 
 <script setup>
@@ -242,7 +617,22 @@ import { saveCurrentUser } from '../../lib/currentUser'
 const router = useRouter()
 const route = useRoute()
 
-const email = ref('')
+const year = new Date().getFullYear()
+
+// "Remember this email": only the email is kept in this browser, never
+// the password
+const REMEMBER_KEY = 'rememberedEmail'
+
+function rememberedEmail() {
+  try {
+    return localStorage.getItem(REMEMBER_KEY) || ''
+  } catch {
+    return ''
+  }
+}
+
+const email = ref(rememberedEmail())
+const rememberEmail = ref(Boolean(email.value))
 const password = ref('')
 const showPassword = ref(false)
 const loading = ref(false)
@@ -318,6 +708,13 @@ async function login() {
     errorMessage.value = isWrongLogin(error) ? 'Wrong email or password. Check them and try again.' : error.message
     loading.value = false
     return
+  }
+
+  try {
+    if (rememberEmail.value) localStorage.setItem(REMEMBER_KEY, address)
+    else localStorage.removeItem(REMEMBER_KEY)
+  } catch {
+    // storage blocked: the email just isn't remembered
   }
 
   // fresh login: restart the auto-logout clock, and remember it until the
