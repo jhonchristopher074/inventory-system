@@ -37,7 +37,7 @@
            opens your Sales History
       ============================================================ -->
       <section class="mb-5 grid grid-cols-2 gap-3 @min-[900px]:grid-cols-5" aria-label="At a glance">
-        <RouterLink to="/cashier/sales" class="kpi col-span-2">
+        <RouterLink to="/cashier/sales" class="kpi tone-red col-span-2">
           <div class="kpi-top">
             <p class="kpi-label">Your sales today</p>
             <span class="kpi-icon"><NavIcon name="sales" class="h-4 w-4" /></span>
@@ -59,7 +59,7 @@
           </p>
         </RouterLink>
 
-        <RouterLink to="/cashier/sales" class="kpi col-span-2 @min-[900px]:col-span-1">
+        <RouterLink to="/cashier/sales" class="kpi tone-violet col-span-2 @min-[900px]:col-span-1">
           <div class="kpi-top">
             <p class="kpi-label">This month</p>
             <span class="kpi-icon"><NavIcon name="calendar" class="h-4 w-4" /></span>
@@ -69,7 +69,7 @@
           <p class="kpi-sub">{{ salesText(month.count) }} in {{ monthName }}</p>
         </RouterLink>
 
-        <RouterLink to="/cashier/sales" class="kpi">
+        <RouterLink to="/cashier/sales" class="kpi tone-green">
           <div class="kpi-top">
             <p class="kpi-label">Average sale</p>
             <span class="kpi-icon"><NavIcon name="pos" class="h-4 w-4" /></span>
@@ -79,7 +79,7 @@
           <p class="kpi-sub">{{ month.count > 0 ? `per sale in ${monthName}` : `No sales yet in ${monthName}` }}</p>
         </RouterLink>
 
-        <RouterLink to="/cashier/sales" class="kpi">
+        <RouterLink to="/cashier/sales" class="kpi tone-amber">
           <div class="kpi-top">
             <p class="kpi-label">Items sold</p>
             <span class="kpi-icon"><NavIcon name="inventory" class="h-4 w-4" /></span>
@@ -98,7 +98,7 @@
         <div class="card flex flex-col p-5">
           <div class="card-head">
             <div>
-              <p class="eyebrow">Your sales</p>
+              <p class="eyebrow tone-red">Your sales</p>
               <h2 class="card-title">Last 7 days</h2>
             </div>
 
@@ -128,7 +128,7 @@
         <div class="card p-5">
           <div class="card-head">
             <div>
-              <p class="eyebrow">Your last 30 days</p>
+              <p class="eyebrow tone-green">Your last 30 days</p>
               <h2 class="card-title">Best sellers</h2>
             </div>
             <RouterLink to="/cashier/sales" class="card-link">
@@ -159,7 +159,7 @@
 
                 <div class="mt-1.5 flex items-center gap-2">
                   <div class="h-1.5 flex-1 overflow-hidden rounded-full bg-white/5">
-                    <div class="h-full rounded-full bg-red-600" :style="{ width: item.share + '%' }"></div>
+                    <div class="h-full rounded-full bg-emerald-500" :style="{ width: item.share + '%' }"></div>
                   </div>
                   <span class="w-16 shrink-0 text-right text-xs text-zinc-500">{{ count(item.quantity) }} pcs</span>
                 </div>
@@ -177,7 +177,7 @@
       <section class="card overflow-hidden" aria-labelledby="recent-sales-title">
         <div class="card-head px-5 pt-5">
           <div>
-            <p class="eyebrow">Your sales</p>
+            <p class="eyebrow tone-red">Your sales</p>
             <h2 id="recent-sales-title" class="card-title">Recent sales</h2>
           </div>
           <RouterLink to="/cashier/sales" class="card-link">

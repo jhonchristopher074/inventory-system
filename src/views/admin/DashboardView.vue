@@ -28,7 +28,7 @@
            AT A GLANCE: today's sales is the big number
       ============================================================ -->
       <section class="mb-5 grid grid-cols-2 gap-3 @min-[900px]:grid-cols-5" aria-label="At a glance">
-        <RouterLink to="/admin/sales" class="kpi col-span-2">
+        <RouterLink to="/admin/sales" class="kpi tone-red col-span-2">
           <div class="kpi-top">
             <p class="kpi-label">Sales today</p>
             <span class="kpi-icon"><NavIcon name="sales" class="h-4 w-4" /></span>
@@ -50,7 +50,7 @@
           </p>
         </RouterLink>
 
-        <RouterLink to="/admin/sales" class="kpi col-span-2 @min-[900px]:col-span-1">
+        <RouterLink to="/admin/sales" class="kpi tone-green col-span-2 @min-[900px]:col-span-1">
           <div class="kpi-top">
             <p class="kpi-label">Sales this month</p>
             <span class="kpi-icon"><NavIcon name="pos" class="h-4 w-4" /></span>
@@ -60,7 +60,7 @@
           <p class="kpi-sub">{{ salesText(month.count) }} in {{ monthName }}</p>
         </RouterLink>
 
-        <RouterLink :to="LOW_STOCK_LINK" class="kpi">
+        <RouterLink :to="LOW_STOCK_LINK" class="kpi tone-amber">
           <div class="kpi-top">
             <p class="kpi-label">Low stock</p>
             <span class="kpi-icon"><NavIcon name="inventory" class="h-4 w-4" /></span>
@@ -75,7 +75,7 @@
           </p>
         </RouterLink>
 
-        <RouterLink :to="approvalLink" class="kpi">
+        <RouterLink :to="approvalLink" class="kpi tone-blue">
           <div class="kpi-top">
             <p class="kpi-label">To approve</p>
             <span class="kpi-icon"><NavIcon name="approval" class="h-4 w-4" /></span>
@@ -94,7 +94,7 @@
         <div class="card flex flex-col p-5">
           <div class="card-head">
             <div>
-              <p class="eyebrow">Sales</p>
+              <p class="eyebrow tone-red">Sales</p>
               <h2 class="card-title">Last 7 days</h2>
             </div>
 
@@ -123,7 +123,7 @@
         </div>
 
         <div class="card p-5">
-          <p class="eyebrow">To do</p>
+          <p class="eyebrow tone-blue">To do</p>
           <h2 class="card-title mb-4">Needs your attention</h2>
 
           <ul v-if="attention.length > 0" class="space-y-2">
@@ -159,7 +159,7 @@
         <div class="card p-5">
           <div class="card-head">
             <div>
-              <p class="eyebrow">Inventory</p>
+              <p class="eyebrow tone-amber">Inventory</p>
               <h2 class="card-title">Running low</h2>
             </div>
             <RouterLink :to="LOW_STOCK_LINK" class="card-link">
@@ -209,7 +209,7 @@
         <div class="card p-5">
           <div class="card-head">
             <div>
-              <p class="eyebrow">Last 30 days</p>
+              <p class="eyebrow tone-green">Last 30 days</p>
               <h2 class="card-title">Best sellers</h2>
             </div>
             <RouterLink to="/admin/sales" class="card-link">
@@ -240,7 +240,7 @@
 
                 <div class="mt-1.5 flex items-center gap-2">
                   <div class="h-1.5 flex-1 overflow-hidden rounded-full bg-white/5">
-                    <div class="h-full rounded-full bg-red-600" :style="{ width: item.share + '%' }"></div>
+                    <div class="h-full rounded-full bg-emerald-500" :style="{ width: item.share + '%' }"></div>
                   </div>
                   <span class="w-16 shrink-0 text-right text-xs text-zinc-500">{{ count(item.quantity) }} pcs</span>
                 </div>
@@ -254,7 +254,7 @@
         <div class="card p-5 @min-[700px]:col-span-2 @min-[1100px]:col-span-1">
           <div class="card-head">
             <div>
-              <p class="eyebrow">Schedule</p>
+              <p class="eyebrow tone-violet">Schedule</p>
               <h2 class="card-title">Inspections</h2>
             </div>
             <RouterLink to="/calendar" class="card-link">
@@ -548,11 +548,11 @@ const approvalLink = computed(() => {
 })
 
 // how each kind of to-do looks: red = something is wrong, amber = soon,
-// grey = waiting for you
+// blue = waiting for you (the same colours as everywhere else)
 const TONES = {
   critical: 'bg-red-600/15 text-red-400',
   warning: 'bg-yellow-500/15 text-yellow-400',
-  task: 'bg-white/5 text-zinc-300',
+  task: 'bg-sky-500/15 text-sky-300',
 }
 
 function noun(n, word) {

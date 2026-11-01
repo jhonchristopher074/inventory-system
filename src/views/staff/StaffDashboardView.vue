@@ -35,7 +35,7 @@
            AT A GLANCE: what to inspect now is the big number
       ============================================================ -->
       <section class="mb-5 grid grid-cols-2 gap-3 @min-[900px]:grid-cols-5" aria-label="At a glance">
-        <RouterLink :to="CALENDAR" class="kpi col-span-2">
+        <RouterLink :to="CALENDAR" class="kpi tone-red col-span-2">
           <div class="kpi-top">
             <p class="kpi-label">To inspect now</p>
             <span class="kpi-icon"><NavIcon name="approval" class="h-4 w-4" /></span>
@@ -59,7 +59,7 @@
           </p>
         </RouterLink>
 
-        <RouterLink :to="CALENDAR" class="kpi col-span-2 @min-[900px]:col-span-1">
+        <RouterLink :to="CALENDAR" class="kpi tone-violet col-span-2 @min-[900px]:col-span-1">
           <div class="kpi-top">
             <p class="kpi-label">Next 7 days</p>
             <span class="kpi-icon"><NavIcon name="calendar" class="h-4 w-4" /></span>
@@ -69,7 +69,7 @@
           <p class="kpi-sub">{{ noun(upcomingWeek.length, 'inspection') }} coming up</p>
         </RouterLink>
 
-        <RouterLink :to="CALENDAR" class="kpi">
+        <RouterLink :to="CALENDAR" class="kpi tone-blue">
           <div class="kpi-top">
             <p class="kpi-label">With the owner</p>
             <span class="kpi-icon"><NavIcon name="check" class="h-4 w-4" /></span>
@@ -85,7 +85,7 @@
           </p>
         </RouterLink>
 
-        <RouterLink :to="LOW_STOCK_LINK" class="kpi">
+        <RouterLink :to="LOW_STOCK_LINK" class="kpi tone-amber">
           <div class="kpi-top">
             <p class="kpi-label">Low stock</p>
             <span class="kpi-icon"><NavIcon name="inventory" class="h-4 w-4" /></span>
@@ -108,7 +108,7 @@
         <div class="card p-5">
           <div class="card-head">
             <div>
-              <p class="eyebrow">Schedule</p>
+              <p class="eyebrow tone-violet">Schedule</p>
               <h2 class="card-title">Inspections</h2>
             </div>
             <RouterLink :to="CALENDAR" class="card-link">
@@ -168,7 +168,7 @@
         </div>
 
         <div class="card p-5">
-          <p class="eyebrow">To do</p>
+          <p class="eyebrow tone-blue">To do</p>
           <h2 class="card-title mb-4">Needs your attention</h2>
 
           <ul v-if="attention.length > 0" class="space-y-2">
@@ -204,7 +204,7 @@
         <div class="card p-5">
           <div class="card-head">
             <div>
-              <p class="eyebrow">Inventory</p>
+              <p class="eyebrow tone-amber">Inventory</p>
               <h2 class="card-title">Running low</h2>
             </div>
             <RouterLink :to="LOW_STOCK_LINK" class="card-link">
@@ -254,7 +254,7 @@
         <div class="card p-5">
           <div class="card-head">
             <div>
-              <p class="eyebrow">Calendar</p>
+              <p class="eyebrow tone-violet">Calendar</p>
               <h2 class="card-title">Deliveries</h2>
             </div>
             <RouterLink :to="DELIVERIES" class="card-link">
@@ -293,7 +293,7 @@
         <div class="card p-5 @min-[700px]:col-span-2 @min-[1100px]:col-span-1">
           <div class="card-head">
             <div>
-              <p class="eyebrow">Inspections</p>
+              <p class="eyebrow tone-blue">Inspections</p>
               <h2 class="card-title">Recent work</h2>
             </div>
             <RouterLink :to="CALENDAR" class="card-link">
@@ -628,11 +628,12 @@ const lowStockList = computed(() => lowStock.value.slice(0, 6))
 /* ------------------------------------------------------------------
    Needs your attention
 ------------------------------------------------------------------ */
-// red = something is late or empty, amber = soon, grey = a task for you
+// red = something is late or empty, amber = soon, blue = a task for you
+// (the same colours as everywhere else)
 const TONES = {
   critical: 'bg-red-600/15 text-red-400',
   warning: 'bg-yellow-500/15 text-yellow-400',
-  task: 'bg-white/5 text-zinc-300',
+  task: 'bg-sky-500/15 text-sky-300',
 }
 
 // most urgent first; only what has something in it

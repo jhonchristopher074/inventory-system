@@ -1,6 +1,12 @@
 /* The dashboards' tiles and cards (Owner, Staff, Cashier), in one place so
    they look the same. Each dashboard takes it as its own scoped style:
-     <style scoped src="../../styles/dashboard.css"></style> */
+     <style scoped src="../../styles/dashboard.css"></style>
+
+   Colour: a tile, a card heading (.eyebrow) or a to-do icon takes a tone
+   class (tone-green, tone-amber ... in style.css) and is drawn in it.
+   Without one a tile is brand red and a heading grey. The fallback goes in
+   each var() and not on .kpi itself: these scoped rules outrank the tone
+   classes, so a default set here would always win. */
 
 /* ---- the tiles at the top (most open their page) ---- */
 .kpi {
@@ -11,7 +17,10 @@
   container-type: inline-size;
   border-radius: var(--radius-md);
   border: 1px solid var(--hairline);
-  background: linear-gradient(180deg, var(--surface-raised), var(--surface));
+  /* a faint wash of the tile's colour in the top-right corner */
+  background:
+    radial-gradient(130% 90% at 100% 0%, color-mix(in srgb, var(--tone, var(--brand)) 10%, transparent), transparent 60%),
+    linear-gradient(180deg, var(--surface-raised), var(--surface));
   box-shadow: var(--shadow-card);
   padding: 1rem 1.1rem;
   transition:
@@ -20,24 +29,24 @@
     box-shadow 0.18s var(--ease);
 }
 
-/* crimson top edge, like the other stat tiles */
+/* a top edge in the tile's colour */
 .kpi::before {
   content: '';
   position: absolute;
   inset: 0 0 auto 0;
   height: 2px;
-  background: linear-gradient(90deg, var(--brand), rgba(224, 27, 50, 0));
+  background: linear-gradient(90deg, var(--tone, var(--brand)), transparent);
 }
 
 /* only a tile that opens a page lifts under the mouse */
 a.kpi:hover,
 a.kpi:focus-visible {
   outline: none;
-  border-color: rgba(224, 27, 50, 0.35);
+  border-color: color-mix(in srgb, var(--tone, var(--brand)) 40%, transparent);
   transform: translateY(-2px);
   box-shadow:
     0 1px 2px rgba(0, 0, 0, 0.5),
-    0 14px 32px -16px rgba(224, 27, 50, 0.45);
+    0 14px 32px -16px color-mix(in srgb, var(--tone, var(--brand)) 45%, transparent);
 }
 
 .kpi-top {
@@ -60,8 +69,8 @@ a.kpi:focus-visible {
   width: 1.9rem;
   height: 1.9rem;
   border-radius: 0.6rem;
-  background: rgba(255, 255, 255, 0.04);
-  color: var(--color-zinc-400);
+  background: color-mix(in srgb, var(--tone, var(--brand-bright)) 15%, transparent);
+  color: var(--tone, var(--brand-bright));
 }
 
 /* the one big number of the page */
@@ -113,7 +122,7 @@ a.kpi:focus-visible {
   font-weight: 700;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: var(--color-zinc-500);
+  color: var(--tone, var(--color-zinc-500));
 }
 
 .card-title {

@@ -1,9 +1,18 @@
 <template>
   <div class="flex min-h-screen items-center justify-center bg-black px-4 text-white">
     <div class="w-full max-w-md rounded-3xl border border-white/10 bg-zinc-950 p-8 shadow-2xl">
-      <div>
-        <h1 class="text-3xl font-extrabold text-red-500">10 FIVE 7</h1>
-        <h1 class="text-lg font-bold tracking-wide text-white">HARDWARE</h1>
+      <div class="flex items-center gap-4">
+        <img
+          src="/logo.svg"
+          alt=""
+          width="56"
+          height="56"
+          class="h-14 w-14 shrink-0 drop-shadow-[0_6px_14px_rgba(224,27,50,0.4)]"
+        />
+        <div>
+          <h1 class="text-3xl font-extrabold text-red-500">10 FIVE 7</h1>
+          <p class="text-lg font-bold tracking-wide text-white">HARDWARE</p>
+        </div>
       </div>
 
       <p class="mt-2 text-zinc-400">

@@ -12,10 +12,16 @@
       <aside class="app-side">
         <div class="side-top">
           <div class="brand-card">
-            <h1 class="brand-title">10 <span>FIVE</span> 7</h1>
-            <p class="brand-sub">Hardware</p>
+            <img src="/logo.svg" alt="" class="brand-mark" width="40" height="40" />
+            <div class="brand-name">
+              <h1 class="brand-title">10 <span>FIVE</span> 7</h1>
+              <p class="brand-sub">Hardware</p>
+            </div>
             <p class="brand-note">Inventory Management System</p>
           </div>
+
+          <!-- the sidebar folded to icons shows the logo only -->
+          <img src="/logo.svg" alt="10 FIVE 7 Hardware" class="side-mark" width="32" height="32" />
 
           <button
             class="side-toggle"
