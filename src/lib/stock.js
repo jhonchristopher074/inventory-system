@@ -1,4 +1,4 @@
-// Stock levels, the same on every page (Inventory, Archived, the dashboards).
+// Stock levels, the same on every page (Inventory, Disabled, the dashboards).
 // A product is "low" at LOW_STOCK pieces or fewer, and "out" at 0.
 
 export const LOW_STOCK = 10

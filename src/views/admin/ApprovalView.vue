@@ -728,7 +728,7 @@ function rejectInspection(approval) {
 /* ------------------------------------------------------------------
    Supplier uploads
 
-   Approve: downloads the file to this device, marks it approved,
+   Approve: reads the file from storage (into memory only), marks it approved,
    copies it into the "Approved Receipt" bucket (a Supabase Database Webhook
    on that bucket triggers the n8n workflow), then deletes the original.
    Reject: just marks it rejected. SupplierDropBoxView.vue is listening
@@ -948,21 +948,6 @@ async function fetchReceipt(upload) {
   return data
 }
 
-// Saves the receipt to this device before it's deleted from storage —
-// once deleted there's no other way to get it back.
-function saveToDevice(blob, fileName) {
-  const objectUrl = URL.createObjectURL(blob)
-
-  const link = document.createElement('a')
-  link.href = objectUrl
-  link.download = fileName || 'supplier-upload'
-  document.body.appendChild(link)
-  link.click()
-  link.remove()
-
-  URL.revokeObjectURL(objectUrl)
-}
-
 async function approveSupplierUpload(upload, profitPercent) {
   supplierError.value = ''
   supplierSuccess.value = ''
@@ -971,10 +956,11 @@ async function approveSupplierUpload(upload, profitPercent) {
   showProcessing()
 
   try {
-    // 1. save a copy locally before anything is deleted (the same copy is
-    //    then sent to the Approved Receipt bucket)
+    // 1. read it from storage. Nothing is saved on this device: the receipt
+    //    always has a copy in cloud storage. The original stays in the
+    //    supplierReceipt bucket until its copy is in the Approved Receipt
+    //    bucket and recorded (forwardReceipt), and that copy is kept.
     const blob = await fetchReceipt(upload)
-    saveToDevice(blob, upload.file_name)
 
     // 2. mark approved
     const { data: approved, error } = await supabase.rpc('admin_approve_supplier_upload', {
@@ -988,7 +974,7 @@ async function approveSupplierUpload(upload, profitPercent) {
     // 3. line it up to be sent to n8n (one receipt at a time)
     enqueueSend({ upload: approved, blob, percent: profitPercent, mode: 'approve' })
 
-    supplierSuccess.value = `Approved "${upload.file_name}" and saved it to your device. It is in line to be sent to the receipt scanner.`
+    supplierSuccess.value = `Approved "${upload.file_name}". It is in line to be sent to the receipt scanner.`
   } catch (err) {
     busyIds.value.delete(upload.id)
     supplierError.value = err.message || 'Something went wrong approving this upload.'
@@ -1129,7 +1115,7 @@ async function sendQueued(item) {
       supplierError.value = `Sending "${upload.file_name}" failed again: ${sendError.message || sendError}`
     } else {
       supplierError.value =
-        `"${upload.file_name}" was approved and saved to your device, but sending it to the ` +
+        `"${upload.file_name}" was approved, but sending it to the ` +
         `receipt scanner failed (${sendError.message}). It's listed under ` +
         `"Approved but not sent": press "Send again" to retry.`
     }

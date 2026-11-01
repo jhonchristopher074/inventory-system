@@ -19,7 +19,7 @@ const InventoryView = () => import('../views/admin/InventoryView.vue')
 const CalendarView = () => import('../views/admin/CalendarView.vue')
 const ApprovalView = () => import('../views/admin/ApprovalView.vue')
 const DocumentationView = () => import('../views/admin/DocumentationView.vue')
-const ArchivedView = () => import('../views/admin/ArchivedView.vue')
+const DisabledView = () => import('../views/admin/DisabledView.vue')
 const ProfileView = () => import('../views/admin/ProfileView.vue')
 const AdminPOSView = () => import('../views/admin/AdminPOSView.vue')
 const AdminSalesHistoryView = () => import('../views/admin/AdminSalesHistoryView.vue')
@@ -49,7 +49,9 @@ const routes = [
   { path: '/calendar', component: CalendarView, meta: { requiresAuth: true, role: 'admin' } },
   { path: '/approval', component: ApprovalView, meta: { requiresAuth: true, role: 'admin' } },
   { path: '/documentation', component: DocumentationView, meta: { requiresAuth: true, role: 'admin' } },
-  { path: '/archived', component: ArchivedView, meta: { requiresAuth: true, role: 'admin' } },
+  { path: '/disabled', component: DisabledView, meta: { requiresAuth: true, role: 'admin' } },
+  // the page's old address (bookmarks, older notifications)
+  { path: '/archived', redirect: '/disabled' },
   { path: '/profile', component: ProfileView, meta: { requiresAuth: true, role: 'admin' } },
   { path: '/admin/pos', component: AdminPOSView, meta: { requiresAuth: true, role: 'admin' },},
   { path: '/admin/sales', component: AdminSalesHistoryView, meta: { requiresAuth: true, role: 'admin' },},

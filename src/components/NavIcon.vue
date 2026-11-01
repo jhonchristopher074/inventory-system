@@ -22,6 +22,12 @@
       <path d="M3 8l9 5 9-5M12 13v8" />
     </template>
 
+    <!-- disabled: a circle with a line through it -->
+    <template v-else-if="name === 'disabled'">
+      <circle cx="12" cy="12" r="9" />
+      <path d="M5.6 5.6l12.8 12.8" />
+    </template>
+
     <!-- archived -->
     <template v-else-if="name === 'archive'">
       <rect x="3" y="4" width="18" height="4" rx="1" />

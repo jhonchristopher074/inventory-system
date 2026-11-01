@@ -256,7 +256,7 @@ const NAV = {
       items: [
         { to: '/', label: 'Dashboard', icon: 'dashboard' },
         { to: '/inventory', label: 'Inventory', icon: 'inventory' },
-        { to: '/archived', label: 'Archived', icon: 'archive' },
+        { to: '/disabled', label: 'Disabled', icon: 'disabled' },
       ],
     },
     {

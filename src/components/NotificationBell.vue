@@ -59,7 +59,7 @@
               class="rounded-full px-2 py-[2px] text-[10px] font-bold"
               :class="badgeClass(notif.type)"
             >
-              {{ notif.type }}
+              {{ typeLabel(notif.type) }}
             </span>
           </div>
 
@@ -301,7 +301,7 @@ const ROUTES = {
   admin: {
     low_stock: '/inventory',
     restore: '/inventory',
-    archive: '/archived',
+    archive: '/disabled',
     inspection: '/calendar',
     // each opens its own tab of the Approval page
     inspection_approval: '/approval?tab=inspections',
@@ -352,6 +352,17 @@ const BADGES = {
   documentation: 'bg-emerald-500/20 text-emerald-400',
   restore: 'bg-emerald-500/20 text-emerald-400',
   archive: 'bg-zinc-500/20 text-zinc-300',
+}
+
+// the type as people say it: the database's older names "archive" and
+// "restore" are Disabled and Enabled now; low_stock -> low stock
+const TYPE_LABELS = {
+  archive: 'disabled',
+  restore: 'enabled',
+}
+
+function typeLabel(type) {
+  return TYPE_LABELS[type] || String(type || '').replace(/_/g, ' ')
 }
 
 function badgeClass(type) {

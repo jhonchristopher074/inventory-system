@@ -198,15 +198,15 @@
 
                   <button
                     class="desktop-only rounded-lg bg-red-600/15 px-2.5 py-1.5 text-xs font-bold text-red-300 hover:bg-red-600/30 hover:text-white @max-5xl:hidden"
-                    title="Move this product to Archived"
+                    title="Hide it from Inventory and the POS (nothing is deleted)"
                     @click="openArchiveModal(product)"
                   >
-                    Archive
+                    Disable
                   </button>
 
                   <button
                     class="rounded-lg bg-zinc-800 px-3 py-1.5 text-xs font-bold text-white hover:bg-zinc-700 @5xl:hidden"
-                    title="Inspection, history, archive and more"
+                    title="Inspection, history, disable and more"
                     @click="manageProduct = product"
                   >
                     More
@@ -372,21 +372,22 @@
       />
     </div>
 
-    <!-- ARCHIVE CONFIRM MODAL -->
+    <!-- DISABLE CONFIRM MODAL (the database still calls it archiving) -->
     <div
       v-if="actionModal"
       class="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4"
       @click.self="closeActionModal"
     >
       <div class="max-h-[92vh] overflow-y-auto w-full max-w-sm rounded-2xl border border-white/10 bg-zinc-900 p-5 shadow-2xl">
-        <h2 class="mb-3 text-xl font-bold text-white">Archive Product</h2>
+        <h2 class="mb-3 text-xl font-bold text-white">Disable Product</h2>
 
         <p class="mb-2 text-sm text-zinc-300">
           <b>Product:</b> {{ archiveProduct?.name }}
         </p>
 
         <p class="mb-4 text-sm text-zinc-300">
-          Are you sure you want to move this item to <b>Archived</b>?
+          Hide this product from Inventory and the POS? Nothing is deleted: you can enable it again
+          from <b>Disabled</b>.
         </p>
 
         <p
@@ -402,7 +403,7 @@
             :disabled="archiveSaving"
             @click="confirmArchive"
           >
-            {{ archiveSaving ? 'Archiving...' : 'Proceed' }}
+            {{ archiveSaving ? 'Disabling...' : 'Disable' }}
           </button>
 
           <button
@@ -798,7 +799,7 @@ import { LOW_STOCK, byStockLevel, isLowStock } from '../../lib/stock'
 const products = ref([])
 const selectedCategory = ref('All')
 const selectedProduct = ref(null)
-// the product its Archive button was pressed for (asked to confirm first)
+// the product its Disable button was pressed for (asked to confirm first)
 const archiveProduct = ref(null)
 const previewImage = ref(null)
 const inspectionDate = ref('')
@@ -955,14 +956,14 @@ watch([searchQuery, selectedCategory, stockFilter], resetList)
 
 // ----- The "More" menu of a product -----
 // Phones and narrower tables don't have room for every button in a row,
-// so they show "More" with all the actions (including Archive) instead.
+// so they show "More" with all the actions (including Disable) instead.
 const manageProduct = ref(null)
 
 const manageActions = [
   { key: 'edit', label: '✎ Edit product', hint: 'Nickname, price, quantity and picture' },
   { key: 'inspection', label: '📅 Inspection date / report' },
   { key: 'history', label: 'Stock history' },
-  { key: 'archive', label: 'Move to Archived', tone: 'danger' },
+  { key: 'archive', label: 'Disable', tone: 'danger' },
 ]
 
 function onManageAction(key) {
@@ -1012,7 +1013,7 @@ function openModal(product) {
   detailMessage.value = null
 }
 
-// Archive button of a row (or "Move to Archived" in the phone menu):
+// Disable button of a row (or "Disable" in the phone menu):
 // asks to confirm first
 function openArchiveModal(product) {
   archiveProduct.value = product
