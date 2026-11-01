@@ -75,7 +75,6 @@
           :value="loaded ? lowStock.length : null"
           :sub="lowStock.length > 0 || !loaded ? `of ${count(products.length)} products` : 'Every product has enough'"
           :alert="lowStock.length > 0"
-          :items="stockItems"
         >
           <p v-if="outOfStock.length > 0" class="kpi-change text-red-400">
             {{ count(outOfStock.length) }} out of stock
@@ -85,10 +84,9 @@
         <AlertTile
           :to="overdueLink"
           label="Overdue"
-          :value="loaded ? overdueItems.length : null"
+          :value="loaded ? overdueCount : null"
           :sub="overdueText"
-          :alert="overdueItems.length > 0"
-          :items="overdueItems"
+          :alert="overdueCount > 0"
         />
       </section>
 
@@ -331,12 +329,10 @@ import {
   changeSinceYesterday,
   dailyTotals,
   dayKey,
-  lateItems,
   pesoTile,
   salesText,
   salesThisMonth,
   salesToday,
-  stockAlertItems,
 } from '../../lib/dashboardStats'
 import { isDelivered } from '../../lib/deliveries'
 
@@ -536,8 +532,6 @@ function formatDay(date) {
 /* ------------------------------------------------------------------
    The Low stock and Overdue tiles
 ------------------------------------------------------------------ */
-const stockItems = computed(() => stockAlertItems(lowStock.value))
-
 function noun(n, word, plural = `${word}s`) {
   return n === 1 ? word : plural
 }
@@ -549,24 +543,8 @@ const overdueDeliveries = computed(() => {
   return deliveries.value.filter((item) => item.delivery_date && String(item.delivery_date).slice(0, 10) < todayKey)
 })
 
-// inspections and deliveries past their date, the oldest first
-const overdueItems = computed(() =>
-  lateItems(
-    [
-      ...overdueInspections.value.map((product) => ({
-        key: `i${product.id}`,
-        name: product.name || 'Inspection',
-        date: product.inspection_date,
-      })),
-      ...overdueDeliveries.value.map((item) => ({
-        key: `d${item.id}`,
-        name: item.title || 'Delivery',
-        date: item.delivery_date,
-      })),
-    ],
-    dayKey(now.value)
-  )
-)
+// inspections and deliveries past their date
+const overdueCount = computed(() => overdueInspections.value.length + overdueDeliveries.value.length)
 
 const overdueText = computed(() => {
   const inspectionCount = overdueInspections.value.length

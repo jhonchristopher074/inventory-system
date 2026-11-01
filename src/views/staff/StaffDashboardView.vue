@@ -81,10 +81,9 @@
         <AlertTile
           :to="overdueLink"
           label="Overdue"
-          :value="loaded ? overdueItems.length : null"
+          :value="loaded ? overdueCount : null"
           :sub="overdueText"
-          :alert="overdueItems.length > 0"
-          :items="overdueItems"
+          :alert="overdueCount > 0"
         />
 
         <AlertTile
@@ -93,7 +92,6 @@
           :value="loaded ? lowStock.length : null"
           :sub="lowStock.length > 0 || !loaded ? `of ${count(products.length)} products` : 'Every product has enough'"
           :alert="lowStock.length > 0"
-          :items="stockItems"
         >
           <p v-if="outOfStock.length > 0" class="kpi-change text-red-400">
             {{ count(outOfStock.length) }} out of stock
@@ -341,7 +339,7 @@ import AlertTile from '../../components/AlertTile.vue'
 import NavIcon from '../../components/NavIcon.vue'
 import { count } from '../../lib/format'
 import { LOW_STOCK, byStockLevel, isLowStock, isOutOfStock, stockOf } from '../../lib/stock'
-import { dayKey, lateItems, startOfDay, stockAlertItems } from '../../lib/dashboardStats'
+import { dayKey, startOfDay } from '../../lib/dashboardStats'
 import { isDelivered } from '../../lib/deliveries'
 
 const CALENDAR = '/staff/calendar'
@@ -622,18 +620,8 @@ const lowStockList = computed(() => lowStock.value.slice(0, 6))
 /* ------------------------------------------------------------------
    The Overdue and Low stock tiles
 ------------------------------------------------------------------ */
-const stockItems = computed(() => stockAlertItems(lowStock.value))
-
-// inspections and deliveries past their date, the oldest first
-const overdueItems = computed(() =>
-  lateItems(
-    [
-      ...overdue.value.map((row) => ({ key: `i${row.item.id}`, name: row.item.name || 'Inspection', date: row.date })),
-      ...deliveriesOverdue.value.map((item) => ({ key: `d${item.id}`, name: item.title || 'Delivery', date: item.date })),
-    ],
-    todayKey.value
-  )
-)
+// inspections and deliveries past their date
+const overdueCount = computed(() => overdue.value.length + deliveriesOverdue.value.length)
 
 const overdueText = computed(() => {
   const parts = []

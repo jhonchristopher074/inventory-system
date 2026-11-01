@@ -1,8 +1,9 @@
 <template>
   <!-- A dashboard tile for something that may need action now (Low stock,
-       Overdue). With something in it, it turns red, shows a pulsing caution
-       sign and names the first few; with nothing, it's green with a check.
-       Put a line under the number in the default slot (e.g. "1 out of stock"). -->
+       Overdue). With something in it, it turns red with a pulsing caution
+       sign; with nothing, it's green with a check. The page it opens has
+       the list. Put a line under the number in the default slot
+       (e.g. "1 out of stock"). -->
   <RouterLink :to="to" class="kpi" :class="alert ? 'tone-red kpi-alert' : 'tone-green'">
     <div class="kpi-top">
       <p class="kpi-label">{{ label }}</p>
@@ -22,17 +23,6 @@
     <p class="kpi-sub">{{ sub }}</p>
 
     <slot />
-
-    <!-- the first few by name; the rest is on the page the tile opens -->
-    <ul v-if="items.length > 0" class="kpi-list">
-      <li v-for="item in items.slice(0, shown)" :key="item.key">
-        <span class="kpi-list-name">{{ item.name }}</span>
-        <span class="kpi-list-tag" :class="item.tagClass">{{ item.tag }}</span>
-      </li>
-      <li v-if="items.length > shown" class="kpi-list-more">
-        and {{ count(items.length - shown) }} more
-      </li>
-    </ul>
   </RouterLink>
 </template>
 
@@ -49,9 +39,6 @@ defineProps({
   sub: { type: String, default: '' },
   // red with the caution sign
   alert: { type: Boolean, default: false },
-  // [{ key, name, tag, tagClass }]
-  items: { type: Array, default: () => [] },
-  shown: { type: Number, default: 2 },
 })
 </script>
 

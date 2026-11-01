@@ -3,7 +3,6 @@
 // list_my_sales_since: { created_at, total_amount, sale_items: [...] }.
 // Dates are this computer's clock, like the rest of the app.
 import { count, peso } from './format'
-import { stockOf } from './stock'
 
 export function startOfDay(date, addDays = 0) {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate() + addDays)
@@ -149,44 +148,4 @@ export function bestSellers(sales, products, now, { days = 30, limit = 5 } = {})
   const top = list[0]?.total || 0
 
   return list.map((row) => ({ ...row, share: top ? Math.max((row.total / top) * 100, 2) : 0 }))
-}
-
-// How many days ago a date ('2026-10-30') was, counted on the calendar
-export function daysLate(dateKey, todayKey) {
-  const [y1, m1, d1] = String(dateKey).slice(0, 10).split('-').map(Number)
-  const [y2, m2, d2] = String(todayKey).slice(0, 10).split('-').map(Number)
-  return Math.round((Date.UTC(y2, m2 - 1, d2) - Date.UTC(y1, m1 - 1, d1)) / 864e5)
-}
-
-export function lateText(days) {
-  return days === 1 ? '1 day late' : `${count(days)} days late`
-}
-
-/* ------------------------------------------------------------------
-   The lines in the Low stock and Overdue tiles (components/AlertTile.vue)
------------------------------------------------------------------- */
-// products running low, emptiest first: "Steel nails · Out", "Cement · 3 left"
-export function stockAlertItems(lowProducts) {
-  return lowProducts.map((product) => {
-    const left = stockOf(product)
-    return {
-      key: `p${product.id}`,
-      name: product.name || 'Unnamed product',
-      tag: left <= 0 ? 'Out' : `${count(left)} left`,
-      tagClass: left <= 0 ? 'text-red-400' : 'text-amber-300',
-    }
-  })
-}
-
-// things past their date ({ key, name, date }), the oldest first:
-// "Cement 40kg · 3 days late"
-export function lateItems(list, todayKey) {
-  return [...list]
-    .sort((a, b) => String(a.date).localeCompare(String(b.date)))
-    .map((item) => ({
-      key: item.key,
-      name: item.name,
-      tag: lateText(daysLate(item.date, todayKey)),
-      tagClass: 'text-red-400',
-    }))
 }

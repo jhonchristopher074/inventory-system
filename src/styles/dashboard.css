@@ -106,41 +106,6 @@ a.kpi:focus-visible {
   }
 }
 
-/* a tile's short list: which products are low, what is late. Colours of
-   the tags come from Tailwind classes, so none is set here. */
-.kpi-list {
-  margin-top: 0.65rem;
-  display: grid;
-  gap: 0.3rem;
-  border-top: 1px solid var(--hairline);
-  padding-top: 0.55rem;
-}
-
-.kpi-list li {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 0.5rem;
-  font-size: 0.75rem;
-}
-
-.kpi-list-name {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: var(--color-zinc-200);
-}
-
-.kpi-list-tag {
-  flex: none;
-  font-weight: 800;
-}
-
-.kpi-list .kpi-list-more {
-  color: var(--color-zinc-500);
-}
-
 .kpi-top {
   display: flex;
   align-items: center;
