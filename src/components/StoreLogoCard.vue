@@ -4,28 +4,27 @@
        is kept: the old file is deleted. (lib/storeLogo.js, and the SQL in
        supabase/migrations/20261101000002_store_logo.sql) -->
   <div class="card p-4">
+    <!-- one row, so the Profile page fits the screen; what's allowed is in
+         the button's hint (and a wrong file is refused with a message) -->
     <div class="flex items-center gap-3">
       <img
         :src="logoUrl"
         alt="The store logo"
-        class="h-14 w-14 shrink-0 rounded-xl bg-black/30 object-contain p-1"
+        class="h-12 w-12 shrink-0 rounded-xl bg-black/30 object-contain p-1"
         @error="showDefaultLogo"
       />
-      <div class="min-w-0 flex-1">
+      <div class="min-w-0 flex-1" title="Shown in the menu, on the login page and in the browser tab">
         <p class="font-bold text-white">Store logo</p>
-        <p class="text-xs text-zinc-500">
-          {{ logoPath ? 'Your logo' : 'The built-in logo' }} · menu, login page and browser tab
-        </p>
+        <p class="truncate text-xs text-zinc-500">{{ logoPath ? 'Your logo' : 'Built-in logo' }}</p>
       </div>
-    </div>
 
-    <div class="mt-3 flex flex-wrap gap-2">
       <!-- a label, so the whole button opens the file picker -->
       <label
-        class="cursor-pointer rounded-xl bg-red-600 px-4 py-2 text-sm font-bold text-white hover:bg-red-700"
+        class="shrink-0 cursor-pointer rounded-xl bg-red-600 px-3.5 py-2 text-sm font-bold text-white hover:bg-red-700"
         :class="{ 'pointer-events-none opacity-50': busy }"
+        title="PNG, JPG or WebP, up to 5 MB. You crop it to a square next."
       >
-        Change logo
+        Change
         <input
           type="file"
           :accept="LOGO_TYPES.join(',')"
@@ -34,19 +33,17 @@
           @change="pick"
         />
       </label>
-
-      <button
-        v-if="logoPath"
-        type="button"
-        class="rounded-xl border border-white/10 px-4 py-2 text-sm font-bold text-zinc-300 hover:border-red-500/40 hover:text-white disabled:opacity-50"
-        :disabled="busy"
-        @click="askBuiltIn"
-      >
-        Use the built-in logo
-      </button>
     </div>
 
-    <p class="mt-2 text-xs text-zinc-500">PNG, JPG or WebP, up to 5 MB. You crop it to a square next.</p>
+    <button
+      v-if="logoPath"
+      type="button"
+      class="mt-2 text-xs font-bold text-zinc-400 hover:text-white disabled:opacity-50"
+      :disabled="busy"
+      @click="askBuiltIn"
+    >
+      Use the built-in logo instead
+    </button>
 
     <p v-if="error" class="mt-3 rounded-xl bg-red-600/15 p-3 text-sm text-red-400" role="alert">{{ error }}</p>
     <p v-if="success" class="mt-3 rounded-xl bg-emerald-600/15 p-3 text-sm text-emerald-400">{{ success }}</p>

@@ -1,5 +1,11 @@
 <template>
-  <div>
+  <!-- Computers: exactly the height of the screen (the space under the top
+       bar: 100dvh minus the page's padding and the top bar), so the page
+       itself never scrolls; the account list scrolls inside its card, and
+       the Add employee form inside its own if the screen is short. Below
+       460px of height it scrolls like any page. Phones: one column that
+       scrolls. -->
+  <div class="lg:flex lg:h-[calc(100dvh-8.6rem)] lg:min-h-[460px] lg:flex-col">
     <PageHeader title="Profile & Users" subtitle="Manage owner, cashier, and staff accounts." />
 
     <!-- MAIN -->
@@ -7,13 +13,13 @@
          swipeable tab row widened the whole page on phones.
          Computers: both columns end at the same line (the user list is as
          tall as the logo + Add employee column and scrolls inside). -->
-    <div class="grid grid-cols-1 items-start gap-5 lg:grid-cols-[320px_minmax(0,1fr)] lg:items-stretch">
+    <div class="grid grid-cols-1 items-start gap-5 lg:min-h-0 lg:flex-1 lg:grid-cols-[320px_minmax(0,1fr)] lg:grid-rows-[minmax(0,1fr)] lg:items-stretch">
 
       <!-- ADD USER: the server generates a one-time temporary password.
            Phones: behind a button, so the user list isn't pushed down. -->
-      <div>
+      <div class="lg:flex lg:min-h-0 lg:flex-col">
         <!-- the store's logo: change it (crop, then your password) -->
-        <StoreLogoCard class="mb-4" />
+        <StoreLogoCard class="mb-4 shrink-0" />
 
         <button
           type="button"
@@ -26,15 +32,17 @@
 
         <!-- hidden with CSS, not v-if: the new temporary password popup
              belongs to this form and must stay open after "Create account" -->
-        <div :class="showCreateForm ? 'mt-3' : 'desktop-only'">
+        <div
+          class="employee-form lg:min-h-0 lg:flex-1 lg:overflow-y-auto"
+          :class="showCreateForm ? 'mt-3' : 'desktop-only'"
+        >
           <CreateEmployeeForm @created="fetchUsers" />
         </div>
       </div>
 
-      <!-- USERS: on computers "contain: size" keeps the long list from
-           making the row taller, so the card stretches to the height of the
-           left column and the list scrolls inside it -->
-      <div class="card flex min-w-0 flex-col p-5 lg:min-h-[460px] lg:[contain:size]">
+      <!-- USERS: on computers as tall as the screen allows; the list
+           scrolls inside -->
+      <div class="card flex min-w-0 flex-col p-5 lg:min-h-0">
 
         <!-- TOP -->
         <div class="mb-4 flex items-center justify-between gap-4">
@@ -585,6 +593,14 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
+/* computers: the Add employee card reaches the bottom, level with the
+   accounts card beside it */
+@media (min-width: 1024px) {
+  .employee-form :deep(.ce-form) {
+    min-height: 100%;
+  }
+}
+
 .input {
   width: 100%;
   border-radius: 0.875rem;

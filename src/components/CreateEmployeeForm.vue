@@ -77,13 +77,13 @@ function closeReveal() {
 </template>
 
 <style scoped>
-.ce-form { display: grid; gap: 6px; max-width: 420px; background: #141417; border: 1px solid #26262b; border-radius: 16px; padding: 22px; color: #f4f4f5; }
-h2 { margin: 0 0 8px; font-size: 1.15rem; font-weight: 800; color: #fff; }
-label { font-size: .8rem; font-weight: 600; color: #d4d4d8; margin-top: 8px; }
-input, select { background: #0e0e11; border: 1px solid #2e2e34; border-radius: 10px; color: inherit; padding: 10px 12px; font-size: .95rem; }
+.ce-form { display: grid; align-content: start; gap: 5px; max-width: 420px; background: #141417; border: 1px solid #26262b; border-radius: 16px; padding: 18px 20px; color: #f4f4f5; }
+h2 { margin: 0 0 4px; font-size: 1.15rem; font-weight: 800; color: #fff; }
+label { font-size: .8rem; font-weight: 600; color: #d4d4d8; margin-top: 6px; }
+input, select { background: #0e0e11; border: 1px solid #2e2e34; border-radius: 10px; color: inherit; padding: 8px 12px; font-size: .95rem; }
 input:focus, select:focus { outline: none; border-color: #e11d48; }
-.ce-note { font-size: .8rem; color: #a1a1aa; margin: 10px 0 0; }
+.ce-note { font-size: .8rem; color: #a1a1aa; margin: 8px 0 0; }
 .ce-error { font-size: .85rem; color: #fda4af; margin: 6px 0 0; }
-button { margin-top: 14px; padding: 11px; border: 0; border-radius: 10px; background: #e11d48; color: #fff; font-weight: 700; cursor: pointer; }
+button { margin-top: 10px; padding: 10px; border: 0; border-radius: 10px; background: #e11d48; color: #fff; font-weight: 700; cursor: pointer; }
 button:disabled { opacity: .45; cursor: not-allowed; }
 </style>
