@@ -38,15 +38,10 @@
 
     <!-- while refreshing, the numbers stay where they are (dimmed) -->
     <div class="transition-opacity" :class="{ 'opacity-60': refreshing && loaded }">
-      <!-- what's wrong right now (late, empty), in red or amber -->
-      <DashboardAlerts
-        :alerts="alerts"
-        :loaded="loaded"
-        ok-text="All good. Nothing is overdue and stock is fine."
-      />
-
       <!-- ============================================================
-           AT A GLANCE: what to inspect now is the big number
+           AT A GLANCE: what to inspect now is the big number. Overdue and
+           Low stock turn red with a caution sign, and name what it is,
+           when something needs action.
       ============================================================ -->
       <section class="mb-5 grid grid-cols-2 gap-3 @min-[900px]:grid-cols-5" aria-label="At a glance">
         <RouterLink :to="CALENDAR" class="kpi tone-violet col-span-2">
@@ -83,38 +78,27 @@
           <p class="kpi-sub">{{ noun(upcomingWeek.length, 'inspection') }} coming up</p>
         </RouterLink>
 
-        <RouterLink :to="CALENDAR" class="kpi tone-blue">
-          <div class="kpi-top">
-            <p class="kpi-label">With the owner</p>
-            <span class="kpi-icon"><NavIcon name="check" class="h-4 w-4" /></span>
-          </div>
+        <AlertTile
+          :to="overdueLink"
+          label="Overdue"
+          :value="loaded ? overdueItems.length : null"
+          :sub="overdueText"
+          :alert="overdueItems.length > 0"
+          :items="overdueItems"
+        />
 
-          <p class="kpi-value">{{ loaded ? count(submitted.length) : '—' }}</p>
-          <p class="kpi-sub">
-            {{ submitted.length > 0 ? `${count(submittedPieces)} pcs to approve` : 'Nothing submitted' }}
-          </p>
-
-          <p v-if="mySaved.length > 0" class="kpi-change text-yellow-400">
-            {{ count(mySaved.length) }} saved, not submitted
-          </p>
-        </RouterLink>
-
-        <!-- red when something is out of stock, amber when running low,
-             green when every product has enough -->
-        <RouterLink :to="LOW_STOCK_LINK" class="kpi" :class="stockTile.class">
-          <div class="kpi-top">
-            <p class="kpi-label">Low stock</p>
-            <span class="kpi-icon"><NavIcon :name="stockTile.icon" class="h-4 w-4" /></span>
-          </div>
-
-          <p class="kpi-value">{{ loaded ? count(lowStock.length) : '—' }}</p>
-          <p class="kpi-sub">{{ lowStock.length > 0 || !loaded ? `of ${count(products.length)} products` : 'Every product has enough' }}</p>
-
+        <AlertTile
+          :to="LOW_STOCK_LINK"
+          label="Low stock"
+          :value="loaded ? lowStock.length : null"
+          :sub="lowStock.length > 0 || !loaded ? `of ${count(products.length)} products` : 'Every product has enough'"
+          :alert="lowStock.length > 0"
+          :items="stockItems"
+        >
           <p v-if="outOfStock.length > 0" class="kpi-change text-red-400">
-            <NavIcon name="alert" class="h-3.5 w-3.5 shrink-0" />
             {{ count(outOfStock.length) }} out of stock
           </p>
-        </RouterLink>
+        </AlertTile>
       </section>
 
       <!-- ============================================================
@@ -353,11 +337,12 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { supabase } from '../../lib/supabase'
 import DashboardHero from '../../components/DashboardHero.vue'
-import DashboardAlerts from '../../components/DashboardAlerts.vue'
+import AlertTile from '../../components/AlertTile.vue'
 import NavIcon from '../../components/NavIcon.vue'
 import { count } from '../../lib/format'
 import { LOW_STOCK, byStockLevel, isLowStock, isOutOfStock, stockOf } from '../../lib/stock'
-import { dayKey, namesText, startOfDay } from '../../lib/dashboardStats'
+import { dayKey, lateItems, startOfDay, stockAlertItems } from '../../lib/dashboardStats'
+import { isDelivered } from '../../lib/deliveries'
 
 const CALENDAR = '/staff/calendar'
 // the Calendar's Delivery tab
@@ -410,10 +395,6 @@ async function rpc(name, params) {
   const { data, error } = await supabase.rpc(name, params)
   if (error) throw error
   return data || []
-}
-
-function isDelivered(delivery) {
-  return ['delivered', 'done', 'completed'].includes(String(delivery.status || '').trim().toLowerCase())
 }
 
 async function load() {
@@ -639,7 +620,38 @@ const outOfStock = computed(() => lowStock.value.filter(isOutOfStock))
 const lowStockList = computed(() => lowStock.value.slice(0, 6))
 
 /* ------------------------------------------------------------------
-   Alerts (what's late or empty) and your tasks
+   The Overdue and Low stock tiles
+------------------------------------------------------------------ */
+const stockItems = computed(() => stockAlertItems(lowStock.value))
+
+// inspections and deliveries past their date, the oldest first
+const overdueItems = computed(() =>
+  lateItems(
+    [
+      ...overdue.value.map((row) => ({ key: `i${row.item.id}`, name: row.item.name || 'Inspection', date: row.date })),
+      ...deliveriesOverdue.value.map((item) => ({ key: `d${item.id}`, name: item.title || 'Delivery', date: item.date })),
+    ],
+    todayKey.value
+  )
+)
+
+const overdueText = computed(() => {
+  const parts = []
+  if (overdue.value.length > 0) parts.push(`${count(overdue.value.length)} ${noun(overdue.value.length, 'inspection')}`)
+  if (deliveriesOverdue.value.length > 0) {
+    parts.push(`${count(deliveriesOverdue.value.length)} ${noun(deliveriesOverdue.value.length, 'delivery', 'deliveries')}`)
+  }
+  return parts.join(' · ') || 'Nothing is late'
+})
+
+// only deliveries late: open the Calendar on that tab
+const overdueLink = computed(() =>
+  deliveriesOverdue.value.length > 0 && overdue.value.length === 0 ? DELIVERIES : CALENDAR
+)
+
+/* ------------------------------------------------------------------
+   Your tasks, soonest first (what's late or low is in the tiles above,
+   so it isn't listed twice)
 ------------------------------------------------------------------ */
 // amber = soon, blue = a task for you (the same colours as everywhere else)
 const TONES = {
@@ -647,57 +659,6 @@ const TONES = {
   task: 'bg-sky-500/15 text-sky-300',
 }
 
-const lowOnly = computed(() => lowStock.value.filter((product) => !isOutOfStock(product)))
-
-// worst first, with the names so you don't have to open the page to know which
-const alerts = computed(() => {
-  const list = []
-
-  if (overdue.value.length > 0) {
-    const n = overdue.value.length
-    list.push({
-      key: 'overdue', level: 'critical', to: CALENDAR, action: 'Calendar',
-      text: `${count(n)} ${noun(n, 'inspection')} overdue`,
-      detail: namesText(overdue.value.map((row) => row.item.name)),
-    })
-  }
-  if (deliveriesOverdue.value.length > 0) {
-    const n = deliveriesOverdue.value.length
-    list.push({
-      key: 'late', level: 'critical', to: DELIVERIES, action: 'Deliveries',
-      text: `${count(n)} ${noun(n, 'delivery', 'deliveries')} overdue`,
-      detail: namesText(deliveriesOverdue.value.map((delivery) => delivery.title || 'Delivery')),
-    })
-  }
-  if (outOfStock.value.length > 0) {
-    const n = outOfStock.value.length
-    list.push({
-      key: 'out', level: 'critical', to: LOW_STOCK_LINK, action: 'See list',
-      text: `${count(n)} ${noun(n, 'product')} out of stock`,
-      detail: namesText(outOfStock.value.map((product) => product.name)),
-    })
-  }
-  if (lowOnly.value.length > 0) {
-    const n = lowOnly.value.length
-    list.push({
-      key: 'low', level: 'warning', to: LOW_STOCK_LINK, action: 'See list',
-      text: `${count(n)} ${noun(n, 'product')} running low`,
-      detail: namesText(lowOnly.value.map((product) => `${product.name} (${count(stockOf(product))})`)),
-    })
-  }
-
-  return list
-})
-
-// the Low stock tile's colour and icon
-const stockTile = computed(() => {
-  if (outOfStock.value.length > 0) return { class: 'tone-red kpi-alert', icon: 'alert' }
-  if (lowStock.value.length > 0) return { class: 'tone-amber', icon: 'inventory' }
-  return { class: 'tone-green', icon: 'check' }
-})
-
-// your tasks, soonest first (problems are in the alerts above, so they
-// aren't listed twice)
 const attention = computed(() =>
   [
     { key: 'today', n: dueToday.value.length, label: (n) => `${noun(n, 'inspection')} to do today`, to: CALENDAR, icon: 'calendar', tone: 'warning' },

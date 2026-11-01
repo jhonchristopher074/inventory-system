@@ -333,6 +333,7 @@ import PageHeader from '../../components/PageHeader.vue'
 import InspectionTable from '../../components/InspectionTable.vue'
 import { count } from '../../lib/format'
 import { useQueryParam } from '../../lib/useQueryParam'
+import { isDelivered } from '../../lib/deliveries'
 
 // Inspection / Delivery, kept in the address (?tab=delivery) so the
 // Dashboard's delivery links open that tab and a refresh keeps it
@@ -534,12 +535,6 @@ async function fetchDeliveries() {
 const deliveryToFinish = ref(null)
 const deliveryError = ref('')
 const deliverySaving = ref(false)
-
-function isDelivered(delivery) {
-  return ['delivered', 'done', 'completed'].includes(
-    String(delivery.status || '').trim().toLowerCase()
-  )
-}
 
 function isDeliveryOverdue(delivery) {
   if (!delivery.delivery_date) return false

@@ -21,6 +21,7 @@
 begin;
 
 -- crypt(): checks a password against Supabase Auth's stored hash
+-- (already there on Supabase; older projects have it in public)
 create extension if not exists pgcrypto with schema extensions;
 
 -- ---------------------------------------------------------------------
@@ -98,7 +99,8 @@ begin
     raise exception 'Only the Owner can change the logo.' using errcode = '42501';
   end if;
 
-  select u.encrypted_password = extensions.crypt(coalesce(p_password, ''), u.encrypted_password)
+  -- crypt() from pgcrypto, wherever it's installed (extensions or public)
+  select u.encrypted_password = crypt(coalesce(p_password, ''), u.encrypted_password)
   into v_ok
   from auth.users u
   where u.id = auth.uid();

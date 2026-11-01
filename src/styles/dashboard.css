@@ -62,6 +62,85 @@ a.kpi:focus-visible {
   color: var(--tone, var(--brand-bright));
 }
 
+/* the red caution sign of a tile that needs action now (AlertTile:
+   Low stock, Overdue), with a ring that keeps pulsing out of it */
+.kpi-caution {
+  position: relative;
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 1.9rem;
+  height: 1.9rem;
+  border-radius: 999px;
+  background: var(--brand-bright);
+  box-shadow: 0 0 14px rgba(244, 52, 76, 0.55);
+  color: #fff;
+}
+
+.kpi-caution::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  border: 2px solid var(--brand-bright);
+  animation: caution-pulse 1.8s ease-out infinite;
+}
+
+@keyframes caution-pulse {
+  from {
+    transform: scale(1);
+    opacity: 0.8;
+  }
+  to {
+    transform: scale(1.9);
+    opacity: 0;
+  }
+}
+
+/* no movement wanted: a still ring instead */
+@media (prefers-reduced-motion: reduce) {
+  .kpi-caution::after {
+    animation: none;
+    transform: scale(1.35);
+    opacity: 0.35;
+  }
+}
+
+/* a tile's short list: which products are low, what is late. Colours of
+   the tags come from Tailwind classes, so none is set here. */
+.kpi-list {
+  margin-top: 0.65rem;
+  display: grid;
+  gap: 0.3rem;
+  border-top: 1px solid var(--hairline);
+  padding-top: 0.55rem;
+}
+
+.kpi-list li {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+}
+
+.kpi-list-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--color-zinc-200);
+}
+
+.kpi-list-tag {
+  flex: none;
+  font-weight: 800;
+}
+
+.kpi-list .kpi-list-more {
+  color: var(--color-zinc-500);
+}
+
 .kpi-top {
   display: flex;
   align-items: center;

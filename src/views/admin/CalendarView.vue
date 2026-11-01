@@ -331,8 +331,12 @@ import { supabase } from '../../lib/supabase'
 import PageHeader from '../../components/PageHeader.vue'
 import InspectionTable from '../../components/InspectionTable.vue'
 import { count } from '../../lib/format'
+import { isDelivered } from '../../lib/deliveries'
+import { useQueryParam } from '../../lib/useQueryParam'
 
-const activeTab = ref('inspection')
+// in the address (?tab=delivery), like the Staff calendar, so the Dashboard
+// can open the Delivery tab
+const activeTab = useQueryParam('tab', 'inspection', ['inspection', 'delivery'])
 
 const products = ref([])
 const allProducts = ref([])
@@ -529,12 +533,6 @@ function shouldShowInCalendar(product, today) {
 }
 
 // ----- Deliveries -----
-function isDelivered(delivery) {
-  return ['delivered', 'done', 'completed'].includes(
-    String(delivery.status || '').trim().toLowerCase()
-  )
-}
-
 function isDeliveryOverdue(delivery) {
   if (!delivery.delivery_date) return false
   return String(delivery.delivery_date).slice(0, 10) < getToday()

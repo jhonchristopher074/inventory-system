@@ -31,15 +31,10 @@
     <!-- while refreshing, the numbers stay where they are (dimmed) instead
          of disappearing and jumping back -->
     <div class="transition-opacity" :class="{ 'opacity-60': refreshing && loaded }">
-      <!-- what's wrong right now (empty, late, failed), in red or amber -->
-      <DashboardAlerts
-        :alerts="alerts"
-        :loaded="loaded"
-        ok-text="All good. Stock is fine and nothing is overdue."
-      />
-
       <!-- ============================================================
-           AT A GLANCE: today's sales is the big number
+           AT A GLANCE: today's sales is the big number. Low stock and
+           Overdue turn red with a caution sign, and name what it is,
+           when something needs action.
       ============================================================ -->
       <section class="mb-5 grid grid-cols-2 gap-3 @min-[900px]:grid-cols-5" aria-label="At a glance">
         <RouterLink to="/admin/sales" class="kpi tone-red col-span-2">
@@ -74,32 +69,27 @@
           <p class="kpi-sub">{{ salesText(month.count) }} in {{ monthName }}</p>
         </RouterLink>
 
-        <!-- red when something is out of stock, amber when running low,
-             green when every product has enough -->
-        <RouterLink :to="LOW_STOCK_LINK" class="kpi" :class="stockTile.class">
-          <div class="kpi-top">
-            <p class="kpi-label">Low stock</p>
-            <span class="kpi-icon"><NavIcon :name="stockTile.icon" class="h-4 w-4" /></span>
-          </div>
-
-          <p class="kpi-value">{{ loaded ? count(lowStock.length) : '—' }}</p>
-          <p class="kpi-sub">{{ lowStock.length > 0 || !loaded ? `of ${count(products.length)} products` : 'Every product has enough' }}</p>
-
+        <AlertTile
+          :to="LOW_STOCK_LINK"
+          label="Low stock"
+          :value="loaded ? lowStock.length : null"
+          :sub="lowStock.length > 0 || !loaded ? `of ${count(products.length)} products` : 'Every product has enough'"
+          :alert="lowStock.length > 0"
+          :items="stockItems"
+        >
           <p v-if="outOfStock.length > 0" class="kpi-change text-red-400">
-            <NavIcon name="alert" class="h-3.5 w-3.5 shrink-0" />
             {{ count(outOfStock.length) }} out of stock
           </p>
-        </RouterLink>
+        </AlertTile>
 
-        <RouterLink :to="approvalLink" class="kpi tone-blue">
-          <div class="kpi-top">
-            <p class="kpi-label">To approve</p>
-            <span class="kpi-icon"><NavIcon name="approval" class="h-4 w-4" /></span>
-          </div>
-
-          <p class="kpi-value">{{ loaded ? count(waitingTotal) : '—' }}</p>
-          <p class="kpi-sub">{{ waitingText }}</p>
-        </RouterLink>
+        <AlertTile
+          :to="overdueLink"
+          label="Overdue"
+          :value="loaded ? overdueItems.length : null"
+          :sub="overdueText"
+          :alert="overdueItems.length > 0"
+          :items="overdueItems"
+        />
       </section>
 
       <!-- ============================================================
@@ -330,7 +320,7 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { supabase } from '../../lib/supabase'
 import DashboardHero from '../../components/DashboardHero.vue'
-import DashboardAlerts from '../../components/DashboardAlerts.vue'
+import AlertTile from '../../components/AlertTile.vue'
 import NavIcon from '../../components/NavIcon.vue'
 import SalesLineChart from '../../components/SalesLineChart.vue'
 import { count, peso } from '../../lib/format'
@@ -341,18 +331,21 @@ import {
   changeSinceYesterday,
   dailyTotals,
   dayKey,
-  namesText,
+  lateItems,
   pesoTile,
   salesText,
   salesThisMonth,
   salesToday,
+  stockAlertItems,
 } from '../../lib/dashboardStats'
+import { isDelivered } from '../../lib/deliveries'
 
 // Inventory showing only the products running low (emptiest first)
 const LOW_STOCK_LINK = '/inventory?stock=low'
 
 const products = ref([])
 const sales = ref([])
+const deliveries = ref([]) // not delivered yet
 // what waits on the Approval page
 const waiting = ref({ uploads: 0, inspections: 0, prices: 0, unsent: 0 })
 
@@ -367,8 +360,9 @@ const now = ref(new Date())
 
 /* ------------------------------------------------------------------
    Loading: everything at once. Products and sales are the main numbers;
-   the Approval lists only add to "To approve", so one that fails (e.g.
-   its SQL wasn't run) is just left out of the count.
+   the Approval lists only fill "Waiting for you" and deliveries only add
+   to Overdue, so one that fails (e.g. its SQL wasn't run) keeps its last
+   count.
 ------------------------------------------------------------------ */
 async function rpc(name, params) {
   const { data, error } = await supabase.rpc(name, params)
@@ -380,13 +374,14 @@ async function load() {
   if (refreshing.value) return
   refreshing.value = true
 
-  const [productsResult, salesResult, uploads, inspectionList, review, unsent] = await Promise.allSettled([
+  const [productsResult, salesResult, uploads, inspectionList, review, unsent, deliveryList] = await Promise.allSettled([
     rpc('list_products', { p_filter: 'active', p_order_by: 'id_asc' }),
     rpc('list_all_sales'),
     rpc('admin_list_supplier_uploads', { p_status: 'pending' }),
     rpc('list_submitted_approvals'),
     rpc('admin_list_receipt_review'),
     rpc('admin_list_unsent_supplier_uploads'),
+    rpc('list_deliveries'),
   ])
 
   const problems = []
@@ -412,7 +407,9 @@ async function load() {
     unsent: sizeOf(unsent, last.unsent),
   }
 
-  for (const result of [uploads, inspectionList, review, unsent]) {
+  if (deliveryList.status === 'fulfilled') deliveries.value = deliveryList.value.filter((item) => !isDelivered(item))
+
+  for (const result of [uploads, inspectionList, review, unsent, deliveryList]) {
     if (result.status === 'rejected') console.error(result.reason)
   }
 
@@ -537,97 +534,71 @@ function formatDay(date) {
 }
 
 /* ------------------------------------------------------------------
-   To approve / Needs your attention
+   The Low stock and Overdue tiles
 ------------------------------------------------------------------ */
-const waitingTotal = computed(() => {
-  const w = waiting.value
-  return w.uploads + w.inspections + w.prices + w.unsent
+const stockItems = computed(() => stockAlertItems(lowStock.value))
+
+function noun(n, word, plural = `${word}s`) {
+  return n === 1 ? word : plural
+}
+
+const overdueInspections = computed(() => inspections.value.filter(isOverdue))
+
+const overdueDeliveries = computed(() => {
+  const todayKey = dayKey(now.value)
+  return deliveries.value.filter((item) => item.delivery_date && String(item.delivery_date).slice(0, 10) < todayKey)
 })
 
-const waitingText = computed(() => {
-  const w = waiting.value
-  const receipts = w.uploads + w.prices + w.unsent
+// inspections and deliveries past their date, the oldest first
+const overdueItems = computed(() =>
+  lateItems(
+    [
+      ...overdueInspections.value.map((product) => ({
+        key: `i${product.id}`,
+        name: product.name || 'Inspection',
+        date: product.inspection_date,
+      })),
+      ...overdueDeliveries.value.map((item) => ({
+        key: `d${item.id}`,
+        name: item.title || 'Delivery',
+        date: item.delivery_date,
+      })),
+    ],
+    dayKey(now.value)
+  )
+)
+
+const overdueText = computed(() => {
+  const inspectionCount = overdueInspections.value.length
+  const deliveryCount = overdueDeliveries.value.length
   const parts = []
 
-  if (receipts > 0) parts.push(`${count(receipts)} receipt${receipts === 1 ? '' : 's'}`)
-  if (w.inspections > 0) parts.push(`${count(w.inspections)} inspection${w.inspections === 1 ? '' : 's'}`)
+  if (inspectionCount > 0) parts.push(`${count(inspectionCount)} ${noun(inspectionCount, 'inspection')}`)
+  if (deliveryCount > 0) parts.push(`${count(deliveryCount)} ${noun(deliveryCount, 'delivery', 'deliveries')}`)
 
-  return parts.join(' · ') || 'Nothing waiting'
+  return parts.join(' · ') || 'Nothing is late'
 })
 
-// only inspections waiting: open the Approval page on that tab
-const approvalLink = computed(() => {
-  const w = waiting.value
-  return w.inspections > 0 && w.uploads + w.prices + w.unsent === 0 ? '/approval?tab=inspections' : '/approval'
-})
+// only deliveries late: open the Calendar on that tab
+const overdueLink = computed(() =>
+  overdueDeliveries.value.length > 0 && overdueInspections.value.length === 0 ? '/calendar?tab=delivery' : '/calendar'
+)
 
-// how each kind of to-do looks: amber = soon, blue = waiting for you
-// (the same colours as everywhere else)
+/* ------------------------------------------------------------------
+   Waiting for you: the approvals and checks only you can do
+------------------------------------------------------------------ */
+// amber = something went wrong, blue = waiting for you (the same colours
+// as everywhere else)
 const TONES = {
   warning: 'bg-yellow-500/15 text-yellow-400',
   task: 'bg-sky-500/15 text-sky-300',
 }
 
-function noun(n, word) {
-  return n === 1 ? word : `${word}s`
-}
-
-const overdueInspections = computed(() => inspections.value.filter(isOverdue))
-const lowOnly = computed(() => lowStock.value.filter((product) => !isOutOfStock(product)))
-
-// The alerts at the top: what's empty, late or failed, worst first, with
-// the names so you don't have to open the page to know which.
-const alerts = computed(() => {
-  const w = waiting.value
-  const list = []
-
-  if (outOfStock.value.length > 0) {
-    const n = outOfStock.value.length
-    list.push({
-      key: 'out', level: 'critical', to: LOW_STOCK_LINK, action: 'Restock',
-      text: `${count(n)} ${noun(n, 'product')} out of stock`,
-      detail: namesText(outOfStock.value.map((product) => product.name)),
-    })
-  }
-  if (overdueInspections.value.length > 0) {
-    const n = overdueInspections.value.length
-    list.push({
-      key: 'overdue', level: 'critical', to: '/calendar', action: 'Calendar',
-      text: `${count(n)} ${noun(n, 'inspection')} overdue`,
-      detail: namesText(overdueInspections.value.map((product) => product.name)),
-    })
-  }
-  if (w.unsent > 0) {
-    list.push({
-      key: 'unsent', level: 'warning', to: '/approval', action: 'Send again',
-      text: `${count(w.unsent)} approved ${noun(w.unsent, 'receipt')} not sent to the scanner`,
-    })
-  }
-  if (lowOnly.value.length > 0) {
-    const n = lowOnly.value.length
-    list.push({
-      key: 'low', level: 'warning', to: LOW_STOCK_LINK, action: 'See list',
-      text: `${count(n)} ${noun(n, 'product')} running low`,
-      detail: namesText(lowOnly.value.map((product) => `${product.name} (${count(stockOf(product))})`)),
-    })
-  }
-
-  return list
-})
-
-// the Low stock tile's colour and icon
-const stockTile = computed(() => {
-  if (outOfStock.value.length > 0) return { class: 'tone-red kpi-alert', icon: 'alert' }
-  if (lowStock.value.length > 0) return { class: 'tone-amber', icon: 'inventory' }
-  return { class: 'tone-green', icon: 'check' }
-})
-
-// Waiting for you: the approvals and checks only you can do (problems are
-// in the alerts above, so they aren't listed twice)
 const attention = computed(() => {
   const w = waiting.value
 
   return [
+    { key: 'unsent', n: w.unsent, label: (n) => `approved ${noun(n, 'receipt')} not sent to the scanner`, to: '/approval', icon: 'alert', tone: 'warning' },
     { key: 'uploads', n: w.uploads, label: (n) => `supplier ${noun(n, 'receipt')} to approve`, to: '/approval', icon: 'docs', tone: 'task' },
     { key: 'inspections', n: w.inspections, label: (n) => `${noun(n, 'inspection')} to approve`, to: '/approval?tab=inspections', icon: 'approval', tone: 'task' },
     { key: 'prices', n: w.prices, label: (n) => `${noun(n, 'receipt')} with new prices to check`, to: '/approval', icon: 'tag', tone: 'task' },

@@ -4,12 +4,14 @@
 
     <!-- MAIN -->
     <!-- minmax(0, …): a column may shrink to the screen; otherwise the
-         swipeable tab row widened the whole page on phones -->
-    <div class="grid grid-cols-1 items-start gap-5 lg:grid-cols-[320px_minmax(0,1fr)]">
+         swipeable tab row widened the whole page on phones.
+         Computers: both columns end at the same line (the user list is as
+         tall as the logo + Add employee column and scrolls inside). -->
+    <div class="grid grid-cols-1 items-start gap-5 lg:grid-cols-[320px_minmax(0,1fr)] lg:items-stretch">
 
       <!-- ADD USER: the server generates a one-time temporary password.
            Phones: behind a button, so the user list isn't pushed down. -->
-      <div class="lg:sticky lg:top-5">
+      <div>
         <!-- the store's logo: change it (crop, then your password) -->
         <StoreLogoCard class="mb-4" />
 
@@ -29,8 +31,10 @@
         </div>
       </div>
 
-      <!-- USERS -->
-      <div class="card flex min-w-0 flex-col p-5 lg:h-[calc(100vh-250px)] lg:min-h-[460px]">
+      <!-- USERS: on computers "contain: size" keeps the long list from
+           making the row taller, so the card stretches to the height of the
+           left column and the list scrolls inside it -->
+      <div class="card flex min-w-0 flex-col p-5 lg:min-h-[460px] lg:[contain:size]">
 
         <!-- TOP -->
         <div class="mb-4 flex items-center justify-between gap-4">
