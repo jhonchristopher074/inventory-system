@@ -215,6 +215,7 @@
 </template>
 
 <script setup>
+import { readCurrentUser } from '../../lib/currentUser'
 import { computed, onMounted, ref, watch } from 'vue'
 import { supabase } from '../../lib/supabase'
 import { usePagination } from '../../lib/usePagination'
@@ -346,7 +347,7 @@ async function submitReport() {
     return
   }
 
-  const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}')
+  const currentUser = readCurrentUser()
 
   reportSaving.value = true
 

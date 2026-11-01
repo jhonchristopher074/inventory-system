@@ -1,11 +1,8 @@
 <template>
   <div>
-    <!-- Disabled products: hidden from Inventory and the POS, never
-         deleted. "Enable" brings one back. (Data policy: disable instead of
-         archive or delete, so no record is ever lost.) -->
     <PageHeader
-      title="Disabled Products"
-      subtitle="Hidden from Inventory and the POS. Nothing is deleted: enable a product to bring it back."
+      title="Archived Products"
+      subtitle="Products that were moved to the archive."
     />
 
     <div class="mb-5 card p-5">
@@ -37,7 +34,7 @@
       {{ errorMessage }}
     </p>
 
-    <!-- DISABLED TABLE: 10, 15 or all products a page -->
+    <!-- ARCHIVED TABLE: 10, 15 or all products a page -->
     <div ref="tableTop" class="card overflow-hidden">
       <div class="overflow-x-auto">
         <table class="data-table resp-table">
@@ -94,10 +91,10 @@
                 <div class="row-actions">
                   <button
                     class="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-700"
-                    title="Show it again in Inventory and the POS"
-                    @click="openActionModal(product)"
+                    title="Move back to Inventory"
+                    @click="openActionModal('restore', product)"
                   >
-                    Enable
+                    Restore
                   </button>
 
                   <button
@@ -108,13 +105,20 @@
                     Report
                   </button>
 
+                  <button
+                    class="rounded-lg bg-red-600/15 px-3 py-1.5 text-xs font-bold text-red-300 hover:bg-red-600/30 hover:text-white"
+                    title="Remove it from Inventory and Archived"
+                    @click="openActionModal('delete', product)"
+                  >
+                    Delete
+                  </button>
                 </div>
               </td>
             </tr>
 
             <tr v-if="filteredProducts.length === 0">
               <td colspan="6" class="cell-main p-6 text-center text-zinc-500">
-                {{ loading ? 'Loading products...' : 'No disabled products.' }}
+                {{ loading ? 'Loading products...' : 'No archived products.' }}
               </td>
             </tr>
           </tbody>
@@ -130,21 +134,28 @@
       />
     </div>
 
-    <!-- ENABLE CONFIRM MODAL -->
+    <!-- RESTORE / DELETE CONFIRM MODAL -->
     <div
-      v-if="actionProduct"
+      v-if="actionType"
       class="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4"
       @click.self="closeActionModal"
     >
       <div class="max-h-[92vh] w-full max-w-sm overflow-y-auto rounded-2xl border border-white/10 bg-zinc-900 p-5 shadow-2xl">
-        <h2 class="mb-3 text-xl font-bold text-white">Enable Product</h2>
+        <h2 class="mb-3 text-xl font-bold text-white">
+          {{ actionType === 'restore' ? 'Restore Product' : 'Delete Product' }}
+        </h2>
 
         <p class="mb-2 text-sm text-zinc-300">
           <b>Product:</b> {{ actionProduct?.name }}
         </p>
 
-        <p class="mb-4 text-sm text-zinc-300">
-          Show this product again in <b>Inventory</b> and the POS?
+        <p v-if="actionType === 'restore'" class="mb-4 text-sm text-zinc-300">
+          Move this item back to <b>Inventory</b>?
+        </p>
+
+        <p v-else class="mb-4 text-sm text-zinc-300">
+          Are you sure you want to <b class="text-red-400">delete</b> this item?
+          It will no longer appear in Inventory or Archived.
         </p>
 
         <p
@@ -156,11 +167,14 @@
 
         <div class="flex flex-col gap-2">
           <button
-            class="w-full rounded-lg bg-emerald-600 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
+            class="w-full rounded-lg py-2 text-sm font-semibold text-white disabled:opacity-50"
+            :class="actionType === 'restore'
+              ? 'bg-emerald-600 hover:bg-emerald-700'
+              : 'bg-red-600 hover:bg-red-700'"
             :disabled="actionSaving"
             @click="confirmAction"
           >
-            {{ actionSaving ? 'Please wait...' : 'Enable' }}
+            {{ actionSaving ? 'Please wait...' : actionType === 'restore' ? 'Restore' : 'Delete' }}
           </button>
 
           <button
@@ -248,6 +262,7 @@
 </template>
 
 <script setup>
+import { readCurrentUser } from '../../lib/currentUser'
 import { computed, onMounted, ref, watch } from 'vue'
 import { supabase } from '../../lib/supabase'
 import { usePagination } from '../../lib/usePagination'
@@ -270,8 +285,9 @@ const modalError = ref('')
 const modalSuccess = ref('')
 const reportSaving = ref(false)
 
-// ----- Enable button (asked to confirm first) -----
+// ----- Restore / Delete buttons (asked to confirm first) -----
 const actionProduct = ref(null)
+const actionType = ref(null) // 'restore' | 'delete' | null
 const actionError = ref('')
 const actionSaving = ref(false)
 
@@ -292,9 +308,8 @@ async function fetchProducts() {
     errorMessage.value = error.message
     products.value = []
   } else {
-    // Products deleted before the "disable, don't delete" rule stay hidden
-    // here until supabase/migrations/20261101000003_disable_not_delete.sql
-    // turns them back into disabled products.
+    // Hide soft-deleted products. If the SQL isn't set up yet,
+    // this returns nothing and all archived products still show.
     const { data: deletedRows } = await supabase.rpc('list_deleted_product_ids')
     const deletedIds = new Set((deletedRows || []).map(row => String(row.id)))
 
@@ -347,27 +362,30 @@ const {
 // a new search or category starts again at page 1
 watch([search, selectedCategory], resetList)
 
-function openActionModal(product) {
+// type: 'restore' | 'delete'
+function openActionModal(type, product) {
   actionProduct.value = product
   actionError.value = ''
+  actionType.value = type
 }
 
 function closeActionModal() {
   if (actionSaving.value) return
 
+  actionType.value = null
   actionError.value = ''
   actionProduct.value = null
 }
 
 async function confirmAction() {
-  if (!actionProduct.value || actionSaving.value) return
+  if (!actionProduct.value || !actionType.value || actionSaving.value) return
 
   actionSaving.value = true
   actionError.value = ''
 
-  // restore_product: back to active (the database name is older than the
-  // word "Enable")
-  const { error } = await supabase.rpc('restore_product', {
+  const rpcName = actionType.value === 'restore' ? 'restore_product' : 'soft_delete_product'
+
+  const { error } = await supabase.rpc(rpcName, {
     p_product_id: actionProduct.value.id,
   })
 
@@ -382,6 +400,7 @@ async function confirmAction() {
   const movedId = actionProduct.value.id
   products.value = products.value.filter(product => product.id !== movedId)
 
+  actionType.value = null
   actionProduct.value = null
 
   await fetchProducts()
@@ -416,7 +435,7 @@ async function submitReport() {
     return
   }
 
-  const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}')
+  const currentUser = readCurrentUser()
 
   reportSaving.value = true
 

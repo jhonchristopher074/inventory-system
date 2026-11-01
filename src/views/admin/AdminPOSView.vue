@@ -15,6 +15,11 @@
 
         <p v-if="loading" class="text-zinc-400">Loading products...</p>
 
+        <!-- what Disable / Enable just did -->
+        <p v-if="posNotice" class="mb-4 rounded-xl p-3 text-sm" :class="posNotice.ok ? 'bg-emerald-600/15 text-emerald-300' : 'bg-red-600/15 text-red-400'" role="status">
+          {{ posNotice.text }}
+        </p>
+
         <!-- 2 a row on phones, up to 4: the columns follow the width of this
              area (it shares the screen with the cart), not the whole window.
              Below 440px the cards are smaller (less padding, smaller text). -->
@@ -24,13 +29,24 @@
               v-for="product in visibleProducts"
               :key="product.id"
               class="card flex min-w-0 flex-col p-2.5 @min-[440px]:p-4"
+              :class="{ 'border-red-500/40': infoFor(product) }"
             >
-              <img
-                :src="product.image_url || 'https://via.placeholder.com/300x200'"
-                :alt="product.name"
-                class="mb-2 aspect-[4/3] w-full shrink-0 rounded-xl object-cover @min-[440px]:mb-3 @min-[440px]:aspect-auto @min-[440px]:h-[140px] @min-[440px]:rounded-2xl"
-                loading="lazy"
-              />
+              <div class="relative">
+                <img
+                  :src="product.image_url || 'https://via.placeholder.com/300x200'"
+                  :alt="product.name"
+                  class="mb-2 aspect-[4/3] w-full shrink-0 rounded-xl object-cover @min-[440px]:mb-3 @min-[440px]:aspect-auto @min-[440px]:h-[140px] @min-[440px]:rounded-2xl"
+                  :class="{ 'opacity-40 grayscale': infoFor(product) }"
+                  loading="lazy"
+                />
+                <!-- disabled: can't be sold until the owner enables it -->
+                <span
+                  v-if="infoFor(product)"
+                  class="absolute left-2 top-2 rounded-full bg-red-600 px-2.5 py-1 text-[0.65rem] font-extrabold uppercase tracking-wider text-white shadow-lg"
+                >
+                  Disabled
+                </span>
+              </div>
 
               <h2 class="line-clamp-2 text-sm font-bold leading-snug text-white @min-[440px]:text-lg">
                 {{ product.name }}
@@ -48,13 +64,39 @@
                 </p>
               </div>
 
-              <button
-                class="mt-2 w-full shrink-0 rounded-xl bg-red-600 py-2 text-sm font-bold text-white hover:bg-red-700 disabled:opacity-50 @min-[440px]:mt-3 @min-[440px]:text-base"
-                :disabled="product.quantity <= 0 || checkingOut"
-                @click="addToCart(product)"
-              >
-                {{ product.quantity <= 0 ? 'Out of Stock' : 'Add to Cart' }}
-              </button>
+              <!-- disabled: the reason, and no Add to Cart -->
+              <p v-if="infoFor(product)" class="mt-1 line-clamp-2 text-xs font-bold text-red-300" :title="infoFor(product).reason">
+                {{ infoFor(product).reason }}
+              </p>
+
+                <button
+                  v-if="infoFor(product)"
+                  type="button"
+                  class="mt-2 w-full shrink-0 rounded-xl bg-emerald-600 py-2 text-sm font-bold text-white hover:bg-emerald-500 disabled:opacity-50 @min-[440px]:mt-3 @min-[440px]:text-base"
+                  :disabled="enablingId === product.id"
+                  @click="enableProduct(product)"
+                >
+                  {{ enablingId === product.id ? 'Enabling…' : 'Enable' }}
+                </button>
+
+              <template v-if="!infoFor(product)">
+                <button
+                  class="mt-2 w-full shrink-0 rounded-xl bg-red-600 py-2 text-sm font-bold text-white hover:bg-red-700 disabled:opacity-50 @min-[440px]:mt-3 @min-[440px]:text-base"
+                  :disabled="product.quantity <= 0 || checkingOut"
+                  @click="addToCart(product)"
+                >
+                  {{ product.quantity <= 0 ? 'Out of Stock' : 'Add to Cart' }}
+                </button>
+
+                <!-- damaged, expired, wrong price...: take it off sale and tell the owner -->
+                <button
+                  type="button"
+                  class="mt-1.5 w-full text-xs font-bold text-zinc-500 hover:text-red-400"
+                  @click="askDisable(product)"
+                >
+                  Disable product
+                </button>
+              </template>
             </div>
           </div>
         </div>
@@ -195,6 +237,16 @@
       <span>{{ peso(totalAmount) }}</span>
     </button>
 
+    <!-- DISABLE A PRODUCT -->
+    <DisableProductModal
+      v-if="disableTarget"
+      :product="disableTarget"
+      :busy="disableBusy"
+      :error="disableError"
+      @confirm="confirmDisable"
+      @cancel="cancelDisable"
+    />
+
     <!-- RECEIPT MODAL -->
     <div
       v-if="receipt"
@@ -275,6 +327,8 @@ import { printElement } from '../../lib/printReceipt'
 import { count, peso } from '../../lib/format'
 import TablePager from '../../components/TablePager.vue'
 import PageHeader from '../../components/PageHeader.vue'
+import DisableProductModal from '../../components/DisableProductModal.vue'
+import { useDisabledProducts } from '../../lib/disabledProducts'
 
 const products = ref([])
 const cart = ref([])
@@ -339,9 +393,66 @@ const totalAmount = computed(() => {
   }, 0)
 })
 
+/* ------------------------------------------------------------------
+   Disable a product (lib/disabledProducts.js): it can't be sold until the
+   owner enables it again, and the owner is told.
+------------------------------------------------------------------ */
+const { load: loadDisabled, infoFor, disable, enable } = useDisabledProducts()
+const disableTarget = ref(null)
+const disableBusy = ref(false)
+const disableError = ref('')
+const enablingId = ref(null)
+const posNotice = ref(null) // { ok, text }
+
+function askDisable(product) {
+  disableError.value = ''
+  disableTarget.value = product
+}
+
+function cancelDisable() {
+  if (disableBusy.value) return
+  disableTarget.value = null
+}
+
+async function confirmDisable(reason) {
+  const product = disableTarget.value
+  if (!product || disableBusy.value) return
+  disableBusy.value = true
+  disableError.value = ''
+
+  try {
+    await disable(product, reason)
+    // it can't be sold now: out of the cart too
+    cart.value = cart.value.filter((item) => item.id !== product.id)
+    disableTarget.value = null
+    posNotice.value = { ok: true, text: `"${product.name}" is disabled. The owner was notified.` }
+  } catch (err) {
+    disableError.value = err.message
+  } finally {
+    disableBusy.value = false
+  }
+}
+
+async function enableProduct(product) {
+  if (enablingId.value) return
+  enablingId.value = product.id
+  posNotice.value = null
+
+  try {
+    await enable(product)
+    posNotice.value = { ok: true, text: `"${product.name}" is enabled and can be sold again.` }
+  } catch (err) {
+    posNotice.value = { ok: false, text: err.message }
+  } finally {
+    enablingId.value = null
+  }
+}
+
 async function fetchProducts() {
   loading.value = true
   errorMessage.value = ''
+
+  loadDisabled()
 
   const { data, error } = await supabase.rpc('list_products', {
     p_filter: 'active',
@@ -363,6 +474,11 @@ function addToCart(product) {
 
   errorMessage.value = ''
   successMessage.value = ''
+
+  if (infoFor(product)) {
+    errorMessage.value = 'This product is disabled and can\'t be sold.'
+    return
+  }
 
   if (product.quantity <= 0) {
     errorMessage.value = 'This product is out of stock.'

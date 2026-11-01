@@ -332,6 +332,7 @@
 </template>
 
 <script setup>
+import { readCurrentUser } from '../../lib/currentUser'
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { supabase } from '../../lib/supabase'
 import DashboardHero from '../../components/DashboardHero.vue'
@@ -373,7 +374,7 @@ const myUserId = ref(null)
 
 const myName = (() => {
   try {
-    const user = JSON.parse(localStorage.getItem('currentUser') || '{}')
+    const user = readCurrentUser()
     return user.full_name || user.email || 'Staff'
   } catch {
     return 'Staff'

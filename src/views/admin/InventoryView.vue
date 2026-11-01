@@ -44,6 +44,21 @@
       {{ errorMessage }}
     </p>
 
+    <!-- products a cashier disabled at the POS: they can't be sold until
+         enabled here (or in the POS) -->
+    <p
+      v-if="disabledCount > 0"
+      class="mb-4 flex flex-wrap items-center gap-2 rounded-xl border border-red-500/40 bg-red-600/10 p-3 text-sm text-red-300"
+      role="status"
+    >
+      <NavIcon name="alert" class="h-4 w-4 shrink-0" />
+      <b>{{ count(disabledCount) }} {{ disabledCount === 1 ? 'product is' : 'products are' }} disabled</b>
+      and can't be sold. They're marked in the list below.
+    </p>
+    <p v-if="enableMessage" class="mb-4 rounded-xl bg-emerald-600/15 p-3 text-sm text-emerald-300" role="status">
+      {{ enableMessage }}
+    </p>
+
     <!-- FILTERS: low stock (on its own, in amber), then the categories -->
     <div class="mb-5 flex items-center gap-3 overflow-x-auto pb-2">
       <!-- only the products running low, emptiest first. In the address as
@@ -123,6 +138,17 @@
                     <p :class="product.nickname ? 'text-sm text-zinc-300' : 'font-bold text-white'">
                       {{ product.name }}
                     </p>
+                    <!-- disabled at the POS: who, and why -->
+                    <p
+                      v-if="disabledInfo(product)"
+                      class="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-red-300"
+                      :title="`Disabled by ${disabledInfo(product).disabled_by_name || 'a cashier'}`"
+                    >
+                      <span class="rounded-full bg-red-600 px-2 py-0.5 text-[0.62rem] font-extrabold uppercase tracking-wider text-white">
+                        Disabled
+                      </span>
+                      {{ disabledInfo(product).reason }}
+                    </p>
                   </div>
                 </div>
               </td>
@@ -164,6 +190,16 @@
               <td class="cell-actions">
                 <div class="row-actions">
                   <button
+                    v-if="disabledInfo(product)"
+                    class="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-500 disabled:opacity-50"
+                    title="It can be sold again"
+                    :disabled="enablingId === product.id"
+                    @click="enableProduct(product)"
+                  >
+                    {{ enablingId === product.id ? 'Enabling…' : 'Enable' }}
+                  </button>
+
+                  <button
                     class="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-red-700"
                     @click="openStockModal(product)"
                   >
@@ -198,15 +234,15 @@
 
                   <button
                     class="desktop-only rounded-lg bg-red-600/15 px-2.5 py-1.5 text-xs font-bold text-red-300 hover:bg-red-600/30 hover:text-white @max-5xl:hidden"
-                    title="Hide it from Inventory and the POS (nothing is deleted)"
+                    title="Move this product to Archived"
                     @click="openArchiveModal(product)"
                   >
-                    Disable
+                    Archive
                   </button>
 
                   <button
                     class="rounded-lg bg-zinc-800 px-3 py-1.5 text-xs font-bold text-white hover:bg-zinc-700 @5xl:hidden"
-                    title="Inspection, history, disable and more"
+                    title="Inspection, history, archive and more"
                     @click="manageProduct = product"
                   >
                     More
@@ -372,22 +408,21 @@
       />
     </div>
 
-    <!-- DISABLE CONFIRM MODAL (the database still calls it archiving) -->
+    <!-- ARCHIVE CONFIRM MODAL -->
     <div
       v-if="actionModal"
       class="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4"
       @click.self="closeActionModal"
     >
       <div class="max-h-[92vh] overflow-y-auto w-full max-w-sm rounded-2xl border border-white/10 bg-zinc-900 p-5 shadow-2xl">
-        <h2 class="mb-3 text-xl font-bold text-white">Disable Product</h2>
+        <h2 class="mb-3 text-xl font-bold text-white">Archive Product</h2>
 
         <p class="mb-2 text-sm text-zinc-300">
           <b>Product:</b> {{ archiveProduct?.name }}
         </p>
 
         <p class="mb-4 text-sm text-zinc-300">
-          Hide this product from Inventory and the POS? Nothing is deleted: you can enable it again
-          from <b>Disabled</b>.
+          Are you sure you want to move this item to <b>Archived</b>?
         </p>
 
         <p
@@ -403,7 +438,7 @@
             :disabled="archiveSaving"
             @click="confirmArchive"
           >
-            {{ archiveSaving ? 'Disabling...' : 'Disable' }}
+            {{ archiveSaving ? 'Archiving...' : 'Proceed' }}
           </button>
 
           <button
@@ -795,11 +830,12 @@ import { useQueryParam } from '../../lib/useQueryParam'
 import { uploadImage } from '../../lib/uploadImage'
 import { count, peso } from '../../lib/format'
 import { LOW_STOCK, byStockLevel, isLowStock } from '../../lib/stock'
+import { useDisabledProducts } from '../../lib/disabledProducts'
 
 const products = ref([])
 const selectedCategory = ref('All')
 const selectedProduct = ref(null)
-// the product its Disable button was pressed for (asked to confirm first)
+// the product its Archive button was pressed for (asked to confirm first)
 const archiveProduct = ref(null)
 const previewImage = ref(null)
 const inspectionDate = ref('')
@@ -956,14 +992,14 @@ watch([searchQuery, selectedCategory, stockFilter], resetList)
 
 // ----- The "More" menu of a product -----
 // Phones and narrower tables don't have room for every button in a row,
-// so they show "More" with all the actions (including Disable) instead.
+// so they show "More" with all the actions (including Archive) instead.
 const manageProduct = ref(null)
 
 const manageActions = [
   { key: 'edit', label: '✎ Edit product', hint: 'Nickname, price, quantity and picture' },
   { key: 'inspection', label: '📅 Inspection date / report' },
   { key: 'history', label: 'Stock history' },
-  { key: 'archive', label: 'Disable', tone: 'danger' },
+  { key: 'archive', label: 'Move to Archived', tone: 'danger' },
 ]
 
 function onManageAction(key) {
@@ -977,9 +1013,34 @@ function onManageAction(key) {
   else if (key === 'archive') openArchiveModal(product)
 }
 
+/* ------------------------------------------------------------------
+   Products disabled at the POS (lib/disabledProducts.js)
+------------------------------------------------------------------ */
+const { disabled: disabledMap, load: loadDisabled, infoFor: disabledInfo, enable } = useDisabledProducts()
+const disabledCount = computed(() => disabledMap.value.size)
+const enablingId = ref(null)
+const enableMessage = ref('')
+
+async function enableProduct(product) {
+  if (enablingId.value) return
+  enablingId.value = product.id
+  enableMessage.value = ''
+  errorMessage.value = ''
+
+  try {
+    await enable(product)
+    enableMessage.value = `"${product.name}" is enabled and can be sold again.`
+  } catch (err) {
+    errorMessage.value = err.message
+  } finally {
+    enablingId.value = null
+  }
+}
+
 async function fetchProducts() {
   loading.value = true
   errorMessage.value = ''
+  loadDisabled()
 
   const { data, error } = await supabase.rpc('list_products', {
     p_filter: 'active',
@@ -1013,7 +1074,7 @@ function openModal(product) {
   detailMessage.value = null
 }
 
-// Disable button of a row (or "Disable" in the phone menu):
+// Archive button of a row (or "Move to Archived" in the phone menu):
 // asks to confirm first
 function openArchiveModal(product) {
   archiveProduct.value = product

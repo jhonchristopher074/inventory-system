@@ -10,6 +10,7 @@
 </template>
 
 <script setup>
+import { readCurrentUser } from '../../lib/currentUser'
 import { computed, onMounted, ref } from 'vue'
 import { supabase } from '../../lib/supabase'
 import PageHeader from '../../components/PageHeader.vue'
@@ -27,9 +28,7 @@ const stats = computed(() => [
 onMounted(fetchStats)
 
 async function fetchStats() {
-  const currentUser = JSON.parse(
-    localStorage.getItem('currentUser') || '{}'
-  )
+  const currentUser = readCurrentUser()
 
   // The server returns only the logged-in user's own documents; the name is
   // only still sent for databases that haven't had the 2026-10-15 SQL yet.

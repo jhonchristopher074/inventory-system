@@ -122,13 +122,15 @@
                 </svg>
                 <!-- v-clean: a pasted email (e.g. from Messenger) loses the
                      invisible characters and spaces it brought along -->
+                <!-- autocomplete off: the browser isn't asked to fill in or keep
+                     the account (some browsers may still offer it) -->
                 <input
                   id="login-email"
                   v-model="email"
                   v-clean:email
                   type="email"
                   required
-                  autocomplete="email"
+                  autocomplete="off"
                   autocapitalize="off"
                   spellcheck="false"
                   placeholder="you@example.com"
@@ -148,7 +150,7 @@
                   v-clean:password
                   :type="showPassword ? 'text' : 'password'"
                   required
-                  autocomplete="current-password"
+                  autocomplete="off"
                   placeholder="Your password"
                 />
                 <button
@@ -170,10 +172,6 @@
             </div>
 
             <div class="options-row">
-              <label class="remember">
-                <input v-model="rememberEmail" type="checkbox" />
-                Remember this email
-              </label>
               <button type="button" class="text-link accent" @click="showForgot">Forgot password?</button>
             </div>
 
@@ -486,7 +484,13 @@
   stroke-linejoin: round;
 }
 
-.options-row,
+.options-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 0.9rem;
+  font-size: 0.875rem;
+}
+
 .links-row {
   display: flex;
   flex-wrap: wrap;
@@ -495,20 +499,6 @@
   gap: 0.5rem;
   margin-top: 0.9rem;
   font-size: 0.875rem;
-}
-
-.remember {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  color: #a5a5b2;
-  cursor: pointer;
-}
-
-.remember input {
-  width: 1rem;
-  height: 1rem;
-  accent-color: #e01b32;
 }
 
 .text-link {
@@ -619,20 +609,7 @@ const route = useRoute()
 
 const year = new Date().getFullYear()
 
-// "Remember this email": only the email is kept in this browser, never
-// the password
-const REMEMBER_KEY = 'rememberedEmail'
-
-function rememberedEmail() {
-  try {
-    return localStorage.getItem(REMEMBER_KEY) || ''
-  } catch {
-    return ''
-  }
-}
-
-const email = ref(rememberedEmail())
-const rememberEmail = ref(Boolean(email.value))
+const email = ref('')
 const password = ref('')
 const showPassword = ref(false)
 const loading = ref(false)
@@ -708,13 +685,6 @@ async function login() {
     errorMessage.value = isWrongLogin(error) ? 'Wrong email or password. Check them and try again.' : error.message
     loading.value = false
     return
-  }
-
-  try {
-    if (rememberEmail.value) localStorage.setItem(REMEMBER_KEY, address)
-    else localStorage.removeItem(REMEMBER_KEY)
-  } catch {
-    // storage blocked: the email just isn't remembered
   }
 
   // fresh login: restart the auto-logout clock, and remember it until the

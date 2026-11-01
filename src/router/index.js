@@ -7,7 +7,7 @@ import { isPasswordRecovery, endPasswordRecovery } from '../lib/passwordRecovery
 import { getPasswordStatus, EXPIRED_MESSAGE } from '../lib/passwordStatus'
 import { isIdleExpired, markActivity, IDLE_MESSAGE } from '../lib/idleLogout'
 import { wasBrowserClosed, markLoggedIn, CLOSED_MESSAGE } from '../lib/browserSession'
-import { saveCurrentUser } from '../lib/currentUser'
+import { clearCurrentUser, saveCurrentUser } from '../lib/currentUser'
 
 // Every page except Login is downloaded only when it's first opened, so the
 // first load (the login screen) is much smaller, especially on phones.
@@ -19,7 +19,7 @@ const InventoryView = () => import('../views/admin/InventoryView.vue')
 const CalendarView = () => import('../views/admin/CalendarView.vue')
 const ApprovalView = () => import('../views/admin/ApprovalView.vue')
 const DocumentationView = () => import('../views/admin/DocumentationView.vue')
-const DisabledView = () => import('../views/admin/DisabledView.vue')
+const ArchivedView = () => import('../views/admin/ArchivedView.vue')
 const ProfileView = () => import('../views/admin/ProfileView.vue')
 const AdminPOSView = () => import('../views/admin/AdminPOSView.vue')
 const AdminSalesHistoryView = () => import('../views/admin/AdminSalesHistoryView.vue')
@@ -49,9 +49,7 @@ const routes = [
   { path: '/calendar', component: CalendarView, meta: { requiresAuth: true, role: 'admin' } },
   { path: '/approval', component: ApprovalView, meta: { requiresAuth: true, role: 'admin' } },
   { path: '/documentation', component: DocumentationView, meta: { requiresAuth: true, role: 'admin' } },
-  { path: '/disabled', component: DisabledView, meta: { requiresAuth: true, role: 'admin' } },
-  // the page's old address (bookmarks, older notifications)
-  { path: '/archived', redirect: '/disabled' },
+  { path: '/archived', component: ArchivedView, meta: { requiresAuth: true, role: 'admin' } },
   { path: '/profile', component: ProfileView, meta: { requiresAuth: true, role: 'admin' } },
   { path: '/admin/pos', component: AdminPOSView, meta: { requiresAuth: true, role: 'admin' },},
   { path: '/admin/sales', component: AdminSalesHistoryView, meta: { requiresAuth: true, role: 'admin' },},
@@ -101,7 +99,10 @@ router.beforeEach(async (to) => {
 
   const user = session?.user
 
-  if (!user) currentRole.value = ''
+  if (!user) {
+    currentRole.value = ''
+    clearCurrentUser()
+  }
 
   if (to.meta.requiresAuth && !user) {
     return '/login'

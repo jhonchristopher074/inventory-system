@@ -327,6 +327,7 @@
 </template>
 
 <script setup>
+import { readCurrentUser } from '../../lib/currentUser'
 import { computed, nextTick, onMounted, ref } from 'vue'
 import { supabase } from '../../lib/supabase'
 import PageHeader from '../../components/PageHeader.vue'
@@ -353,7 +354,7 @@ const approvedQty = ref(0)
 const returnQty = ref(0)
 const editingApprovalId = ref(null)
 
-const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}')
+const currentUser = readCurrentUser()
 const currentStaffName = currentUser.full_name || currentUser.email || 'Staff'
 
 // One row of the inspection table per product to inspect (see InspectionTable)

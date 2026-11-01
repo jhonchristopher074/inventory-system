@@ -349,6 +349,7 @@
 </template>
 
 <script setup>
+import { readCurrentUser } from '../../lib/currentUser'
 import { computed, onMounted, ref } from 'vue'
 import { supabase } from '../../lib/supabase'
 import { uploadImage as uploadImage_ } from '../../lib/uploadImage'
@@ -392,9 +393,7 @@ const deleting = ref(false)
 
 const productSearch = ref('')
 
-const currentUser = JSON.parse(
-  localStorage.getItem('currentUser') || '{}'
-)
+const currentUser = readCurrentUser()
 
 const currentStaffName =
   currentUser.full_name ||

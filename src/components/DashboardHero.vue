@@ -21,6 +21,7 @@
 </template>
 
 <script setup>
+import { readCurrentUser } from '../lib/currentUser'
 import { computed } from 'vue'
 import NavIcon from './NavIcon.vue'
 
@@ -38,7 +39,7 @@ const props = defineProps({
 // the first name saved at login (LoginView), if there is one
 const firstName = (() => {
   try {
-    const user = JSON.parse(localStorage.getItem('currentUser') || '{}')
+    const user = readCurrentUser()
     return String(user.full_name || '').trim().split(/\s+/)[0] || ''
   } catch {
     return ''

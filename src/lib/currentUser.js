@@ -1,16 +1,28 @@
-// The logged-in person as this browser remembers them (localStorage
-// "currentUser"): their name goes on sales, inspections and reports, in the
-// top bar and in the dashboard's greeting.
+// The logged-in person (id, name, email, role): their name goes on sales,
+// inspections and reports, in the top bar and in the dashboard's greeting.
 //
-// Saved at login, and again on every page change from the profile the
-// router checks anyway (router/index.js). Before, it was only saved at
-// login, so after the Owner renamed an account the old name stayed until
-// that person logged in again.
+// Kept for this browser tab only (sessionStorage), never in the browser's
+// lasting storage: closing the tab or logging out forgets it. A new tab
+// gets it again on its first page, because the router checks the profile
+// on every page change and saves it here (router/index.js).
 import { ref } from 'vue'
+
+const KEY = 'currentUser'
+
+// Older versions kept the account in localStorage (which lasts until it's
+// cleared), and the login page could remember the email. Both are removed
+// the first time this version runs.
+try {
+  for (const old of ['currentUser', 'user_id', 'full_name', 'email', 'role', 'rememberedEmail']) {
+    localStorage.removeItem(old)
+  }
+} catch {
+  // storage blocked: there's nothing saved either
+}
 
 function read() {
   try {
-    return JSON.parse(localStorage.getItem('currentUser') || '{}') || {}
+    return JSON.parse(sessionStorage.getItem(KEY) || '{}') || {}
   } catch {
     return {}
   }
@@ -18,6 +30,12 @@ function read() {
 
 // the same, live: what shows it (the top bar) updates when it changes
 export const currentUser = ref(read())
+
+// for code that only needs it once: { id, full_name, email, role, is_active }
+// ({} when nobody is logged in)
+export function readCurrentUser() {
+  return { ...currentUser.value }
+}
 
 export function saveCurrentUser(profile) {
   if (!profile) return
@@ -32,13 +50,18 @@ export function saveCurrentUser(profile) {
   currentUser.value = user
 
   try {
-    localStorage.setItem('currentUser', JSON.stringify(user))
-    // older single keys, kept as they were
-    localStorage.setItem('user_id', profile.id)
-    localStorage.setItem('full_name', profile.full_name)
-    localStorage.setItem('email', profile.email)
-    localStorage.setItem('role', profile.role)
+    sessionStorage.setItem(KEY, JSON.stringify(user))
   } catch {
-    // storage blocked: names fall back to the email / role
+    // storage blocked: kept in memory for this page only
+  }
+}
+
+// logged out (or the session ended)
+export function clearCurrentUser() {
+  currentUser.value = {}
+  try {
+    sessionStorage.removeItem(KEY)
+  } catch {
+    // nothing to remove
   }
 }
