@@ -9,6 +9,19 @@ export const ROLE_LABELS = {
   supplier: 'Supplier',
 }
 
+// Each role's colour (the tone-* classes in style.css): the same on its
+// dashboard (DashboardHero), in the top bar and on the Profile page.
+export const ROLE_TONES = {
+  admin: 'red',
+  staff: 'violet',
+  cashier: 'green',
+  supplier: 'blue',
+}
+
+export function roleTone(role) {
+  return ROLE_TONES[String(role || '').trim()] || 'red'
+}
+
 export function roleLabel(role) {
   const key = String(role || '').trim()
   return ROLE_LABELS[key] || (key ? key.charAt(0).toUpperCase() + key.slice(1) : '')

@@ -346,10 +346,13 @@ const visibleGroups = computed(() =>
 )
 
 // ----- Look helpers -----
+// each role's colour, as on its dashboard and in the top bar
+// (ROLE_TONES in lib/roles.js): Owner red, Staff violet, Cashier green,
+// Supplier blue
 const ROLE_TONES = {
   admin: 'bg-red-500/15 text-red-300 ring-red-500/30',
-  staff: 'bg-zinc-700/40 text-zinc-200 ring-white/10',
-  cashier: 'bg-amber-500/15 text-amber-300 ring-amber-500/30',
+  staff: 'bg-violet-500/15 text-violet-300 ring-violet-500/30',
+  cashier: 'bg-emerald-500/15 text-emerald-300 ring-emerald-500/30',
   supplier: 'bg-sky-500/15 text-sky-300 ring-sky-500/30',
 }
 

@@ -126,23 +126,15 @@
 
       <main class="app-main">
         <div class="mb-5 flex items-center justify-between gap-4">
-          <div
-            class="flex items-center gap-3 rounded-full border border-white/10 bg-zinc-900/80 py-1.5 pl-2 pr-5 backdrop-blur"
-          >
-            <span
-              class="grid h-9 w-9 place-items-center rounded-full bg-red-600 text-sm font-extrabold uppercase text-white"
-            >
-              {{ roleLabel(role).charAt(0) }}
-            </span>
-            <span class="leading-tight">
-              <span class="block text-[0.68rem] uppercase tracking-[0.14em] text-zinc-500">
-                Logged in as
-              </span>
-              <span class="block text-sm font-bold text-white">{{ roleLabel(role) }}</span>
-            </span>
-          </div>
+          <!-- who is logged in: name, role and the role's colour -->
+          <CurrentUserBadge
+            :role="role"
+            :name="currentUser.full_name"
+            :email="currentUser.email"
+            :to="profileLink"
+          />
 
-          <NotificationBell />
+          <NotificationBell class="shrink-0" />
         </div>
 
         <RouterView />
@@ -160,7 +152,8 @@ import NavIcon from './components/NavIcon.vue'
 import { watchIdle, IDLE_MESSAGE } from './lib/idleLogout'
 import { confirmLeave } from './lib/leaveGuard'
 import { currentRole } from './router'
-import { roleLabel } from './lib/roles'
+import { currentUser } from './lib/currentUser'
+import CurrentUserBadge from './components/CurrentUserBadge.vue'
 import { loadStoreLogo, logoUrl, showDefaultLogo } from './lib/storeLogo'
 
 const router = useRouter()
@@ -339,6 +332,11 @@ const NAV = {
 }
 
 const navGroups = computed(() => NAV[role.value] || [])
+
+// the role's own Profile page (the top bar's name opens it)
+const profileLink = computed(
+  () => navGroups.value.flatMap((group) => group.items).find((item) => item.icon === 'profile')?.to || '/'
+)
 
 /* ------------------------------------------------------------------
    Session: Logout asks "Are you sure you want to log out?" first
