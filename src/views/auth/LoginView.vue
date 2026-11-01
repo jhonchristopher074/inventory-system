@@ -237,6 +237,7 @@ import { markLoggedIn } from '../../lib/browserSession'
 import { startPasswordRecovery } from '../../lib/passwordRecovery'
 import { cleanEmail, vClean, withoutInvisible } from '../../lib/cleanText'
 import { logoUrl, showDefaultLogo } from '../../lib/storeLogo'
+import { saveCurrentUser } from '../../lib/currentUser'
 
 const router = useRouter()
 const route = useRoute()
@@ -364,21 +365,7 @@ async function login() {
     return
   }
 
-  localStorage.setItem(
-    'currentUser',
-    JSON.stringify({
-      id: profile.id,
-      full_name: profile.full_name,
-      email: profile.email,
-      role: profile.role,
-      is_active: profile.is_active,
-    })
-  )
-
-  localStorage.setItem('user_id', profile.id)
-  localStorage.setItem('full_name', profile.full_name)
-  localStorage.setItem('email', profile.email)
-  localStorage.setItem('role', profile.role)
+  saveCurrentUser(profile)
 
   if (profile.role === 'admin') {
     router.push('/')

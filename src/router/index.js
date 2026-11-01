@@ -7,6 +7,7 @@ import { isPasswordRecovery, endPasswordRecovery } from '../lib/passwordRecovery
 import { getPasswordStatus, EXPIRED_MESSAGE } from '../lib/passwordStatus'
 import { isIdleExpired, markActivity, IDLE_MESSAGE } from '../lib/idleLogout'
 import { wasBrowserClosed, markLoggedIn, CLOSED_MESSAGE } from '../lib/browserSession'
+import { saveCurrentUser } from '../lib/currentUser'
 
 // Every page except Login is downloaded only when it's first opened, so the
 // first load (the login screen) is much smaller, especially on phones.
@@ -172,6 +173,8 @@ router.beforeEach(async (to) => {
   }
 
   currentRole.value = profile.role
+  // the name as it is now (the Owner may have renamed this account)
+  saveCurrentUser(profile)
 
   if (to.path === '/login') return home
 

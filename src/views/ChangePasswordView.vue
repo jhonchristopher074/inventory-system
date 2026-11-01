@@ -6,6 +6,7 @@ import { PASSWORD_RULES, EXPIRED_MESSAGE } from '../lib/passwordStatus'
 // pasted passwords lose invisible characters; the temporary one (letters and
 // numbers only) loses spaces too
 import { vClean } from '../lib/cleanText'
+import { saveCurrentUser } from '../lib/currentUser'
 
 const router = useRouter()
 
@@ -101,14 +102,7 @@ async function submit() {
       }
 
       // Same values the login page stores.
-      localStorage.setItem('currentUser', JSON.stringify({
-        id: profile.id, full_name: profile.full_name, email: profile.email,
-        role: profile.role, is_active: profile.is_active,
-      }))
-      localStorage.setItem('user_id', profile.id)
-      localStorage.setItem('full_name', profile.full_name)
-      localStorage.setItem('email', profile.email)
-      localStorage.setItem('role', profile.role)
+      saveCurrentUser(profile)
 
       const home = { admin: '/', cashier: '/cashier', staff: '/staff', supplier: '/SupplierDropBoxView' }
       router.replace({ path: home[profile.role] || '/' })
