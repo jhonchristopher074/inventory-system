@@ -119,7 +119,7 @@ async function saveNew() {
       <label class="ap-label" for="op-current">Your password</label>
       <div class="ap-field">
         <input id="op-current" ref="firstInput" v-model="currentPassword" v-clean:password
-               :type="show ? 'text' : 'password'" v-no-save="show" autocomplete="off" />
+               :type="$passwordType(show)" v-no-save="show" autocomplete="off" />
         <button type="button" class="ap-toggle" @click="show = !show">
           {{ show ? 'Hide' : 'Show' }}
         </button>
@@ -143,7 +143,7 @@ async function saveNew() {
       <label class="ap-label" for="op-new">New password</label>
       <div class="ap-field">
         <input id="op-new" ref="firstInput" v-model="newPassword" v-clean:password
-               :type="show ? 'text' : 'password'" v-no-save="show" autocomplete="off" />
+               :type="$passwordType(show)" v-no-save="show" autocomplete="off" />
         <button type="button" class="ap-toggle" @click="show = !show">
           {{ show ? 'Hide' : 'Show' }}
         </button>
@@ -158,7 +158,7 @@ async function saveNew() {
       <label class="ap-label" for="op-confirm">Confirm new password</label>
       <div class="ap-field">
         <input id="op-confirm" v-model="confirmPassword" v-clean:password
-               :type="show ? 'text' : 'password'" v-no-save="show" autocomplete="off" />
+               :type="$passwordType(show)" v-no-save="show" autocomplete="off" />
       </div>
 
       <p v-if="mismatch" class="ap-error">Passwords do not match.</p>

@@ -1,7 +1,7 @@
 /**
  * v-no-save: a password box the browser doesn't offer to save.
  *
- *   <input v-model="password" :type="show ? 'text' : 'password'" v-no-save="show" />
+ *   <input v-model="password" :type="$passwordType(show)" v-no-save="show" />
  *
  * Browsers offer "Save password?" for every type="password" box and ignore
  * autocomplete="off" there. Accounts aren't kept on the device in this
@@ -18,6 +18,14 @@ const CAN_MASK =
   typeof CSS !== 'undefined' &&
   typeof CSS.supports === 'function' &&
   (CSS.supports('-webkit-text-security', 'disc') || CSS.supports('text-security', 'disc'))
+
+// The box's type. It must never be "password", not even for a moment:
+// Chrome and Edge remember a box that was a password box once (for
+// show-password buttons) and still offer to save it. So where dots can be
+// drawn on a text box, it's always a text box.
+export function passwordType(shown) {
+  return CAN_MASK || shown ? 'text' : 'password'
+}
 
 function blockWhileHidden(event) {
   if (event.target.classList.contains('masked-input')) event.preventDefault()
@@ -37,6 +45,10 @@ function apply(el, shown) {
 }
 
 export const vNoSave = {
+  // before the box is on the page, so the browser never sees a password box
+  beforeMount(el, binding) {
+    apply(el, Boolean(binding.value))
+  },
   mounted(el, binding) {
     apply(el, Boolean(binding.value))
     el.addEventListener('copy', blockWhileHidden)

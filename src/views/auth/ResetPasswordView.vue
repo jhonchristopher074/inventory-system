@@ -133,7 +133,7 @@ async function cancel() {
           id="rp-new"
           v-model="newPassword"
           v-clean:password
-          :type="show ? 'text' : 'password'" v-no-save="show"
+          :type="$passwordType(show)" v-no-save="show"
           autocomplete="off"
           required
         />
@@ -159,7 +159,7 @@ async function cancel() {
           id="rp-confirm"
           v-model="confirmPassword"
           v-clean:password
-          :type="show ? 'text' : 'password'" v-no-save="show"
+          :type="$passwordType(show)" v-no-save="show"
           autocomplete="off"
           required
         />
