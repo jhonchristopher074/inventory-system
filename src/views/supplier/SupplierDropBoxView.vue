@@ -57,56 +57,6 @@
       ></div>
     </div>
 
-    <!-- CONFIRMED BY THE OWNER: the products from your receipt that were
-         added to the store's inventory (the last 3 days, until closed) -->
-    <div
-      v-for="note in confirmationNotes"
-      :key="'added-' + note.uploadId"
-      class="mb-4 rounded-2xl border border-emerald-500/40 bg-emerald-600/10 px-4 py-3"
-      role="status"
-    >
-      <div class="flex items-start justify-between gap-3">
-        <div class="flex min-w-0 items-start gap-3">
-          <span class="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-full bg-emerald-500 text-black" aria-hidden="true">
-            <NavIcon name="check" class="h-4 w-4" />
-          </span>
-          <div class="min-w-0">
-            <p class="text-sm font-bold text-emerald-300">Confirmed by the owner</p>
-            <p class="text-sm text-zinc-200">
-              {{ count(note.items.length) }} {{ note.items.length === 1 ? 'product' : 'products' }} from
-              <b class="break-all text-white">{{ note.fileName }}</b>
-              {{ note.items.length === 1 ? 'was' : 'were' }} added to the inventory.
-            </p>
-          </div>
-        </div>
-        <button
-          type="button"
-          class="shrink-0 rounded-lg px-2 py-1 font-bold text-emerald-300 opacity-70 hover:opacity-100"
-          aria-label="Close"
-          @click="dismissNote(note.uploadId)"
-        >
-          ✕
-        </button>
-      </div>
-
-      <div class="mt-2 flex flex-wrap items-center gap-1.5 pl-10">
-        <span
-          v-for="item in note.items.slice(0, 4)"
-          :key="item.key"
-          class="rounded-full bg-black/30 px-2.5 py-1 text-xs font-bold text-zinc-200"
-        >
-          {{ item.name }} <span class="text-emerald-300">× {{ count(item.qty) }}</span>
-        </span>
-        <button
-          type="button"
-          class="rounded-full px-2.5 py-1 text-xs font-bold text-emerald-300 hover:text-white hover:underline"
-          @click="openAdded(note.uploadId)"
-        >
-          {{ note.items.length > 4 ? `See all ${count(note.items.length)}` : 'See the list' }} ›
-        </button>
-      </div>
-    </div>
-
     <!-- TABS, like the other pages. The open one is in the address
          (?tab=uploads), so a refresh keeps it. -->
     <div class="-mx-1 mb-5 flex gap-2 overflow-x-auto px-1 pb-1 sm:gap-3">
@@ -456,6 +406,7 @@
 
 <script setup>
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { supabase, uniqueChannelName } from '../../lib/supabase'
 import PageHeader from '../../components/PageHeader.vue'
 import NavIcon from '../../components/NavIcon.vue'
@@ -746,7 +697,9 @@ async function fetchMyUploads() {
 /* ------------------------------------------------------------------
   Confirmed by the owner: the products from each receipt that went into
   the inventory (supplier_list_receipt_results: names and quantities
-  only, never prices). Until its SQL is run there are none.
+  only, never prices). Shown as "Added to inventory" and Products (n) in
+  My uploads; the news itself is in the notification bell
+  (lib/supplierNotices.js). Until its SQL is run there are none.
 ------------------------------------------------------------------ */
 const results = ref(new Map()) // upload id -> { items, total, confirmedAt }
 
@@ -781,42 +734,21 @@ function openAdded(uploadId) {
   addedView.value = { ...entry, fileName: upload?.file_name || 'Your receipt' }
 }
 
-// The banners: confirmations of the last 3 days, until closed. Closing is
-// remembered for this tab only (nothing is kept on the device).
-const NOTE_DAYS = 3
-const CLOSED_KEY = 'closedConfirmations'
+// Opened from the notification bell or its pop-up (?added=<upload id>):
+// that receipt's list, once the confirmations are loaded.
+const route = useRoute()
+const router = useRouter()
 
-function readClosed() {
-  try {
-    return new Set(JSON.parse(sessionStorage.getItem(CLOSED_KEY) || '[]'))
-  } catch {
-    return new Set()
+watch(
+  [() => route.query.added, results],
+  ([added]) => {
+    if (!added || !results.value.has(String(added))) return
+    openAdded(added)
+    const query = { ...route.query }
+    delete query.added
+    router.replace({ query })
   }
-}
-
-const closedNotes = ref(readClosed())
-
-function dismissNote(uploadId) {
-  closedNotes.value = new Set(closedNotes.value).add(String(uploadId))
-  try {
-    sessionStorage.setItem(CLOSED_KEY, JSON.stringify([...closedNotes.value]))
-  } catch {
-    // storage blocked: it comes back on the next refresh
-  }
-}
-
-const confirmationNotes = computed(() => {
-  const since = Date.now() - NOTE_DAYS * 24 * 60 * 60 * 1000
-  return [...results.value.entries()]
-    .filter(([id, entry]) => !closedNotes.value.has(id) && new Date(entry.confirmedAt).getTime() >= since)
-    .sort((a, b) => new Date(b[1].confirmedAt) - new Date(a[1].confirmedAt))
-    .slice(0, 3)
-    .map(([id, entry]) => ({
-      uploadId: id,
-      items: entry.items,
-      fileName: myUploads.value.find((row) => String(row.id) === id)?.file_name || 'your receipt',
-    }))
-})
+)
 
 function stateOf(row) {
   if (row.status === 'rejected') return { kind: 'rejected', text: 'Denied' }

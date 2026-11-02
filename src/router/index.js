@@ -8,6 +8,7 @@ import { getPasswordStatus, EXPIRED_MESSAGE } from '../lib/passwordStatus'
 import { isIdleExpired, markActivity, IDLE_MESSAGE } from '../lib/idleLogout'
 import { wasBrowserClosed, markLoggedIn, CLOSED_MESSAGE } from '../lib/browserSession'
 import { clearCurrentUser, saveCurrentUser } from '../lib/currentUser'
+import { clearSupplierNotices } from '../lib/supplierNotices'
 
 // Every page except Login is downloaded only when it's first opened, so the
 // first load (the login screen) is much smaller, especially on phones.
@@ -102,6 +103,8 @@ router.beforeEach(async (to) => {
   if (!user) {
     currentRole.value = ''
     clearCurrentUser()
+    // a supplier's "receipt confirmed" notices end with the session
+    clearSupplierNotices()
   }
 
   if (to.meta.requiresAuth && !user) {

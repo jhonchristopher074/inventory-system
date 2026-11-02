@@ -40,11 +40,28 @@
 
       <p v-if="loading" class="text-sm text-zinc-400">Loading...</p>
 
-      <p v-if="notifications.length === 0 && !loading" class="text-sm text-zinc-500">
+      <p v-if="notifications.length === 0 && myNotices.length === 0 && !loading" class="text-sm text-zinc-500">
         No notifications.
       </p>
 
       <div class="max-h-96 space-y-2 overflow-y-auto">
+        <!-- suppliers: the owner confirmed a receipt (lib/supplierNotices.js;
+             gone after logout) -->
+        <div
+          v-for="notice in myNotices"
+          :key="notice.id"
+          class="cursor-pointer rounded-xl border border-white/10 p-3 transition hover:-translate-y-1 hover:border-emerald-500/40"
+          :class="notice.read ? 'bg-zinc-900' : 'bg-emerald-600/10'"
+          @click="openNotice(notice)"
+        >
+          <div class="mb-1 flex items-center justify-between gap-2">
+            <h3 class="text-sm font-bold text-white">Receipt confirmed</h3>
+            <span class="rounded-full bg-emerald-500/20 px-2 py-[2px] text-[10px] font-bold text-emerald-400">added</span>
+          </div>
+          <p class="text-xs text-zinc-400">{{ noticeText(notice) }}</p>
+          <p class="mt-2 text-[10px] text-zinc-500">{{ formatDate(notice.confirmedAt) }}</p>
+        </div>
+
         <div
           v-for="notif in notifications"
           :key="notif.id"
@@ -71,13 +88,54 @@
         </div>
       </div>
     </div>
+
+    <!-- POP-UP: a new confirmation for a supplier; hides itself -->
+    <Teleport to="body">
+      <Transition name="notice-pop">
+        <div
+          v-if="popup"
+          class="fixed bottom-5 right-5 z-[2500] flex w-[min(22rem,calc(100vw-2.5rem))] items-start gap-3 rounded-2xl border border-emerald-500/40 bg-zinc-900 p-3.5 shadow-2xl"
+          role="status"
+        >
+          <span class="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-emerald-500 text-sm font-extrabold text-black" aria-hidden="true">✓</span>
+          <div class="min-w-0 flex-1">
+            <p class="text-sm font-bold text-white">{{ popup.title }}</p>
+            <p class="mt-0.5 text-xs text-zinc-400">{{ popup.text }}</p>
+            <button type="button" class="mt-1.5 text-xs font-bold text-emerald-400 hover:text-white" @click="openPopup">
+              See the products ›
+            </button>
+          </div>
+          <button type="button" class="text-zinc-500 hover:text-white" aria-label="Close" @click="popup = null">✕</button>
+        </div>
+      </Transition>
+    </Teleport>
   </div>
 </template>
+
+<style scoped>
+.notice-pop-enter-active,
+.notice-pop-leave-active {
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+.notice-pop-enter-from,
+.notice-pop-leave-to {
+  opacity: 0;
+  transform: translateY(12px);
+}
+</style>
 
 <script setup>
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { supabase, uniqueChannelName } from '../lib/supabase'
+import {
+  markAllNoticesRead,
+  markNoticeRead,
+  noticeText,
+  supplierNotices,
+  takeNewNotices,
+} from '../lib/supplierNotices'
 
 const router = useRouter()
 const route = useRoute()
@@ -93,9 +151,59 @@ let channel = null
 // (only the 10 newest) stuck the badge at 10.
 const unreadTotal = ref(null)
 
-const unreadCount = computed(() =>
-  unreadTotal.value ?? notifications.value.filter((notif) => !notif.is_read).length
+// a supplier's confirmed receipts (only suppliers have them)
+const myNotices = computed(() => (role.value === 'supplier' ? supplierNotices.value : []))
+
+const unreadCount = computed(
+  () =>
+    (unreadTotal.value ?? notifications.value.filter((notif) => !notif.is_read).length) +
+    myNotices.value.filter((notice) => !notice.read).length
 )
+
+/* ------------------------------------------------------------------
+   Suppliers: "your receipt was confirmed" (lib/supplierNotices.js)
+------------------------------------------------------------------ */
+const popup = ref(null) // { title, text, uploadId }
+let popupTimer = null
+
+async function checkNotices() {
+  if (role.value !== 'supplier') return
+
+  const fresh = await takeNewNotices()
+  if (fresh.length === 0) return
+
+  const products = fresh.reduce((sum, notice) => sum + notice.products, 0)
+  popup.value = {
+    title: fresh.length === 1 ? 'Your receipt was confirmed' : `${fresh.length} receipts were confirmed`,
+    text:
+      fresh.length === 1
+        ? noticeText(fresh[0])
+        : `${products} products were added to the inventory.`,
+    uploadId: fresh.length === 1 ? fresh[0].uploadId : null,
+  }
+  clearTimeout(popupTimer)
+  popupTimer = setTimeout(() => (popup.value = null), 9000)
+  playSound()
+}
+
+function noticeLink(uploadId) {
+  return uploadId
+    ? { path: '/SupplierDropBoxView', query: { tab: 'uploads', added: uploadId } }
+    : { path: '/SupplierDropBoxView', query: { tab: 'uploads' } }
+}
+
+function openNotice(notice) {
+  markNoticeRead(notice.id)
+  showList.value = false
+  router.push(noticeLink(notice.uploadId))
+}
+
+function openPopup() {
+  const target = popup.value
+  popup.value = null
+  if (target?.uploadId) markNoticeRead(`added-${target.uploadId}`)
+  router.push(noticeLink(target?.uploadId))
+}
 
 async function fetchUnreadCount() {
   const { data, error } = await supabase.rpc('unread_notification_count')
@@ -232,6 +340,7 @@ function playSound() {
 // than before.
 async function refreshAndAlert() {
   const before = unreadTotal.value
+  checkNotices()
   await fetchNotifications()
   if (before !== null && unreadTotal.value !== null && unreadTotal.value > before) playSound()
 }
@@ -290,6 +399,7 @@ async function openNotification(notif) {
 }
 
 async function markAllAsRead() {
+  markAllNoticesRead()
   await supabase.rpc('mark_all_notifications_read')
 
   await fetchNotifications()
@@ -379,6 +489,7 @@ onMounted(async () => {
   await fetchRole()
   await fetchNotifications()
   if (!unmounted) setupRealtime()
+  if (!unmounted) checkNotices()
 })
 
 onUnmounted(() => {
@@ -388,5 +499,6 @@ onUnmounted(() => {
   document.removeEventListener('keydown', onKeyAnywhere)
   document.removeEventListener('visibilitychange', onVisible)
   cleanupRealtime()
+  clearTimeout(popupTimer)
 })
 </script>
