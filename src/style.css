@@ -869,3 +869,10 @@ tbody tr:hover {
   font-size: 0.95rem;
   font-weight: 600;
 }
+
+/* A password box drawn as dots without being a password box, so the
+   browser doesn't offer to save it (lib/noSavePassword.js, v-no-save). */
+.masked-input {
+  -webkit-text-security: disc;
+  text-security: disc;
+}

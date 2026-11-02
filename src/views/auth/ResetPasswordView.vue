@@ -133,8 +133,8 @@ async function cancel() {
           id="rp-new"
           v-model="newPassword"
           v-clean:password
-          :type="show ? 'text' : 'password'"
-          autocomplete="new-password"
+          :type="show ? 'text' : 'password'" v-no-save="show"
+          autocomplete="off"
           required
         />
         <button
@@ -159,8 +159,8 @@ async function cancel() {
           id="rp-confirm"
           v-model="confirmPassword"
           v-clean:password
-          :type="show ? 'text' : 'password'"
-          autocomplete="new-password"
+          :type="show ? 'text' : 'password'" v-no-save="show"
+          autocomplete="off"
           required
         />
       </div>

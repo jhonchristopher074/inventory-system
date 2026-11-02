@@ -148,7 +148,7 @@
                   id="login-password"
                   v-model="password"
                   v-clean:password
-                  :type="showPassword ? 'text' : 'password'"
+                  :type="showPassword ? 'text' : 'password'" v-no-save="showPassword"
                   required
                   autocomplete="off"
                   placeholder="Your password"
