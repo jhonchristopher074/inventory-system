@@ -510,7 +510,7 @@ onBeforeUnmount(() => {
               type="button"
               class="flex-1 rounded-2xl border border-sky-500/40 px-4 py-3 font-bold text-sky-300 hover:bg-sky-500/10 hover:text-white disabled:opacity-50 sm:flex-none"
               :disabled="saving || !allValid"
-              title="Keep these prices; a staff member counts the delivery when it arrives, then you approve it"
+              title="Keep these prices; a staff member counts the delivery when it arrives, and what arrived goes into stock"
               @click="emit('receive')"
             >
               Not delivered yet

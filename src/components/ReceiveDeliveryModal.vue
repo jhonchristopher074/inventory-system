@@ -1,8 +1,10 @@
 <template>
-  <!-- Staff: count what arrived from one supplier receipt, then "Mark as
-       delivered". The owner reviews it and adds it to stock. Each product
-       starts at the receipt's number; lower it for what's missing or damaged
-       and say why. No prices are shown to staff. -->
+  <!-- Staff (or the owner, for-owner): count what arrived from one supplier
+       receipt, then "Mark as delivered": what arrived goes into stock right
+       away, at the owner's prices, and the owner gets the details. Each
+       product starts at the receipt's number; lower it for what's missing or
+       damaged and say why. No prices are shown. The button asks once more,
+       since the stock changes at once and the delivery closes. -->
   <Teleport to="body">
     <div
       class="fixed inset-0 z-[2000] flex items-center justify-center bg-black/80 p-3 sm:p-4"
@@ -27,7 +29,7 @@
         </header>
 
         <p v-if="delivery.note" class="mx-5 mt-3 rounded-xl bg-sky-500/10 p-3 text-sm text-sky-200">
-          <b>From the owner:</b> {{ delivery.note }}
+          <b>{{ forOwner ? 'Your note:' : 'From the owner:' }}</b> {{ delivery.note }}
         </p>
 
         <div class="flex flex-wrap items-center justify-between gap-2 px-5 pt-3">
@@ -77,7 +79,7 @@
         </ul>
 
         <div class="border-t border-white/5 px-5 py-3">
-          <label class="text-xs text-zinc-500" for="rc-note">Note for the owner (optional)</label>
+          <label class="text-xs text-zinc-500" for="rc-note">{{ forOwner ? 'Note' : 'Note for the owner' }} (optional)</label>
           <input
             id="rc-note"
             v-model="note"
@@ -91,15 +93,31 @@
         </div>
 
         <footer class="flex flex-col gap-3 border-t border-white/5 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
-          <p class="text-sm" :class="message ? 'font-bold text-red-400' : 'text-zinc-400'" :role="message ? 'alert' : null">
-            <template v-if="message">{{ message }}</template>
+          <p
+            class="text-sm"
+            :class="footer === 'problem' ? 'font-bold text-red-400' : footer === 'question' ? 'font-bold text-emerald-300' : 'text-zinc-400'"
+            :role="footer === 'problem' ? 'alert' : null"
+          >
+            <template v-if="footer === 'problem'">{{ message }}</template>
+            <template v-else-if="footer === 'question'">Add {{ count(receivedPieces) }} pcs to stock now? The delivery closes.</template>
             <template v-else>
-              <b class="text-white">{{ count(receivedPieces) }}</b> of {{ count(expectedPieces) }} pcs arrived<template v-if="shortCount">, {{ count(shortCount) }} {{ shortCount === 1 ? 'product' : 'products' }} short</template>.
+              <b class="text-white">{{ count(receivedPieces) }}</b> of {{ count(expectedPieces) }} pcs go into stock<template v-if="shortCount">, {{ count(shortCount) }} {{ shortCount === 1 ? 'product' : 'products' }} short</template>.
             </template>
           </p>
-          <button type="submit" class="rounded-2xl bg-emerald-600 px-6 py-3 font-bold text-white hover:bg-emerald-500 disabled:opacity-50" :disabled="busy">
-            {{ busy ? 'Saving…' : 'Mark as delivered' }}
-          </button>
+          <div class="flex shrink-0 gap-2">
+            <button
+              v-if="sure"
+              type="button"
+              class="flex-1 rounded-2xl bg-zinc-800 px-5 py-3 font-bold text-white hover:bg-zinc-700 disabled:opacity-50 sm:flex-none"
+              :disabled="busy"
+              @click="sure = false"
+            >
+              Back
+            </button>
+            <button type="submit" class="flex-1 rounded-2xl bg-emerald-600 px-6 py-3 font-bold text-white hover:bg-emerald-500 disabled:opacity-50 sm:flex-none" :disabled="busy">
+              {{ busy ? 'Saving…' : sure ? 'Yes, add to stock' : 'Mark as delivered' }}
+            </button>
+          </div>
         </footer>
       </form>
     </div>
@@ -107,12 +125,14 @@
 </template>
 
 <script setup>
-import { computed, reactive, ref } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
 import { count } from '../lib/format'
 import { piecesOf } from '../lib/receiving'
 
 const props = defineProps({
   delivery: { type: Object, required: true },
+  // the owner receiving it himself (the staff member is away)
+  forOwner: { type: Boolean, default: false },
   busy: { type: Boolean, default: false },
   error: { type: String, default: '' },
 })
@@ -125,6 +145,26 @@ const notes = reactive(Object.fromEntries(props.delivery.items.map((item) => [it
 const note = ref('')
 const missing = ref('')
 const message = computed(() => missing.value || props.error)
+// "Mark as delivered" pressed once: asking "add to stock now?"
+const sure = ref(false)
+
+// what the footer says: a problem, that question, or the count
+const footer = computed(() => {
+  if (missing.value) return 'problem'
+  if (sure.value) return 'question'
+  return props.error ? 'problem' : 'count'
+})
+
+// a change after that asks again; so does an error from the database
+watch([qty, notes], () => {
+  sure.value = false
+})
+watch(
+  () => props.error,
+  (error) => {
+    if (error) sure.value = false
+  }
+)
 
 const expectedPieces = computed(() => piecesOf(props.delivery, 'expected_qty'))
 const receivedPieces = computed(() => props.delivery.items.reduce((sum, item) => sum + (Number(qty[item.id]) || 0), 0))
@@ -155,6 +195,11 @@ function submit() {
       missing.value = `"${item.product_name}": more than the receipt lists (${item.expected_qty}). Write the extra in the note instead.`
       return
     }
+  }
+
+  if (!sure.value) {
+    sure.value = true
+    return
   }
 
   emit('confirm', {

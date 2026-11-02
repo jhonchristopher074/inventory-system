@@ -42,7 +42,8 @@
     <!-- DELIVERY -->
     <div v-if="activeTab === 'delivery'">
       <!-- SUPPLIER DELIVERIES the owner chose you to receive: count what
-           arrives, then "Mark as delivered" (lib/receiving.js) -->
+           arrives, then "Mark as delivered": it goes into stock right away
+           (lib/receiving.js) -->
       <p v-if="receiveMessage" class="mb-4 rounded-xl bg-emerald-600/15 p-4 text-sm text-emerald-300" role="status">
         {{ receiveMessage }}
       </p>
@@ -80,8 +81,11 @@
             >
               Receive
             </button>
-            <p v-else class="rounded-xl bg-emerald-600/15 py-2.5 text-center text-sm font-bold text-emerald-300">
-              Delivered · waiting for the owner
+            <p v-else class="rounded-xl bg-emerald-600/15 px-3 py-2.5 text-center text-sm font-bold text-emerald-300">
+              Delivered · {{ count(addedPieces(delivery)) }} pcs added to stock
+              <span v-if="delivery.received_by && delivery.received_by !== delivery.assigned_to" class="block text-xs font-semibold text-emerald-300/80">
+                Received by {{ delivery.received_by_name || 'the owner' }}
+              </span>
             </p>
           </article>
         </div>
@@ -392,7 +396,7 @@ import { count } from '../../lib/format'
 import { useQueryParam } from '../../lib/useQueryParam'
 import { isDelivered } from '../../lib/deliveries'
 import ReceiveDeliveryModal from '../../components/ReceiveDeliveryModal.vue'
-import { dayText, listMyReceivings, piecesOf, receiveDelivery, todayKey } from '../../lib/receiving'
+import { addedPieces, dayText, listMyReceivings, piecesOf, receiveDelivery, todayKey } from '../../lib/receiving'
 
 // Inspection / Delivery, kept in the address (?tab=delivery) so the
 // Dashboard's delivery links open that tab and a refresh keeps it
@@ -625,7 +629,8 @@ async function confirmReceive({ items, note }) {
   try {
     await receiveDelivery(delivery.id, items, note)
     receiveTarget.value = null
-    receiveMessage.value = `"${delivery.file_name || 'The delivery'}" is marked as delivered. The owner was notified to review it.`
+    const pieces = items.reduce((sum, item) => sum + item.received_qty, 0)
+    receiveMessage.value = `"${delivery.file_name || 'The delivery'}" is delivered: ${count(pieces)} pcs added to stock. The owner got the details.`
     await fetchReceivings()
   } catch (err) {
     receiveError.value = err.message

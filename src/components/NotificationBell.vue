@@ -414,7 +414,7 @@ const ROUTES = {
     archive: '/archived',
     // a product disabled at the POS: Inventory shows it, with Enable
     disabled: '/inventory',
-    // a staff member received a supplier delivery: review it
+    // a staff member received a supplier delivery (in stock): its details
     received: '/approval',
     inspection: '/calendar',
     // each opens its own tab of the Approval page

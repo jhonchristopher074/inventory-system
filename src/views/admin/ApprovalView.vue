@@ -224,8 +224,10 @@
 
       <!-- ============================================================
            DELIVERIES: receipts that came before their goods ("Not
-           delivered yet" in Check prices). A staff member counts the
-           delivery; then the owner reviews it and adds it to stock.
+           delivered yet" in Check prices). When the staff member marks
+           one delivered, what arrived goes into stock at the owner's
+           prices and the owner gets the details. Received ones stay
+           listed for 14 days.
       ============================================================ -->
       <p v-if="receivingError" class="msg msg-error" role="alert">{{ receivingError }}</p>
       <p v-if="receivingSuccess" class="msg msg-ok">{{ receivingSuccess }}</p>
@@ -233,9 +235,9 @@
       <div v-if="receivings.length > 0" class="list-card border-sky-500/25">
         <div class="list-head">
           <h2 class="list-title">Deliveries</h2>
-          <span class="list-count bg-sky-500/15 text-sky-300">{{ count(receivings.length) }}</span>
-          <span class="list-hint" title="Receipts whose goods hadn't arrived yet. The staff member counts what arrives; then you approve it and only that goes into stock.">
-            Staff receive, you approve
+          <span v-if="waitingDeliveries.length > 0" class="list-count bg-sky-500/15 text-sky-300">{{ count(waitingDeliveries.length) }} waiting</span>
+          <span class="list-hint" title="Receipts whose goods hadn't arrived yet. When the staff member marks one delivered, what arrived goes into stock at your prices. Received ones stay here for 14 days.">
+            Added to stock when received
           </span>
         </div>
 
@@ -251,9 +253,10 @@
             <div class="row-main">
               <p class="row-name text-white">{{ delivery.file_name || 'Receipt' }}</p>
               <p v-if="delivery.status === 'received'" class="row-sub text-zinc-500">
-                Received by {{ delivery.received_by_name || delivery.assigned_name }} · {{ dayAndTime(delivery.received_at) }}
-                <span :class="shortItems(delivery).length ? 'font-bold text-amber-300' : 'font-bold text-emerald-300'">
-                  · {{ shortItems(delivery).length ? `${shortItems(delivery).length} short` : 'all arrived' }}
+                {{ delivery.received_by_name || delivery.assigned_name }} · {{ dayAndTime(delivery.received_at) }} ·
+                <span class="font-bold text-emerald-300">{{ count(addedPieces(delivery)) }} pcs added</span>
+                <span v-if="shortItems(delivery).length" class="font-bold text-amber-300">
+                  · {{ count(shortItems(delivery).length) }} short
                 </span>
               </p>
               <p v-else class="row-sub text-zinc-500">
@@ -267,11 +270,10 @@
             <div class="row-buttons">
               <button
                 type="button"
-                class="btn-sm"
-                :class="delivery.status === 'received' ? 'btn-approve' : 'bg-zinc-800 text-zinc-200 hover:bg-zinc-700'"
+                class="btn-sm bg-zinc-800 text-zinc-200 hover:bg-zinc-700"
                 @click="openDelivery(delivery)"
               >
-                {{ delivery.status === 'received' ? 'Review' : 'View' }}
+                {{ delivery.status === 'received' ? 'Details' : 'Open' }}
               </button>
             </div>
           </li>
@@ -418,16 +420,45 @@
       @cancel="assignFor = null"
     />
 
-    <!-- one delivery: expected against received; approve or cancel -->
-    <ReceivingReviewModal
-      v-if="openedDelivery"
+    <!-- one delivery: its details (received), or what to do while it waits -->
+    <DeliveryDetailsModal
+      v-if="openedDelivery && !deliveryStep"
       :key="openedDelivery.id + openedDelivery.status"
       :delivery="openedDelivery"
       :busy="deliveryBusy"
       :error="deliveryError"
-      @approve="approveDelivery"
+      @receive="goToDeliveryStep('receive')"
+      @reassign="askReassign"
       @cancel-delivery="cancelDelivery"
-      @close="openedDeliveryId = null"
+      @close="closeDelivery"
+    />
+
+    <!-- ...the owner receives it himself (the staff member is away) -->
+    <ReceiveDeliveryModal
+      v-if="openedDelivery && deliveryStep === 'receive'"
+      :key="'own-' + openedDelivery.id"
+      :delivery="openedDelivery"
+      for-owner
+      :busy="deliveryBusy"
+      :error="deliveryError"
+      @confirm="receiveOwnDelivery"
+      @close="goToDeliveryStep('')"
+    />
+
+    <!-- ...or gives it to another staff member -->
+    <AssignReceivingModal
+      v-if="openedDelivery && deliveryStep === 'reassign'"
+      reassign
+      :file-name="openedDelivery.file_name || 'Receipt'"
+      :products="openedDelivery.items.length"
+      :pieces="piecesOf(openedDelivery)"
+      :staff="staffList"
+      :current-staff-id="openedDelivery.assigned_to || ''"
+      :current-date="openedDelivery.expected_date >= todayKey() ? openedDelivery.expected_date : ''"
+      :busy="deliveryBusy"
+      :error="deliveryError"
+      @confirm="confirmReassign"
+      @cancel="goToDeliveryStep('')"
     />
 
     <!-- ============================================================
@@ -741,13 +772,16 @@ import PageHeader from '../../components/PageHeader.vue'
 import NavIcon from '../../components/NavIcon.vue'
 import ReceiptPriceCheck from '../../components/ReceiptPriceCheck.vue'
 import AssignReceivingModal from '../../components/AssignReceivingModal.vue'
-import ReceivingReviewModal from '../../components/ReceivingReviewModal.vue'
+import DeliveryDetailsModal from '../../components/DeliveryDetailsModal.vue'
+import ReceiveDeliveryModal from '../../components/ReceiveDeliveryModal.vue'
 import {
-  approveReceiving,
+  addedPieces,
   cancelReceiving,
   dayText,
   listAllReceivings,
   piecesOf,
+  reassignReceiving,
+  receiveDelivery,
   shortItems,
   startReceiving,
   todayKey,
@@ -1380,9 +1414,11 @@ async function rejectSupplierUpload(upload) {
    10 seconds, so they appear by themselves a little after the receipt is sent.
 ------------------------------------------------------------------ */
 const reviewItems = ref([])
-// open deliveries (lib/receiving.js); their receipts aren't in "Prices to check"
+// deliveries (lib/receiving.js): the waiting ones, then the ones received in
+// the last 14 days. A receipt waiting for its delivery isn't in "Prices to check".
 const receivings = ref([])
-const openReceivingRefs = computed(() => new Set(receivings.value.map((delivery) => String(delivery.receipt_ref))))
+const waitingDeliveries = computed(() => receivings.value.filter((delivery) => delivery.status === 'waiting'))
+const openReceivingRefs = computed(() => new Set(waitingDeliveries.value.map((delivery) => String(delivery.receipt_ref))))
 const priceEdits = ref({}) // item id -> what is typed in the price box
 const reviewSaving = ref(new Set()) // group keys being saved
 
@@ -1444,8 +1480,12 @@ watch(
 )
 
 async function fetchReviewItems() {
-  fetchReceivings()
-  const { data, error } = await supabase.rpc('admin_list_receipt_review')
+  // together: a receipt waiting for its delivery never shows in "Prices to
+  // check" for a moment
+  const [, { data, error }] = await Promise.all([
+    fetchReceivings(),
+    supabase.rpc('admin_list_receipt_review'),
+  ])
 
   if (error) {
     // e.g. 7-receipt-review.sql hasn't been run yet: just hide the section
@@ -1608,15 +1648,16 @@ async function askReceive(group) {
 
   assignError.value = ''
   assignFor.value = group
+  assignError.value = await loadStaff()
+}
 
-  if (staffList.value.length === 0) {
-    const { data, error } = await supabase.rpc('admin_list_users')
-    if (error) {
-      assignError.value = `Couldn't load the staff accounts: ${error.message}`
-      return
-    }
-    staffList.value = (data || []).filter((user) => user.role === 'staff' && user.is_active !== false)
-  }
+// the active staff accounts, loaded once ('' or why it failed)
+async function loadStaff() {
+  if (staffList.value.length > 0) return ''
+  const { data, error } = await supabase.rpc('admin_list_users')
+  if (error) return `Couldn't load the staff accounts: ${error.message}`
+  staffList.value = (data || []).filter((user) => user.role === 'staff' && user.is_active !== false)
+  return ''
 }
 
 async function confirmAssign({ staffId, expectedDate, note }) {
@@ -1651,30 +1692,73 @@ async function confirmAssign({ staffId, expectedDate, note }) {
   }
 }
 
-// a delivery's window: Review (received) or View (still waiting)
+// a delivery's window: the details (received), or receive it yourself /
+// give it to someone else / cancel it (still waiting)
 const openedDeliveryId = ref(null)
 const openedDelivery = computed(() => receivings.value.find((delivery) => delivery.id === openedDeliveryId.value) || null)
+const deliveryStep = ref('') // '' (the details), 'receive' or 'reassign'
 const deliveryBusy = ref(false)
 const deliveryError = ref('')
 
 function openDelivery(delivery) {
-  deliveryError.value = ''
+  goToDeliveryStep('')
   openedDeliveryId.value = delivery.id
 }
 
-async function approveDelivery() {
+function closeDelivery() {
+  goToDeliveryStep('')
+  openedDeliveryId.value = null
+}
+
+// each step starts without the last one's message
+function goToDeliveryStep(step) {
+  deliveryError.value = ''
+  deliveryStep.value = step
+}
+
+async function askReassign() {
+  goToDeliveryStep('reassign')
+  deliveryError.value = await loadStaff()
+}
+
+async function receiveOwnDelivery({ items, note }) {
   const delivery = openedDelivery.value
   if (!delivery || deliveryBusy.value) return
   deliveryBusy.value = true
   deliveryError.value = ''
 
   try {
-    await approveReceiving(delivery.id)
-    openedDeliveryId.value = null
+    await receiveDelivery(delivery.id, items, note)
+    const pieces = items.reduce((sum, item) => sum + item.received_qty, 0)
+    closeDelivery()
     receivingError.value = ''
-    receivingSuccess.value =
-      `Added ${count(piecesOf(delivery, 'received_qty'))} pcs from "${delivery.file_name || 'the receipt'}" to stock.`
+    receivingSuccess.value = `Received "${delivery.file_name || 'the delivery'}": ${count(pieces)} pcs added to stock.`
     await fetchReviewItems()
+  } catch (err) {
+    deliveryError.value = err.message
+  } finally {
+    deliveryBusy.value = false
+  }
+}
+
+async function confirmReassign({ staffId, expectedDate }) {
+  const delivery = openedDelivery.value
+  if (!delivery || deliveryBusy.value) return
+  deliveryBusy.value = true
+  deliveryError.value = ''
+
+  try {
+    await reassignReceiving(delivery.id, staffId, expectedDate)
+    const person = staffList.value.find((user) => user.id === staffId)
+    const name = delivery.file_name || 'the delivery'
+    closeDelivery()
+    receivingError.value = ''
+    if (staffId !== delivery.assigned_to) {
+      receivingSuccess.value = `${person?.full_name || 'The staff member'} receives "${name}" now.`
+    } else {
+      receivingSuccess.value = expectedDate ? `Saved: "${name}" is expected ${dayText(expectedDate)}.` : 'Saved.'
+    }
+    await fetchReceivings()
   } catch (err) {
     deliveryError.value = err.message
   } finally {
@@ -1690,7 +1774,7 @@ async function cancelDelivery() {
 
   try {
     await cancelReceiving(delivery.id)
-    openedDeliveryId.value = null
+    closeDelivery()
     receivingError.value = ''
     receivingSuccess.value = `Cancelled the delivery. "${delivery.file_name || 'The receipt'}" is back in Prices to check.`
     await fetchReviewItems()
@@ -1807,7 +1891,6 @@ const tabs = computed(() => {
   const toReview = supplierUploads.value.length
   const toPrice = reviewGroups.value.length
   const notSent = unsentVisible.value.length
-  const toApprove = receivings.value.filter((delivery) => delivery.status === 'received').length
   const inspections = approvals.value.length
 
   return [
@@ -1815,13 +1898,12 @@ const tabs = computed(() => {
       key: 'uploads',
       label: 'Supplier Uploads',
       short: 'Uploads',
-      count: toReview + toPrice + notSent + toApprove,
+      count: toReview + toPrice + notSent,
       hint:
         [
           toReview && `${plural(toReview, 'upload')} to review`,
           toPrice && `${plural(toPrice, 'receipt')} with new prices to check`,
           notSent && `${plural(notSent, 'receipt')} approved but not sent`,
-          toApprove && `${toApprove} ${toApprove === 1 ? 'delivery' : 'deliveries'} received, to review`,
         ]
           .filter(Boolean)
           .join(' · ') || 'Nothing waiting',

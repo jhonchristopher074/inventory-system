@@ -218,6 +218,7 @@
 import { readCurrentUser } from '../../lib/currentUser'
 import { computed, onMounted, ref, watch } from 'vue'
 import { supabase } from '../../lib/supabase'
+import { heldProductIds, withoutHeld } from '../../lib/heldProducts'
 import { usePagination } from '../../lib/usePagination'
 import { useQueryParam } from '../../lib/useQueryParam'
 import PageHeader from '../../components/PageHeader.vue'
@@ -249,16 +250,20 @@ async function fetchProducts() {
   loading.value = true
   errorMessage.value = ''
 
-  const { data, error } = await supabase.rpc('list_products', {
-    p_filter: 'active',
-    p_order_by: 'created_desc',
-  })
+  // without products that exist by name only (lib/heldProducts.js)
+  const [{ data, error }, held] = await Promise.all([
+    supabase.rpc('list_products', {
+      p_filter: 'active',
+      p_order_by: 'created_desc',
+    }),
+    heldProductIds(),
+  ])
 
   if (error) {
     errorMessage.value = error.message
     products.value = []
   } else {
-    products.value = data || []
+    products.value = withoutHeld(data, held)
   }
 
   loading.value = false

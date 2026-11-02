@@ -335,6 +335,7 @@
 import { readCurrentUser } from '../../lib/currentUser'
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { supabase } from '../../lib/supabase'
+import { heldProductIds, withoutHeld } from '../../lib/heldProducts'
 import DashboardHero from '../../components/DashboardHero.vue'
 import AlertTile from '../../components/AlertTile.vue'
 import NavIcon from '../../components/NavIcon.vue'
@@ -407,16 +408,19 @@ async function load() {
     myUserId.value = data?.session?.user?.id || null
   }
 
-  const [productsResult, approvalsResult, deliveriesResult, receivingsResult] = await Promise.allSettled([
+  const [productsResult, approvalsResult, deliveriesResult, receivingsResult, heldResult] = await Promise.allSettled([
     rpc('list_products', { p_filter: 'active', p_order_by: 'id_asc' }),
     rpc('list_active_approvals'),
     rpc('list_deliveries'),
     listMyReceivings(),
+    heldProductIds(),
   ])
 
   const problems = []
 
-  if (productsResult.status === 'fulfilled') products.value = productsResult.value
+  // without products that exist by name only (lib/heldProducts.js)
+  const held = heldResult.status === 'fulfilled' ? heldResult.value : new Set()
+  if (productsResult.status === 'fulfilled') products.value = withoutHeld(productsResult.value, held)
   else problems.push(`the products (${productsResult.reason?.message || productsResult.reason})`)
 
   if (approvalsResult.status === 'fulfilled') approvals.value = approvalsResult.value

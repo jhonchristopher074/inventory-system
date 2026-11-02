@@ -1,14 +1,15 @@
 <template>
-  <!-- The owner's look at one delivery: what the receipt said against what
-       the staff member received. Approve adds what arrived to stock at the
-       prices set in Check prices; Cancel sends the receipt back to Check
-       prices (nothing is added). -->
+  <!-- One supplier delivery, for the owner (Approval > Deliveries).
+       Received: the details. It's already in stock (what arrived, at the
+       owner's prices), so there's nothing to approve.
+       Waiting: receive it yourself, give it to another staff member, or
+       cancel it (the receipt goes back to Check prices). -->
   <Teleport to="body">
     <div
       class="fixed inset-0 z-[2000] flex items-center justify-center bg-black/80 p-3 sm:p-4"
       role="dialog"
       aria-modal="true"
-      aria-labelledby="rv-title"
+      aria-labelledby="dd-title"
       @click.self="!busy && emit('close')"
       @keydown.esc="!busy && emit('close')"
     >
@@ -16,9 +17,9 @@
         <header class="flex items-start justify-between gap-3 border-b border-white/5 px-5 py-4 sm:px-6">
           <div class="min-w-0">
             <p class="text-xs font-extrabold uppercase tracking-[0.14em]" :class="received ? 'text-emerald-400' : 'text-sky-300'">
-              {{ received ? 'Delivery received' : 'Waiting for the delivery' }}
+              {{ received ? 'Received · added to stock' : 'Waiting for the delivery' }}
             </p>
-            <h2 id="rv-title" class="mt-1 truncate text-lg font-bold text-white" :title="delivery.file_name">
+            <h2 id="dd-title" class="mt-1 truncate text-lg font-bold text-white" :title="delivery.file_name">
               {{ delivery.file_name || 'Receipt' }}
             </h2>
             <p class="text-xs text-zinc-400">
@@ -26,7 +27,7 @@
                 Received by {{ delivery.received_by_name || delivery.assigned_name }} · {{ dayAndTime(delivery.received_at) }}
               </template>
               <template v-else>
-                {{ delivery.assigned_name }} receives it<template v-if="delivery.expected_date"> · expected {{ dayText(delivery.expected_date) }}</template>
+                {{ delivery.assigned_name }} receives it<span v-if="delivery.expected_date" :class="late ? 'font-bold text-red-400' : ''"> · {{ late ? 'late, expected' : 'expected' }} {{ dayText(delivery.expected_date) }}</span>
               </template>
               <template v-if="delivery.supplier_name"> · from {{ delivery.supplier_name }}</template>
             </p>
@@ -42,11 +43,14 @@
         </header>
 
         <div class="flex flex-wrap gap-2 px-5 pt-4 sm:px-6">
-          <span class="chip-sm bg-white/5 text-zinc-300">{{ count(delivery.items.length) }} products</span>
+          <span class="chip-sm bg-white/5 text-zinc-300">{{ count(delivery.items.length) }} {{ delivery.items.length === 1 ? 'product' : 'products' }}</span>
           <span class="chip-sm bg-white/5 text-zinc-300">{{ count(expectedPieces) }} pcs on the receipt</span>
-          <span v-if="received" class="chip-sm" :class="short.length ? 'bg-amber-500/15 text-amber-300' : 'bg-emerald-600/15 text-emerald-300'">
-            {{ short.length ? `${count(short.length)} came short` : 'Everything arrived' }}
-          </span>
+          <template v-if="received">
+            <span class="chip-sm bg-emerald-600/15 text-emerald-300">{{ count(receivedPieces) }} pcs added</span>
+            <span class="chip-sm" :class="short.length ? 'bg-amber-500/15 text-amber-300' : 'bg-emerald-600/15 text-emerald-300'">
+              {{ short.length ? `${count(short.length)} came short` : 'Everything arrived' }}
+            </span>
+          </template>
         </div>
 
         <p v-if="delivery.note" class="mx-5 mt-3 rounded-xl bg-white/5 p-3 text-sm text-zinc-300 sm:mx-6">
@@ -92,30 +96,26 @@
               Cancel this delivery? The receipt goes back to Prices to check; nothing is added.
             </p>
             <p v-else-if="received" class="text-zinc-400">
-              Approve adds <b class="text-white">{{ count(receivedPieces) }} pcs</b> to stock at these prices.
-              <template v-if="missingCount"> {{ count(missingCount) }} that didn't arrive at all won't be added.</template>
+              Added to stock when it was received. Change a price any time in Inventory.
             </p>
-            <p v-else class="text-zinc-400">Nothing is in stock yet. {{ delivery.assigned_name }} marks it delivered when it arrives.</p>
+            <p v-else class="text-zinc-400">Nothing is in stock yet. It's added when it's received.</p>
           </div>
 
-          <div v-if="askingCancel" class="flex shrink-0 gap-2">
+          <div v-if="!received && askingCancel" class="flex shrink-0 gap-2">
             <button type="button" class="btn-lg bg-zinc-800 text-white hover:bg-zinc-700" @click="askingCancel = false">Back</button>
             <button type="button" class="btn-lg bg-red-600 text-white hover:bg-red-700" :disabled="busy" @click="emit('cancel-delivery')">
               {{ busy ? 'Cancelling…' : 'Yes, cancel' }}
             </button>
           </div>
-          <div v-else class="flex shrink-0 gap-2">
+          <div v-else-if="!received" class="flex shrink-0 flex-wrap gap-2">
             <button type="button" class="btn-lg bg-zinc-800 text-white hover:bg-red-600" :disabled="busy" @click="askingCancel = true">
               Cancel delivery
             </button>
-            <button
-              v-if="received"
-              type="button"
-              class="btn-lg bg-emerald-600 text-white hover:bg-emerald-500"
-              :disabled="busy"
-              @click="emit('approve')"
-            >
-              {{ busy ? 'Adding…' : 'Approve & add to stock' }}
+            <button type="button" class="btn-lg border border-sky-500/40 text-sky-300 hover:bg-sky-500/10 hover:text-white" :disabled="busy" @click="emit('reassign')">
+              Give to someone else
+            </button>
+            <button type="button" class="btn-lg bg-violet-500 text-white hover:bg-violet-400" :disabled="busy" @click="emit('receive')">
+              Receive it myself
             </button>
           </div>
         </footer>
@@ -127,7 +127,7 @@
 <script setup>
 import { computed, ref } from 'vue'
 import { count, dayAndTime, peso } from '../lib/format'
-import { dayText, piecesOf, shortItems } from '../lib/receiving'
+import { addedPieces, dayText, piecesOf, shortItems, todayKey } from '../lib/receiving'
 
 const props = defineProps({
   delivery: { type: Object, required: true },
@@ -135,14 +135,14 @@ const props = defineProps({
   error: { type: String, default: '' },
 })
 
-const emit = defineEmits(['approve', 'cancel-delivery', 'close'])
+const emit = defineEmits(['receive', 'reassign', 'cancel-delivery', 'close'])
 
 const askingCancel = ref(false)
 const received = computed(() => props.delivery.status === 'received')
+const late = computed(() => !received.value && Boolean(props.delivery.expected_date) && props.delivery.expected_date < todayKey())
 const expectedPieces = computed(() => piecesOf(props.delivery, 'expected_qty'))
-const receivedPieces = computed(() => piecesOf(props.delivery, 'received_qty'))
+const receivedPieces = computed(() => addedPieces(props.delivery))
 const short = computed(() => shortItems(props.delivery))
-const missingCount = computed(() => props.delivery.items.filter((item) => received.value && Number(item.received_qty) === 0).length)
 
 function isShort(item) {
   return received.value && Number(item.received_qty) < Number(item.expected_qty)
@@ -160,8 +160,9 @@ function isShort(item) {
 .btn-lg {
   flex: 1;
   border-radius: 1rem;
-  padding: 0.75rem 1.25rem;
+  padding: 0.75rem 1.1rem;
   font-weight: 700;
+  white-space: nowrap;
 }
 
 .btn-lg:disabled {

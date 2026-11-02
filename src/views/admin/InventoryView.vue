@@ -825,6 +825,7 @@ import StockLevel from '../../components/StockLevel.vue'
 import CategoryManager from '../../components/CategoryManager.vue'
 import { NO_CATEGORY, fetchCategories } from '../../lib/categories'
 import { supabase } from '../../lib/supabase'
+import { heldProductIds, withoutHeld } from '../../lib/heldProducts'
 import { usePagination } from '../../lib/usePagination'
 import { useQueryParam } from '../../lib/useQueryParam'
 import { uploadImage } from '../../lib/uploadImage'
@@ -1042,10 +1043,14 @@ async function fetchProducts() {
   errorMessage.value = ''
   loadDisabled()
 
-  const { data, error } = await supabase.rpc('list_products', {
-    p_filter: 'active',
-    p_order_by: 'id_desc',
-  })
+  // without products that exist by name only (lib/heldProducts.js)
+  const [{ data, error }, held] = await Promise.all([
+    supabase.rpc('list_products', {
+      p_filter: 'active',
+      p_order_by: 'id_desc',
+    }),
+    heldProductIds(),
+  ])
 
   if (error) {
     errorMessage.value = error.message
@@ -1059,7 +1064,7 @@ async function fetchProducts() {
       nicknames[String(row.id)] = row.nickname
     })
 
-    products.value = (data || []).map(product => ({
+    products.value = withoutHeld(data, held).map(product => ({
       ...product,
       nickname: nicknames[String(product.id)] || '',
     }))
