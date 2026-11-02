@@ -57,6 +57,56 @@
       ></div>
     </div>
 
+    <!-- CONFIRMED BY THE OWNER: the products from your receipt that were
+         added to the store's inventory (the last 3 days, until closed) -->
+    <div
+      v-for="note in confirmationNotes"
+      :key="'added-' + note.uploadId"
+      class="mb-4 rounded-2xl border border-emerald-500/40 bg-emerald-600/10 px-4 py-3"
+      role="status"
+    >
+      <div class="flex items-start justify-between gap-3">
+        <div class="flex min-w-0 items-start gap-3">
+          <span class="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-full bg-emerald-500 text-black" aria-hidden="true">
+            <NavIcon name="check" class="h-4 w-4" />
+          </span>
+          <div class="min-w-0">
+            <p class="text-sm font-bold text-emerald-300">Confirmed by the owner</p>
+            <p class="text-sm text-zinc-200">
+              {{ count(note.items.length) }} {{ note.items.length === 1 ? 'product' : 'products' }} from
+              <b class="break-all text-white">{{ note.fileName }}</b>
+              {{ note.items.length === 1 ? 'was' : 'were' }} added to the inventory.
+            </p>
+          </div>
+        </div>
+        <button
+          type="button"
+          class="shrink-0 rounded-lg px-2 py-1 font-bold text-emerald-300 opacity-70 hover:opacity-100"
+          aria-label="Close"
+          @click="dismissNote(note.uploadId)"
+        >
+          ✕
+        </button>
+      </div>
+
+      <div class="mt-2 flex flex-wrap items-center gap-1.5 pl-10">
+        <span
+          v-for="item in note.items.slice(0, 4)"
+          :key="item.key"
+          class="rounded-full bg-black/30 px-2.5 py-1 text-xs font-bold text-zinc-200"
+        >
+          {{ item.name }} <span class="text-emerald-300">× {{ count(item.qty) }}</span>
+        </span>
+        <button
+          type="button"
+          class="rounded-full px-2.5 py-1 text-xs font-bold text-emerald-300 hover:text-white hover:underline"
+          @click="openAdded(note.uploadId)"
+        >
+          {{ note.items.length > 4 ? `See all ${count(note.items.length)}` : 'See the list' }} ›
+        </button>
+      </div>
+    </div>
+
     <!-- TABS, like the other pages. The open one is in the address
          (?tab=uploads), so a refresh keeps it. -->
     <div class="-mx-1 mb-5 flex gap-2 overflow-x-auto px-1 pb-1 sm:gap-3">
@@ -255,6 +305,15 @@
 
                 <td class="cell-actions">
                   <div class="row-actions">
+                    <!-- confirmed by the owner: what went into the inventory -->
+                    <button
+                      v-if="addedFor(row)"
+                      type="button"
+                      class="rounded-lg bg-emerald-600/20 px-3 py-1.5 text-xs font-bold text-emerald-300 hover:bg-emerald-600/30 hover:text-white"
+                      @click="openAdded(row.id)"
+                    >
+                      Products ({{ count(addedFor(row).items.length) }})
+                    </button>
                     <button
                       v-if="canView(row)"
                       type="button"
@@ -284,6 +343,59 @@
         />
       </div>
     </section>
+
+    <!-- ADDED: the products the owner added from one receipt -->
+    <div
+      v-if="addedView"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-3 sm:p-4"
+      @click.self="addedView = null"
+      @keydown.esc="addedView = null"
+    >
+      <div
+        class="flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-[24px] border border-emerald-500/30 bg-zinc-900 shadow-2xl"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="added-title"
+      >
+        <div class="flex items-start justify-between gap-3 border-b border-white/5 px-5 py-4">
+          <div class="min-w-0">
+            <p class="flex items-center gap-2 text-xs font-extrabold uppercase tracking-[0.14em] text-emerald-400">
+              <NavIcon name="check" class="h-4 w-4" /> Added to the inventory
+            </p>
+            <h2 id="added-title" class="mt-1 truncate text-lg font-bold text-white" :title="addedView.fileName">
+              {{ addedView.fileName }}
+            </h2>
+            <p class="text-xs text-zinc-400">Confirmed by the owner {{ dayAndTime(addedView.confirmedAt) }}</p>
+          </div>
+          <button
+            type="button"
+            class="shrink-0 rounded-lg bg-zinc-800 px-3 py-1.5 text-sm font-bold text-white hover:bg-zinc-700"
+            @click="addedView = null"
+          >
+            Close
+          </button>
+        </div>
+
+        <ul class="divide-y divide-white/5 overflow-y-auto px-5 py-2">
+          <li v-for="item in addedView.items" :key="item.key" class="flex items-center justify-between gap-3 py-2.5">
+            <div class="min-w-0">
+              <p class="truncate text-sm font-bold text-white">{{ item.name }}</p>
+              <p class="text-xs" :class="item.isNew ? 'text-sky-300' : 'text-zinc-500'">
+                {{ item.isNew ? 'New product in the store' : 'Restocked' }}
+              </p>
+            </div>
+            <span class="shrink-0 rounded-full bg-emerald-600/15 px-3 py-1 text-sm font-extrabold text-emerald-300">
+              + {{ count(item.qty) }} pcs
+            </span>
+          </li>
+        </ul>
+
+        <p class="border-t border-white/5 px-5 py-3 text-xs text-zinc-500">
+          {{ count(addedView.items.length) }} {{ addedView.items.length === 1 ? 'product' : 'products' }} ·
+          {{ count(addedView.total) }} pcs in all
+        </p>
+      </div>
+    </div>
 
     <!-- VIEW: one of your receipts, big (Esc or tapping outside closes it) -->
     <div
@@ -622,15 +734,94 @@ async function fetchMyUploads() {
   nowMs.value = fetchedAt.value
   myUploads.value = data || []
 
+  // what the owner confirmed from them (not waited for: the list shows now)
+  fetchResults()
+
   for (const row of myUploads.value) {
     if (knownStatus.get(row.id) === 'pending') noteStatus(row.id, row.status, row.file_name)
     else knownStatus.set(row.id, row.status)
   }
 }
 
+/* ------------------------------------------------------------------
+  Confirmed by the owner: the products from each receipt that went into
+  the inventory (supplier_list_receipt_results: names and quantities
+  only, never prices). Until its SQL is run there are none.
+------------------------------------------------------------------ */
+const results = ref(new Map()) // upload id -> { items, total, confirmedAt }
+
+async function fetchResults() {
+  const { data, error } = await supabase.rpc('supplier_list_receipt_results', { p_limit: 300 })
+  if (error) return
+
+  const byUpload = new Map()
+  for (const row of data || []) {
+    const key = String(row.upload_id)
+    const entry = byUpload.get(key) || { items: [], total: 0, confirmedAt: row.confirmed_at }
+    const qty = Number(row.qty_added) || 0
+    entry.items.push({ key: `${key}-${entry.items.length}`, name: row.product_name, qty, isNew: Boolean(row.is_new) })
+    entry.total += qty
+    if (new Date(row.confirmed_at) > new Date(entry.confirmedAt)) entry.confirmedAt = row.confirmed_at
+    byUpload.set(key, entry)
+  }
+  results.value = byUpload
+}
+
+function addedFor(row) {
+  return results.value.get(String(row?.id)) || null
+}
+
+// the window with the list
+const addedView = ref(null)
+
+function openAdded(uploadId) {
+  const entry = results.value.get(String(uploadId))
+  if (!entry) return
+  const upload = myUploads.value.find((row) => String(row.id) === String(uploadId))
+  addedView.value = { ...entry, fileName: upload?.file_name || 'Your receipt' }
+}
+
+// The banners: confirmations of the last 3 days, until closed. Closing is
+// remembered for this tab only (nothing is kept on the device).
+const NOTE_DAYS = 3
+const CLOSED_KEY = 'closedConfirmations'
+
+function readClosed() {
+  try {
+    return new Set(JSON.parse(sessionStorage.getItem(CLOSED_KEY) || '[]'))
+  } catch {
+    return new Set()
+  }
+}
+
+const closedNotes = ref(readClosed())
+
+function dismissNote(uploadId) {
+  closedNotes.value = new Set(closedNotes.value).add(String(uploadId))
+  try {
+    sessionStorage.setItem(CLOSED_KEY, JSON.stringify([...closedNotes.value]))
+  } catch {
+    // storage blocked: it comes back on the next refresh
+  }
+}
+
+const confirmationNotes = computed(() => {
+  const since = Date.now() - NOTE_DAYS * 24 * 60 * 60 * 1000
+  return [...results.value.entries()]
+    .filter(([id, entry]) => !closedNotes.value.has(id) && new Date(entry.confirmedAt).getTime() >= since)
+    .sort((a, b) => new Date(b[1].confirmedAt) - new Date(a[1].confirmedAt))
+    .slice(0, 3)
+    .map(([id, entry]) => ({
+      uploadId: id,
+      items: entry.items,
+      fileName: myUploads.value.find((row) => String(row.id) === id)?.file_name || 'your receipt',
+    }))
+})
+
 function stateOf(row) {
   if (row.status === 'rejected') return { kind: 'rejected', text: 'Denied' }
   if (row.status !== 'approved') return { kind: 'pending', text: 'Waiting for approval' }
+  if (addedFor(row)) return { kind: 'added', text: 'Added to inventory ✓' }
   if (row.forwarded_at) return { kind: 'sent', text: 'Sent to the scanner ✓' }
 
   if (row.seconds_to_send != null) {
@@ -648,7 +839,8 @@ const CHIP_TONES = {
   pending: 'bg-yellow-500/15 text-yellow-400',
   countdown: 'bg-sky-500/15 text-sky-300',
   sending: 'bg-sky-500/15 text-sky-300',
-  sent: 'bg-emerald-600/15 text-emerald-400',
+  sent: 'bg-sky-500/15 text-sky-300',
+  added: 'bg-emerald-600/20 text-emerald-300',
   approved: 'bg-white/5 text-zinc-300',
   rejected: 'bg-red-600/15 text-red-400',
 }
@@ -662,6 +854,7 @@ const STATUS_FILTERS = [
   { key: 'all', label: 'All' },
   { key: 'waiting', label: 'Waiting' },
   { key: 'sent', label: 'Sent' },
+  { key: 'added', label: 'Added' },
   { key: 'denied', label: 'Denied' },
 ]
 const statusFilter = ref('all')
@@ -671,11 +864,12 @@ const search = ref('')
 function groupOf(row) {
   if (row.state.kind === 'rejected') return 'denied'
   if (row.state.kind === 'sent') return 'sent'
+  if (row.state.kind === 'added') return 'added'
   return 'waiting'
 }
 
 const statusCounts = computed(() => {
-  const counts = { all: uploadRows.value.length, waiting: 0, sent: 0, denied: 0 }
+  const counts = { all: uploadRows.value.length, waiting: 0, sent: 0, added: 0, denied: 0 }
   for (const row of uploadRows.value) counts[groupOf(row)] += 1
   return counts
 })
