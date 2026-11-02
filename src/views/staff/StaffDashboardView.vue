@@ -342,6 +342,7 @@ import { count } from '../../lib/format'
 import { LOW_STOCK, byStockLevel, isLowStock, isOutOfStock, stockOf } from '../../lib/stock'
 import { dayKey, startOfDay } from '../../lib/dashboardStats'
 import { isDelivered } from '../../lib/deliveries'
+import { listMyReceivings } from '../../lib/receiving'
 
 const CALENDAR = '/staff/calendar'
 // the Calendar's Delivery tab
@@ -356,6 +357,7 @@ const products = ref([])
 const approvals = ref([]) // saved and submitted inspections, waiting for the owner
 const deliveries = ref([]) // not delivered yet
 const deliveriesFailed = ref(false)
+const toReceive = ref(0) // supplier deliveries waiting for you to receive them
 
 const loaded = ref(false)
 const refreshing = ref(false)
@@ -405,10 +407,11 @@ async function load() {
     myUserId.value = data?.session?.user?.id || null
   }
 
-  const [productsResult, approvalsResult, deliveriesResult] = await Promise.allSettled([
+  const [productsResult, approvalsResult, deliveriesResult, receivingsResult] = await Promise.allSettled([
     rpc('list_products', { p_filter: 'active', p_order_by: 'id_asc' }),
     rpc('list_active_approvals'),
     rpc('list_deliveries'),
+    listMyReceivings(),
   ])
 
   const problems = []
@@ -422,6 +425,11 @@ async function load() {
   deliveriesFailed.value = deliveriesResult.status !== 'fulfilled'
   if (deliveriesFailed.value) console.error(deliveriesResult.reason)
   else deliveries.value = deliveriesResult.value.filter((delivery) => !isDelivered(delivery))
+
+  // supplier deliveries the owner chose you to receive (lib/receiving.js)
+  if (receivingsResult.status === 'fulfilled') {
+    toReceive.value = receivingsResult.value.filter((delivery) => delivery.status === 'waiting').length
+  }
 
   errorMessage.value = problems.length ? `Couldn't load ${problems.join(' and ')}.` : ''
   now.value = new Date()
@@ -652,6 +660,7 @@ const attention = computed(() =>
   [
     { key: 'today', n: dueToday.value.length, label: (n) => `${noun(n, 'inspection')} to do today`, to: CALENDAR, icon: 'calendar', tone: 'warning' },
     { key: 'saved', n: mySaved.value.length, label: (n) => `saved ${noun(n, 'inspection')} to submit`, to: CALENDAR, icon: 'approval', tone: 'task' },
+    { key: 'receive', n: toReceive.value, label: (n) => `supplier ${noun(n, 'delivery', 'deliveries')} to receive`, to: DELIVERIES, icon: 'inventory', tone: 'warning' },
     { key: 'arriving', n: deliveriesToday.value.length, label: (n) => `${noun(n, 'delivery', 'deliveries')} arriving today`, to: DELIVERIES, icon: 'inventory', tone: 'task' },
   ]
     .filter((item) => item.n > 0)

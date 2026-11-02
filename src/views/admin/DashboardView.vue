@@ -343,7 +343,7 @@ const products = ref([])
 const sales = ref([])
 const deliveries = ref([]) // not delivered yet
 // what waits on the Approval page
-const waiting = ref({ uploads: 0, inspections: 0, prices: 0, unsent: 0 })
+const waiting = ref({ uploads: 0, inspections: 0, prices: 0, unsent: 0, receivings: 0 })
 
 const loaded = ref(false)
 const refreshing = ref(false)
@@ -370,7 +370,7 @@ async function load() {
   if (refreshing.value) return
   refreshing.value = true
 
-  const [productsResult, salesResult, uploads, inspectionList, review, unsent, deliveryList] = await Promise.allSettled([
+  const [productsResult, salesResult, uploads, inspectionList, review, unsent, deliveryList, receivingList] = await Promise.allSettled([
     rpc('list_products', { p_filter: 'active', p_order_by: 'id_asc' }),
     rpc('list_all_sales'),
     rpc('admin_list_supplier_uploads', { p_status: 'pending' }),
@@ -378,6 +378,7 @@ async function load() {
     rpc('admin_list_receipt_review'),
     rpc('admin_list_unsent_supplier_uploads'),
     rpc('list_deliveries'),
+    rpc('admin_list_receivings'),
   ])
 
   const problems = []
@@ -401,6 +402,11 @@ async function load() {
         ? new Set(review.value.map((item) => item.upload_ref || 'other')).size
         : last.prices,
     unsent: sizeOf(unsent, last.unsent),
+    // supplier deliveries a staff member received: the owner approves them
+    receivings:
+      receivingList.status === 'fulfilled'
+        ? receivingList.value.filter((delivery) => delivery.status === 'received').length
+        : last.receivings,
   }
 
   if (deliveryList.status === 'fulfilled') deliveries.value = deliveryList.value.filter((item) => !isDelivered(item))
@@ -579,6 +585,7 @@ const attention = computed(() => {
     { key: 'unsent', n: w.unsent, label: (n) => `approved ${noun(n, 'receipt')} not sent to the scanner`, to: '/approval', icon: 'alert', tone: 'warning' },
     { key: 'uploads', n: w.uploads, label: (n) => `supplier ${noun(n, 'receipt')} to approve`, to: '/approval', icon: 'docs', tone: 'task' },
     { key: 'inspections', n: w.inspections, label: (n) => `${noun(n, 'inspection')} to approve`, to: '/approval?tab=inspections', icon: 'approval', tone: 'task' },
+    { key: 'receivings', n: w.receivings, label: (n) => `supplier ${noun(n, 'delivery', 'deliveries')} received, to approve`, to: '/approval', icon: 'inventory', tone: 'task' },
     { key: 'prices', n: w.prices, label: (n) => `${noun(n, 'receipt')} with new prices to check`, to: '/approval', icon: 'tag', tone: 'task' },
   ]
     .filter((item) => item.n > 0)

@@ -414,6 +414,8 @@ const ROUTES = {
     archive: '/archived',
     // a product disabled at the POS: Inventory shows it, with Enable
     disabled: '/inventory',
+    // a staff member received a supplier delivery: review it
+    received: '/approval',
     inspection: '/calendar',
     // each opens its own tab of the Approval page
     inspection_approval: '/approval?tab=inspections',
@@ -433,6 +435,8 @@ const ROUTES = {
     report: '/staff/documentation',
     low_stock: '/staff/inventory',
     restore: '/staff/inventory',
+    // a supplier delivery to receive (or cancelled)
+    receive: '/staff/calendar?tab=delivery',
     default: '/staff',
   },
   cashier: {
@@ -465,6 +469,8 @@ const BADGES = {
   restore: 'bg-emerald-500/20 text-emerald-400',
   archive: 'bg-zinc-500/20 text-zinc-300',
   disabled: 'bg-red-600/25 text-red-300',
+  receive: 'bg-violet-500/20 text-violet-300',
+  received: 'bg-emerald-500/20 text-emerald-400',
 }
 
 function badgeClass(type) {

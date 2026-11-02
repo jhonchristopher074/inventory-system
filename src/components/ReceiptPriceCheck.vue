@@ -6,6 +6,7 @@
 // A table on computers; each product becomes a card on phones.
 //
 //   <ReceiptPriceCheck :group="group" :prices="priceEdits" :saving="..." :error="..."
+//                      :can-receive="..." @receive="..."
 //                      @price="(id, value) => ..." @confirm="..." @keep="..." @close="..." />
 //
 //   group   { key, linked, waiting, fileName, percent, items } (see ApprovalView's reviewGroups)
@@ -13,6 +14,9 @@
 //
 // A waiting receipt (group.waiting) isn't in stock yet: Confirm adds its
 // pieces at these prices, and "keep" becomes Reject (asks first, adds nothing).
+// When its goods haven't reached the store yet, "Not delivered yet"
+// (canReceive) keeps these prices and lets a staff member receive it first
+// (lib/receiving.js).
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import { supabase } from '../lib/supabase'
 import { NO_CATEGORY, fetchCategories } from '../lib/categories'
@@ -26,9 +30,11 @@ const props = defineProps({
   saving: { type: Boolean, default: false },
   // why Confirm / Keep didn't work (shown in the window, not behind it)
   error: { type: String, default: '' },
+  // "Not delivered yet" is offered (the receiving SQL is run)
+  canReceive: { type: Boolean, default: false },
 })
 
-const emit = defineEmits(['price', 'confirm', 'keep', 'close'])
+const emit = defineEmits(['price', 'confirm', 'keep', 'close', 'receive'])
 
 const items = computed(() => props.group.items || [])
 
@@ -487,7 +493,7 @@ onBeforeUnmount(() => {
             </button>
           </div>
 
-          <div v-else class="flex shrink-0 gap-2">
+          <div v-else class="flex shrink-0 flex-wrap gap-2">
             <button
               type="button"
               class="flex-1 rounded-2xl bg-zinc-800 px-5 py-3 font-bold text-white hover:bg-zinc-700 disabled:opacity-50 sm:flex-none"
@@ -497,6 +503,17 @@ onBeforeUnmount(() => {
               @click="onKeep"
             >
               {{ waiting ? 'Reject' : 'Keep current prices' }}
+            </button>
+            <!-- the goods haven't arrived: a staff member receives them first -->
+            <button
+              v-if="waiting && group.linked && canReceive"
+              type="button"
+              class="flex-1 rounded-2xl border border-sky-500/40 px-4 py-3 font-bold text-sky-300 hover:bg-sky-500/10 hover:text-white disabled:opacity-50 sm:flex-none"
+              :disabled="saving || !allValid"
+              title="Keep these prices; a staff member counts the delivery when it arrives, then you approve it"
+              @click="emit('receive')"
+            >
+              Not delivered yet
             </button>
             <button
               type="button"

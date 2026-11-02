@@ -41,8 +41,54 @@
 
     <!-- DELIVERY -->
     <div v-if="activeTab === 'delivery'">
+      <!-- SUPPLIER DELIVERIES the owner chose you to receive: count what
+           arrives, then "Mark as delivered" (lib/receiving.js) -->
+      <p v-if="receiveMessage" class="mb-4 rounded-xl bg-emerald-600/15 p-4 text-sm text-emerald-300" role="status">
+        {{ receiveMessage }}
+      </p>
+
+      <section v-if="receivings.length > 0" class="mb-6" aria-label="Supplier deliveries to receive">
+        <h2 class="mb-3 text-sm font-extrabold uppercase tracking-[0.14em] text-violet-300">To receive from suppliers</h2>
+
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-[repeat(auto-fill,minmax(260px,1fr))]">
+          <article
+            v-for="delivery in receivings"
+            :key="'rcv-' + delivery.id"
+            class="flex flex-col justify-between gap-4 rounded-[22px] border bg-zinc-900 p-5 shadow-xl"
+            :class="isReceivingLate(delivery) ? 'border-red-500/60 bg-red-950/20' : 'border-violet-500/30'"
+          >
+            <div class="min-w-0">
+              <p class="truncate text-lg font-bold text-white" :title="delivery.file_name">{{ delivery.file_name || 'Delivery' }}</p>
+              <p v-if="delivery.supplier_name" class="text-sm text-zinc-400">From {{ delivery.supplier_name }}</p>
+              <p class="mt-2 text-sm text-zinc-300">
+                {{ count(delivery.items.length) }} {{ delivery.items.length === 1 ? 'product' : 'products' }} ·
+                {{ count(piecesOf(delivery)) }} pcs
+              </p>
+              <p v-if="delivery.expected_date" class="mt-1 text-sm font-bold" :class="isReceivingLate(delivery) ? 'text-red-400' : 'text-violet-300'">
+                {{ isReceivingLate(delivery) ? 'Late · expected' : 'Expected' }} {{ dayText(delivery.expected_date) }}
+              </p>
+              <p v-if="delivery.note" class="mt-2 rounded-lg bg-white/5 p-2 text-xs text-zinc-300">
+                <b>Owner:</b> {{ delivery.note }}
+              </p>
+            </div>
+
+            <button
+              v-if="delivery.status === 'waiting'"
+              type="button"
+              class="w-full rounded-xl bg-violet-500 py-2.5 text-sm font-bold text-white hover:bg-violet-400"
+              @click="openReceive(delivery)"
+            >
+              Receive
+            </button>
+            <p v-else class="rounded-xl bg-emerald-600/15 py-2.5 text-center text-sm font-bold text-emerald-300">
+              Delivered · waiting for the owner
+            </p>
+          </article>
+        </div>
+      </section>
+
       <div
-        v-if="deliveries.length === 0"
+        v-if="deliveries.length === 0 && receivings.length === 0"
         class="rounded-[24px] border border-white/10 bg-zinc-900 p-5 text-zinc-400"
       >
         No delivery schedules.
@@ -80,6 +126,16 @@
         </div>
       </div>
     </div>
+
+    <!-- RECEIVE A SUPPLIER DELIVERY -->
+    <ReceiveDeliveryModal
+      v-if="receiveTarget"
+      :delivery="receiveTarget"
+      :busy="receiveBusy"
+      :error="receiveError"
+      @confirm="confirmReceive"
+      @close="receiveTarget = null"
+    />
 
     <!-- CONFIRM DELIVERY DONE -->
     <div
@@ -335,6 +391,8 @@ import InspectionTable from '../../components/InspectionTable.vue'
 import { count } from '../../lib/format'
 import { useQueryParam } from '../../lib/useQueryParam'
 import { isDelivered } from '../../lib/deliveries'
+import ReceiveDeliveryModal from '../../components/ReceiveDeliveryModal.vue'
+import { dayText, listMyReceivings, piecesOf, receiveDelivery, todayKey } from '../../lib/receiving'
 
 // Inspection / Delivery, kept in the address (?tab=delivery) so the
 // Dashboard's delivery links open that tab and a refresh keeps it
@@ -524,11 +582,55 @@ function isOverdue(product) {
 }
 
 async function fetchDeliveries() {
+  fetchReceivings()
   const { data, error } = await supabase.rpc('list_deliveries')
 
   if (!error) {
     // Finished deliveries disappear from the calendar
     deliveries.value = (data || []).filter(delivery => !isDelivered(delivery))
+  }
+}
+
+// ----- Supplier deliveries the owner chose you to receive -----
+const receivings = ref([])
+const receiveTarget = ref(null)
+const receiveBusy = ref(false)
+const receiveError = ref('')
+const receiveMessage = ref('')
+
+async function fetchReceivings() {
+  try {
+    receivings.value = await listMyReceivings()
+  } catch (err) {
+    console.error(err)
+  }
+}
+
+function isReceivingLate(delivery) {
+  return delivery.status === 'waiting' && Boolean(delivery.expected_date) && delivery.expected_date < todayKey()
+}
+
+function openReceive(delivery) {
+  receiveError.value = ''
+  receiveMessage.value = ''
+  receiveTarget.value = delivery
+}
+
+async function confirmReceive({ items, note }) {
+  const delivery = receiveTarget.value
+  if (!delivery || receiveBusy.value) return
+  receiveBusy.value = true
+  receiveError.value = ''
+
+  try {
+    await receiveDelivery(delivery.id, items, note)
+    receiveTarget.value = null
+    receiveMessage.value = `"${delivery.file_name || 'The delivery'}" is marked as delivered. The owner was notified to review it.`
+    await fetchReceivings()
+  } catch (err) {
+    receiveError.value = err.message
+  } finally {
+    receiveBusy.value = false
   }
 }
 

@@ -222,6 +222,62 @@
         </ul>
       </div>
 
+      <!-- ============================================================
+           DELIVERIES: receipts that came before their goods ("Not
+           delivered yet" in Check prices). A staff member counts the
+           delivery; then the owner reviews it and adds it to stock.
+      ============================================================ -->
+      <p v-if="receivingError" class="msg msg-error" role="alert">{{ receivingError }}</p>
+      <p v-if="receivingSuccess" class="msg msg-ok">{{ receivingSuccess }}</p>
+
+      <div v-if="receivings.length > 0" class="list-card border-sky-500/25">
+        <div class="list-head">
+          <h2 class="list-title">Deliveries</h2>
+          <span class="list-count bg-sky-500/15 text-sky-300">{{ count(receivings.length) }}</span>
+          <span class="list-hint" title="Receipts whose goods hadn't arrived yet. The staff member counts what arrives; then you approve it and only that goes into stock.">
+            Staff receive, you approve
+          </span>
+        </div>
+
+        <ul class="divide-y divide-white/5">
+          <li v-for="delivery in receivings" :key="delivery.id" class="row">
+            <span
+              class="thumb"
+              :class="delivery.status === 'received' ? 'bg-emerald-600/15 text-emerald-400' : 'bg-sky-500/15 text-sky-300'"
+            >
+              <NavIcon :name="delivery.status === 'received' ? 'check' : 'inventory'" class="h-4 w-4" />
+            </span>
+
+            <div class="row-main">
+              <p class="row-name text-white">{{ delivery.file_name || 'Receipt' }}</p>
+              <p v-if="delivery.status === 'received'" class="row-sub text-zinc-500">
+                Received by {{ delivery.received_by_name || delivery.assigned_name }} · {{ dayAndTime(delivery.received_at) }}
+                <span :class="shortItems(delivery).length ? 'font-bold text-amber-300' : 'font-bold text-emerald-300'">
+                  · {{ shortItems(delivery).length ? `${shortItems(delivery).length} short` : 'all arrived' }}
+                </span>
+              </p>
+              <p v-else class="row-sub text-zinc-500">
+                {{ delivery.assigned_name }} receives it
+                <span v-if="delivery.expected_date" :class="delivery.expected_date < todayKey() ? 'font-bold text-red-400' : ''">
+                  · {{ delivery.expected_date < todayKey() ? 'late, expected' : 'expected' }} {{ dayText(delivery.expected_date) }}
+                </span>
+              </p>
+            </div>
+
+            <div class="row-buttons">
+              <button
+                type="button"
+                class="btn-sm"
+                :class="delivery.status === 'received' ? 'btn-approve' : 'bg-zinc-800 text-zinc-200 hover:bg-zinc-700'"
+                @click="openDelivery(delivery)"
+              >
+                {{ delivery.status === 'received' ? 'Review' : 'View' }}
+              </button>
+            </div>
+          </li>
+        </ul>
+      </div>
+
       <!-- Approved, but copying to the Approved Receipt bucket failed,
            so n8n never received them. Only shown when there are any. -->
       <div v-if="unsentVisible.length > 0" class="list-card border-amber-500/30">
@@ -342,9 +398,36 @@
       :saving="reviewSaving.has(priceWindow.key)"
       :error="priceError"
       @price="setPrice"
+      :can-receive="receivingReady"
       @confirm="confirmGroup(priceWindow)"
       @keep="dismissGroup(priceWindow)"
+      @receive="askReceive(priceWindow)"
       @close="openReviewKey = null"
+    />
+
+    <!-- "Not delivered yet": who receives it -->
+    <AssignReceivingModal
+      v-if="assignFor"
+      :file-name="assignFor.fileName || 'Receipt'"
+      :products="assignFor.items.length"
+      :pieces="assignFor.items.reduce((sum, item) => sum + (Number(item.qty_added) || 0), 0)"
+      :staff="staffList"
+      :busy="assignBusy"
+      :error="assignError"
+      @confirm="confirmAssign"
+      @cancel="assignFor = null"
+    />
+
+    <!-- one delivery: expected against received; approve or cancel -->
+    <ReceivingReviewModal
+      v-if="openedDelivery"
+      :key="openedDelivery.id + openedDelivery.status"
+      :delivery="openedDelivery"
+      :busy="deliveryBusy"
+      :error="deliveryError"
+      @approve="approveDelivery"
+      @cancel-delivery="cancelDelivery"
+      @close="openedDeliveryId = null"
     />
 
     <!-- ============================================================
@@ -643,7 +726,7 @@ import { onBeforeRouteLeave } from 'vue-router'
 import { supabase, uniqueChannelName } from '../../lib/supabase'
 import { useQueryParam } from '../../lib/useQueryParam'
 import { setLeaveQuestion } from '../../lib/leaveGuard'
-import { count } from '../../lib/format'
+import { count, dayAndTime } from '../../lib/format'
 import {
   APPROVED_BUCKET,
   LINK_SECONDS,
@@ -657,6 +740,18 @@ import { isWaiting, needsPrice, startingPrice } from '../../lib/receiptPrices'
 import PageHeader from '../../components/PageHeader.vue'
 import NavIcon from '../../components/NavIcon.vue'
 import ReceiptPriceCheck from '../../components/ReceiptPriceCheck.vue'
+import AssignReceivingModal from '../../components/AssignReceivingModal.vue'
+import ReceivingReviewModal from '../../components/ReceivingReviewModal.vue'
+import {
+  approveReceiving,
+  cancelReceiving,
+  dayText,
+  listAllReceivings,
+  piecesOf,
+  shortItems,
+  startReceiving,
+  todayKey,
+} from '../../lib/receiving'
 
 /* ------------------------------------------------------------------
    Inspection approvals (unchanged)
@@ -1285,6 +1380,9 @@ async function rejectSupplierUpload(upload) {
    10 seconds, so they appear by themselves a little after the receipt is sent.
 ------------------------------------------------------------------ */
 const reviewItems = ref([])
+// open deliveries (lib/receiving.js); their receipts aren't in "Prices to check"
+const receivings = ref([])
+const openReceivingRefs = computed(() => new Set(receivings.value.map((delivery) => String(delivery.receipt_ref))))
 const priceEdits = ref({}) // item id -> what is typed in the price box
 const reviewSaving = ref(new Set()) // group keys being saved
 
@@ -1310,6 +1408,8 @@ const reviewGroups = computed(() => {
 
   for (const item of reviewItems.value) {
     const key = item.upload_ref || 'other'
+    // waiting for its delivery: listed under Deliveries instead
+    if (openReceivingRefs.value.has(String(item.upload_ref))) continue
 
     if (!groups.has(key)) {
       groups.set(key, {
@@ -1344,6 +1444,7 @@ watch(
 )
 
 async function fetchReviewItems() {
+  fetchReceivings()
   const { data, error } = await supabase.rpc('admin_list_receipt_review')
 
   if (error) {
@@ -1473,6 +1574,133 @@ function showProcessing() {
   overlayHidden.value = false
 }
 
+/* ------------------------------------------------------------------
+   Deliveries (lib/receiving.js): receipts that came before their goods
+------------------------------------------------------------------ */
+const receivingReady = ref(false) // false: its SQL isn't run, "Not delivered yet" is hidden
+const receivingError = ref('')
+const receivingSuccess = ref('')
+
+async function fetchReceivings() {
+  try {
+    const { ready, list } = await listAllReceivings()
+    receivingReady.value = ready
+    receivings.value = list
+  } catch (err) {
+    console.error(err)
+  }
+}
+
+// "Not delivered yet" -> choose who receives it
+const assignFor = ref(null) // the receipt (a reviewGroup)
+const assignBusy = ref(false)
+const assignError = ref('')
+const staffList = ref([])
+
+async function askReceive(group) {
+  priceError.value = ''
+
+  const free = group.items.filter((item) => needsPrice(item, priceEdits.value[item.id]))
+  if (free.length > 0) {
+    priceError.value = `Enter a selling price for: ${free.map((item) => item.product_name).join(', ')}.`
+    return
+  }
+
+  assignError.value = ''
+  assignFor.value = group
+
+  if (staffList.value.length === 0) {
+    const { data, error } = await supabase.rpc('admin_list_users')
+    if (error) {
+      assignError.value = `Couldn't load the staff accounts: ${error.message}`
+      return
+    }
+    staffList.value = (data || []).filter((user) => user.role === 'staff' && user.is_active !== false)
+  }
+}
+
+async function confirmAssign({ staffId, expectedDate, note }) {
+  const group = assignFor.value
+  if (!group || assignBusy.value) return
+
+  assignBusy.value = true
+  assignError.value = ''
+
+  try {
+    await startReceiving({
+      receiptRef: group.key,
+      staffId,
+      expectedDate,
+      note,
+      items: group.items.map((item) => ({ id: item.id, price: Number(priceEdits.value[item.id]) })),
+    })
+
+    const person = staffList.value.find((user) => user.id === staffId)
+    assignFor.value = null
+    openReviewKey.value = null
+    await fetchReceivings()
+    itemsSuccess.value = ''
+    receivingError.value = ''
+    receivingSuccess.value =
+      `"${group.fileName || 'The receipt'}" now waits for its delivery: ` +
+      `${person?.full_name || 'the staff member'} receives it. Nothing is in stock yet.`
+  } catch (err) {
+    assignError.value = err.message
+  } finally {
+    assignBusy.value = false
+  }
+}
+
+// a delivery's window: Review (received) or View (still waiting)
+const openedDeliveryId = ref(null)
+const openedDelivery = computed(() => receivings.value.find((delivery) => delivery.id === openedDeliveryId.value) || null)
+const deliveryBusy = ref(false)
+const deliveryError = ref('')
+
+function openDelivery(delivery) {
+  deliveryError.value = ''
+  openedDeliveryId.value = delivery.id
+}
+
+async function approveDelivery() {
+  const delivery = openedDelivery.value
+  if (!delivery || deliveryBusy.value) return
+  deliveryBusy.value = true
+  deliveryError.value = ''
+
+  try {
+    await approveReceiving(delivery.id)
+    openedDeliveryId.value = null
+    receivingError.value = ''
+    receivingSuccess.value =
+      `Added ${count(piecesOf(delivery, 'received_qty'))} pcs from "${delivery.file_name || 'the receipt'}" to stock.`
+    await fetchReviewItems()
+  } catch (err) {
+    deliveryError.value = err.message
+  } finally {
+    deliveryBusy.value = false
+  }
+}
+
+async function cancelDelivery() {
+  const delivery = openedDelivery.value
+  if (!delivery || deliveryBusy.value) return
+  deliveryBusy.value = true
+  deliveryError.value = ''
+
+  try {
+    await cancelReceiving(delivery.id)
+    openedDeliveryId.value = null
+    receivingError.value = ''
+    receivingSuccess.value = `Cancelled the delivery. "${delivery.file_name || 'The receipt'}" is back in Prices to check.`
+    await fetchReviewItems()
+  } catch (err) {
+    deliveryError.value = err.message
+  } finally {
+    deliveryBusy.value = false
+  }
+}
+
 /* ---- the price check window (components/ReceiptPriceCheck.vue) ---- */
 // why Confirm / Keep didn't work, shown inside the window
 const priceError = ref('')
@@ -1579,6 +1807,7 @@ const tabs = computed(() => {
   const toReview = supplierUploads.value.length
   const toPrice = reviewGroups.value.length
   const notSent = unsentVisible.value.length
+  const toApprove = receivings.value.filter((delivery) => delivery.status === 'received').length
   const inspections = approvals.value.length
 
   return [
@@ -1586,12 +1815,13 @@ const tabs = computed(() => {
       key: 'uploads',
       label: 'Supplier Uploads',
       short: 'Uploads',
-      count: toReview + toPrice + notSent,
+      count: toReview + toPrice + notSent + toApprove,
       hint:
         [
           toReview && `${plural(toReview, 'upload')} to review`,
           toPrice && `${plural(toPrice, 'receipt')} with new prices to check`,
           notSent && `${plural(notSent, 'receipt')} approved but not sent`,
+          toApprove && `${toApprove} ${toApprove === 1 ? 'delivery' : 'deliveries'} received, to review`,
         ]
           .filter(Boolean)
           .join(' · ') || 'Nothing waiting',
