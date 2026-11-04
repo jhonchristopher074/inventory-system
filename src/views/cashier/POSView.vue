@@ -29,7 +29,7 @@
         <p v-if="loading" class="text-zinc-400">Loading products...</p>
 
         <!-- categories: only the ones that have products, with how many -->
-        <div v-if="categoryTabs.length > 2" class="-mx-1 mb-4 flex gap-2 overflow-x-auto px-1 pb-1 sm:flex-wrap sm:overflow-visible" role="group" aria-label="Category">
+        <div v-if="categoryTabs.length > 2" class="category-row -mx-1 mb-4 flex gap-2 overflow-x-auto px-1 pb-2" role="group" aria-label="Category">
           <button
             v-for="tab in categoryTabs"
             :key="tab.name"
@@ -673,6 +673,18 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+/* the category buttons: one row, scrolled sideways (a thin bar shows
+   there's more; drag, swipe or shift + wheel) */
+.category-row {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
+  scroll-snap-type: x proximity;
+}
+
+.category-row > button {
+  scroll-snap-align: start;
+}
+
 .qty-btn {
   border-radius: 0.5rem;
   background: rgb(39 39 42);
