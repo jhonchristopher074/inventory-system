@@ -64,6 +64,15 @@ export function pendingBySaleItem(requests) {
   return pending
 }
 
+// refund history is kept on screen for 7 days (waiting ones always)
+const HISTORY_DAYS = 7
+export function recent(requests) {
+  const since = Date.now() - HISTORY_DAYS * 24 * 60 * 60 * 1000
+  return (requests || []).filter(
+    (request) => request.status === 'pending' || new Date(request.decided_at || request.created_at).getTime() >= since
+  )
+}
+
 // only today's sales can be refunded (the database checks it too)
 export function isToday(sale) {
   return new Date(sale?.created_at).toDateString() === new Date().toDateString()

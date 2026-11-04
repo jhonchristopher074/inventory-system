@@ -88,7 +88,7 @@
           <p class="px-5 pt-3 text-sm text-zinc-400">How many of each product did the customer bring back?</p>
 
           <ul class="mt-1 min-h-0 flex-1 divide-y divide-white/5 overflow-y-auto px-5">
-            <li v-for="item in chosen.sale_items" :key="item.id" class="flex items-center gap-3 py-3">
+            <li v-for="item in chosenItems" :key="item.id" class="flex items-center gap-3 py-3">
               <div class="min-w-0 flex-1">
                 <p class="truncate font-bold text-white" :title="item.product_name">{{ item.product_name }}</p>
                 <p class="text-xs text-zinc-500">
@@ -160,7 +160,7 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { supabase } from '../lib/supabase'
 import { count, dayAndTime, peso } from '../lib/format'
-import { STATUS, isToday, listMyRefunds, pendingBySaleItem, requestRefund } from '../lib/refunds'
+import { STATUS, isToday, listMyRefunds, pendingBySaleItem, recent, requestRefund } from '../lib/refunds'
 
 const props = defineProps({
   // start from this sale (Sales History); none = pick one
@@ -197,7 +197,8 @@ const foundSales = computed(() => {
   return list.slice(0, 40)
 })
 
-const chosenItems = computed(() => chosen.value?.sale_items || [])
+// fully refunded products aren't listed
+const chosenItems = computed(() => (chosen.value?.sale_items || []).filter((item) => Number(item.quantity) > 0))
 const pieces = computed(() => chosenItems.value.reduce((sum, item) => sum + (Number(qty[item.id]) || 0), 0))
 const amount = computed(() =>
   chosenItems.value.reduce((sum, item) => sum + (Number(qty[item.id]) || 0) * Number(item.price || 0), 0)
@@ -268,9 +269,12 @@ onMounted(async () => {
       listMyRefunds(),
       props.sale ? Promise.resolve({ data: [] }) : supabase.rpc('list_my_sales_since', { p_since: since }),
     ])
-    requests.value = mine.list
+    requests.value = recent(mine.list)
     if (salesResult.error) throw salesResult.error
-    sales.value = (salesResult.data || []).filter(isToday)
+    // today's, and only ones with something left to refund
+    sales.value = (salesResult.data || [])
+      .filter(isToday)
+      .filter((sale) => (sale.sale_items || []).some((item) => Number(item.quantity) > 0))
   } catch (err) {
     loadError.value = `Couldn't load your sales: ${err.message}`
   } finally {

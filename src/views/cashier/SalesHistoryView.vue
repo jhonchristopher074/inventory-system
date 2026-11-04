@@ -157,14 +157,16 @@
 
         <!-- a customer brought something back: ask the owner -->
         <button
-          v-if="isToday(selectedSale)"
+          v-if="isToday(selectedSale) && (selectedSale.sale_items || []).some((item) => Number(item.quantity) > 0)"
           type="button"
           class="mt-4 w-full rounded-2xl border border-amber-500/40 py-3 font-bold text-amber-300 hover:bg-amber-500/10 hover:text-white"
           @click="refundSale = selectedSale"
         >
           Request refund
         </button>
-        <p v-else class="mt-4 text-center text-xs text-zinc-500">Only today's sales can be refunded.</p>
+        <p v-else class="mt-4 text-center text-xs text-zinc-500">
+          {{ isToday(selectedSale) ? 'Everything in this sale was refunded.' : "Only today's sales can be refunded." }}
+        </p>
       </div>
     </div>
 

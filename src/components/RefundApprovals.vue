@@ -2,7 +2,7 @@
   <!-- Approval > Refunds (lib/refunds.js): what cashiers asked to refund.
        Approve takes it off the sale (sales history and reports) and puts
        the pieces back in stock; Reject changes nothing (a reason is
-       optional and goes to the cashier). Decided ones stay for 14 days. -->
+       optional and goes to the cashier). Decided ones stay for 7 days. -->
   <section aria-label="Refunds" class="space-y-4">
     <p v-if="!ready" class="msg msg-error" role="alert">{{ NOT_SET_UP }}</p>
     <p v-if="error" class="msg msg-error" role="alert">{{ error }}</p>
@@ -26,8 +26,11 @@
               <p class="font-bold text-white">
                 Sale #{{ request.sale_id }} · <span class="text-amber-300">{{ peso(request.amount) }}</span>
               </p>
+              <p class="mt-0.5 text-sm text-zinc-300">
+                Sent by cashier <b class="text-white">{{ request.requested_by_name || 'Unknown' }}</b>
+              </p>
               <p class="text-xs text-zinc-500">
-                {{ request.requested_by_name || 'Cashier' }} · asked {{ dayAndTime(request.created_at) }}
+                Asked {{ dayAndTime(request.created_at) }}
                 <template v-if="request.sale_created_at"> · sold {{ dayAndTime(request.sale_created_at) }}</template>
               </p>
             </div>
@@ -79,7 +82,7 @@
     <div v-if="decided.length > 0" class="list-card border-white/10">
       <div class="list-head">
         <h2 class="list-title">Decided</h2>
-        <span class="list-hint">Last 14 days</span>
+        <span class="list-hint">Last 7 days</span>
       </div>
       <ul class="divide-y divide-white/5">
         <li v-for="request in decided" :key="request.id" class="row">
@@ -87,7 +90,7 @@
             <p class="row-name text-white">Sale #{{ request.sale_id }} · {{ peso(request.amount) }}</p>
             <p class="row-sub text-zinc-500">
               {{ request.items.map((item) => `${item.quantity} × ${item.product_name}`).join(', ') }}
-              · {{ request.requested_by_name || 'Cashier' }} · {{ dayAndTime(request.decided_at) }}
+              · by {{ request.requested_by_name || 'cashier' }} · {{ dayAndTime(request.decided_at) }}
               <template v-if="request.reject_reason"> · {{ request.reject_reason }}</template>
             </p>
           </div>
@@ -103,7 +106,7 @@
 <script setup>
 import { computed, ref } from 'vue'
 import { count, dayAndTime, peso } from '../lib/format'
-import { NOT_SET_UP, STATUS, decideRefund, piecesOf } from '../lib/refunds'
+import { NOT_SET_UP, STATUS, decideRefund, piecesOf, recent } from '../lib/refunds'
 
 const props = defineProps({
   refunds: { type: Array, default: () => [] },
@@ -113,7 +116,7 @@ const props = defineProps({
 const emit = defineEmits(['changed'])
 
 const waiting = computed(() => props.refunds.filter((request) => request.status === 'pending'))
-const decided = computed(() => props.refunds.filter((request) => request.status !== 'pending'))
+const decided = computed(() => recent(props.refunds).filter((request) => request.status !== 'pending'))
 
 const busy = ref(null) // the request being saved
 const rejecting = ref(null)
