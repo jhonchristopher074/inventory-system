@@ -1,7 +1,8 @@
 <template>
   <!-- Cashier: ask the owner to refund products a customer brought back
        (lib/refunds.js). Pick the sale (or start from one, :sale), how many
-       of each product came back, and why. Nothing changes until the owner
+       of each product came back, and why. Only today's sales can be
+       refunded (the database checks it too). Nothing changes until the owner
        approves it; then the sale goes down and the pieces go back in stock. -->
   <Teleport to="body">
     <div
@@ -21,7 +22,7 @@
             </h2>
             <p class="text-xs text-zinc-400">
               <template v-if="chosen">{{ dayAndTime(chosen.created_at) }} · {{ peso(chosen.total_amount) }}</template>
-              <template v-else>Your sales of the last 30 days</template>
+              <template v-else>Only today's sales can be refunded</template>
             </p>
           </div>
           <button type="button" class="shrink-0 rounded-lg bg-zinc-800 px-3 py-1.5 text-sm font-bold text-white hover:bg-zinc-700" :disabled="busy" @click="emit('close')">
@@ -47,7 +48,7 @@
           <div class="mt-3 min-h-0 flex-1 overflow-y-auto px-5 pb-4">
             <p v-if="loading" class="py-6 text-center text-sm text-zinc-400">Loading your sales…</p>
             <p v-else-if="foundSales.length === 0" class="py-6 text-center text-sm text-zinc-400">
-              {{ search ? 'No sale matches.' : 'No sales in the last 30 days.' }}
+              {{ search ? 'No sale matches.' : 'No sales yet today.' }}
             </p>
             <ul v-else class="divide-y divide-white/5">
               <li v-for="sale in foundSales" :key="sale.id">
@@ -159,7 +160,7 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { supabase } from '../lib/supabase'
 import { count, dayAndTime, peso } from '../lib/format'
-import { STATUS, listMyRefunds, pendingBySaleItem, requestRefund } from '../lib/refunds'
+import { STATUS, isToday, listMyRefunds, pendingBySaleItem, requestRefund } from '../lib/refunds'
 
 const props = defineProps({
   // start from this sale (Sales History); none = pick one
@@ -262,14 +263,14 @@ async function send() {
 onMounted(async () => {
   loading.value = true
   try {
-    const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
+    const since = new Date(new Date().setHours(0, 0, 0, 0)).toISOString() // today
     const [mine, salesResult] = await Promise.all([
       listMyRefunds(),
       props.sale ? Promise.resolve({ data: [] }) : supabase.rpc('list_my_sales_since', { p_since: since }),
     ])
     requests.value = mine.list
     if (salesResult.error) throw salesResult.error
-    sales.value = salesResult.data || []
+    sales.value = (salesResult.data || []).filter(isToday)
   } catch (err) {
     loadError.value = `Couldn't load your sales: ${err.message}`
   } finally {

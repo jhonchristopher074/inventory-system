@@ -157,12 +157,14 @@
 
         <!-- a customer brought something back: ask the owner -->
         <button
+          v-if="isToday(selectedSale)"
           type="button"
           class="mt-4 w-full rounded-2xl border border-amber-500/40 py-3 font-bold text-amber-300 hover:bg-amber-500/10 hover:text-white"
           @click="refundSale = selectedSale"
         >
           Request refund
         </button>
+        <p v-else class="mt-4 text-center text-xs text-zinc-500">Only today's sales can be refunded.</p>
       </div>
     </div>
 
@@ -252,6 +254,7 @@ import TablePager from '../../components/TablePager.vue'
 import PageHeader from '../../components/PageHeader.vue'
 import { count, peso } from '../../lib/format'
 import RefundRequestModal from '../../components/RefundRequestModal.vue'
+import { isToday } from '../../lib/refunds'
 
 const sales = ref([])
 const loading = ref(false)

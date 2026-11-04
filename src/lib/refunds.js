@@ -64,6 +64,11 @@ export function pendingBySaleItem(requests) {
   return pending
 }
 
+// only today's sales can be refunded (the database checks it too)
+export function isToday(sale) {
+  return new Date(sale?.created_at).toDateString() === new Date().toDateString()
+}
+
 export function piecesOf(request) {
   return (request?.items || []).reduce((sum, item) => sum + (Number(item.quantity) || 0), 0)
 }
