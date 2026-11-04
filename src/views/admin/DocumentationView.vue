@@ -2,7 +2,7 @@
   <div>
     <PageHeader
       title="Documentation"
-      subtitle="View receipts, inspection reports, product reports and staff documentation."
+      subtitle="View receipts, inspection reports, product reports, staff documentation and refunds."
     />
 
     <!-- type tabs (a new page scrolls back up to here) -->
@@ -208,6 +208,8 @@ import { supabase } from '../../lib/supabase'
 import { GRID_PAGE_SIZES, usePagination } from '../../lib/usePagination'
 import PageHeader from '../../components/PageHeader.vue'
 import TablePager from '../../components/TablePager.vue'
+import { count, peso } from '../../lib/format'
+import { listRefundDocuments } from '../../lib/refunds'
 
 const documents = ref([])
 const loading = ref(false)
@@ -224,6 +226,7 @@ const documentTypes = [
   'Product Report',
   'Staff Documentation',
   'Inspection Note',
+  'Refunded',
 ]
 
 onMounted(fetchDocuments)
@@ -232,13 +235,22 @@ async function fetchDocuments() {
   loading.value = true
   errorMessage.value = ''
 
-  const { data, error } = await supabase.rpc('list_documentations')
+  const [{ data, error }, refunds] = await Promise.all([
+    supabase.rpc('list_documentations'),
+    // approved refunds, shown as documents (lib/refunds.js)
+    listRefundDocuments().catch((err) => {
+      console.error(err)
+      return []
+    }),
+  ])
 
   if (error) {
     errorMessage.value = error.message
     documents.value = []
   } else {
-    documents.value = data || []
+    documents.value = [...(data || []), ...refunds.map(refundDocument)].sort(
+      (a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0)
+    )
   }
 
   loading.value = false
@@ -271,6 +283,26 @@ const {
 // another tab starts again at page 1
 watch(selectedType, resetPage)
 
+// an approved refund as a document card
+function refundDocument(request) {
+  const items = (request.items || []).map((item) => `${count(item.quantity)} × ${item.product_name} (${peso(item.amount)})`)
+  return {
+    id: `refund-${request.id}`,
+    type: 'Refunded',
+    title: `Refund · Sale #${request.sale_id}`,
+    created_at: request.decided_at || request.created_at,
+    description: [
+      `${peso(request.amount)} given back to the customer; the pieces went back into stock.`,
+      ...items,
+      `Asked by ${request.requested_by_name || 'a cashier'} on ${formatDate(request.created_at)}` +
+        `${request.decided_by_name ? `, approved by ${request.decided_by_name}` : ''}.`,
+      request.note ? `Why: ${request.note}` : '',
+    ]
+      .filter(Boolean)
+      .join('\n'),
+  }
+}
+
 function openDocument(document) {
   selectedDocument.value = document
 }
@@ -295,6 +327,10 @@ function badgeClass(type) {
 
   if (type === 'Product Report') {
     return 'bg-red-600/20 text-red-400'
+  }
+
+  if (type === 'Refunded') {
+    return 'bg-orange-500/20 text-orange-300'
   }
 
   if (type === 'Staff Documentation' || type === 'Inspection Note') {

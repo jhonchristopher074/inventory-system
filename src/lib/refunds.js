@@ -47,6 +47,17 @@ export function requestRefund(saleId, items, note) {
 // ---- owner ----
 export const listAllRefunds = () => list('admin_list_refunds')
 
+// every approved refund, for Documentation > Refunded. Until its SQL
+// (20261104000003_refund_documents.sql) is run: the ones of the last days.
+export async function listRefundDocuments() {
+  try {
+    return (await call('admin_list_refund_documents')) || []
+  } catch (err) {
+    if (!err.missingSql) throw err
+    return (await listAllRefunds()).list.filter((request) => request.status === 'approved')
+  }
+}
+
 export function decideRefund(id, approve, reason) {
   return call('admin_decide_refund', { p_request_id: id, p_approve: approve, p_reason: reason || null })
 }

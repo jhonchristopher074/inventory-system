@@ -270,7 +270,7 @@ button:not(:disabled):active {
   height: auto;
   aspect-ratio: 1;
   object-fit: contain;
-  opacity: 0.08;
+  opacity: 0.16;
   transform: translate(-50%, -50%);
   pointer-events: none;
   user-select: none;
