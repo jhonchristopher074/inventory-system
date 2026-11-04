@@ -33,7 +33,7 @@
     <div class="transition-opacity" :class="{ 'opacity-60': refreshing && loaded }">
       <!-- ============================================================
            AT A GLANCE: today's sales is the big number. Low stock and
-           Overdue turn red with a caution sign, and name what it is,
+           Overdue turn alert orange with a caution sign, and name what it is,
            when something needs action.
       ============================================================ -->
       <section class="mb-5 grid grid-cols-2 gap-3 @min-[900px]:grid-cols-5" aria-label="At a glance">

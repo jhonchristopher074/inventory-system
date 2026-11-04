@@ -40,7 +40,7 @@
     <div class="transition-opacity" :class="{ 'opacity-60': refreshing && loaded }">
       <!-- ============================================================
            AT A GLANCE: what to inspect now is the big number. Overdue and
-           Low stock turn red with a caution sign, and name what it is,
+           Low stock turn alert orange with a caution sign, and name what it is,
            when something needs action.
       ============================================================ -->
       <section class="mb-5 grid grid-cols-2 gap-3 @min-[900px]:grid-cols-5" aria-label="At a glance">

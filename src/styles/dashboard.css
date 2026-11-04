@@ -62,7 +62,7 @@ a.kpi:focus-visible {
   color: var(--tone, var(--brand-bright));
 }
 
-/* the red caution sign of a tile that needs action now (AlertTile:
+/* the alert-orange caution sign of a tile that needs action now (AlertTile:
    Low stock, Overdue), with a ring that keeps pulsing out of it */
 .kpi-caution {
   position: relative;
@@ -72,9 +72,9 @@ a.kpi:focus-visible {
   width: 1.9rem;
   height: 1.9rem;
   border-radius: 999px;
-  background: var(--brand-bright);
-  box-shadow: 0 0 14px rgba(244, 52, 76, 0.55);
-  color: #fff;
+  background: var(--alert);
+  box-shadow: 0 0 14px color-mix(in srgb, var(--alert) 55%, transparent);
+  color: #1a1000;
 }
 
 .kpi-caution::after {
@@ -82,7 +82,7 @@ a.kpi:focus-visible {
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  border: 2px solid var(--brand-bright);
+  border: 2px solid var(--alert);
   animation: caution-pulse 1.8s ease-out infinite;
 }
 

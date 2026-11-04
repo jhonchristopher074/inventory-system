@@ -60,6 +60,9 @@
   /* supporting colours beside the brand red (the tone-* classes below) */
   --tone-green:  #34d399;
   --tone-amber:  #fbbf24;
+  /* "needs action now" (dashboard Low stock, Overdue): not the brand red,
+     so an alert doesn't blend into the store's colours */
+  --alert:       #ff9500;
   --tone-blue:   #38bdf8;
   --tone-violet: #a78bfa;
 
@@ -188,6 +191,7 @@ button:not(:disabled):active {
 .tone-amber  { --tone: var(--tone-amber); }
 .tone-blue   { --tone: var(--tone-blue); }
 .tone-violet { --tone: var(--tone-violet); }
+.tone-alert  { --tone: var(--alert); }
 
 /* ------------------------------------------------------------
    Layout helpers (kept from the original stylesheet)
