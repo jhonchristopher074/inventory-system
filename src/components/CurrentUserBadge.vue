@@ -1,7 +1,7 @@
 <template>
   <!-- Who is logged in, at the top of every page: their initials in their
-       role's colour, the role (its own line, so it's seen first), then the
-       name. Opens their profile. -->
+       role's colour, the name, then the role. Top right, before the bell.
+       Opens their profile. -->
   <RouterLink
     :to="to"
     class="user-badge"
@@ -14,23 +14,18 @@
       <span class="user-online"></span>
     </span>
 
-    <!-- the role first (what this account can do), then whose account -->
+    <!-- the name, then the role beside it -->
     <span class="min-w-0">
-      <span class="user-line">
-        <span class="user-caption">Logged in as</span>
-        <span class="user-role">{{ roleLabel(role) }}</span>
-      </span>
+      <span class="user-caption">Logged in as</span>
       <span class="user-name">{{ displayName }}</span>
     </span>
-
-    <NavIcon name="chevron" class="user-go h-4 w-4" />
+    <span class="user-role">{{ roleLabel(role) }}</span>
   </RouterLink>
 </template>
 
 <script setup>
 import { computed } from 'vue'
 import { RouterLink } from 'vue-router'
-import NavIcon from './NavIcon.vue'
 import { roleLabel, roleTone } from '../lib/roles'
 
 const props = defineProps({
@@ -67,7 +62,7 @@ const initials = computed(() => {
     linear-gradient(90deg, color-mix(in srgb, var(--tone) 16%, transparent), transparent 75%),
     var(--surface);
   box-shadow: var(--shadow-card);
-  padding: 0.35rem 1rem 0.35rem 0.35rem;
+  padding: 0.35rem 0.6rem 0.35rem 0.35rem;
 }
 
 .user-badge:hover,
@@ -116,12 +111,6 @@ const initials = computed(() => {
   color: var(--color-zinc-400);
 }
 
-.user-line {
-  display: flex;
-  min-width: 0;
-  align-items: center;
-  gap: 0.5rem;
-}
 
 .user-name {
   display: block;
@@ -148,22 +137,11 @@ const initials = computed(() => {
   color: var(--tone);
 }
 
-.user-go {
-  flex: none;
-  color: var(--color-zinc-500);
-}
 
-.user-badge:hover .user-go {
-  color: #fff;
-}
 
-/* small phones: "Logged in as" goes, the role and name stay */
+/* small phones: "Logged in as" goes, the name and role stay */
 @media (max-width: 420px) {
   .user-caption {
-    display: none;
-  }
-
-  .user-go {
     display: none;
   }
 }

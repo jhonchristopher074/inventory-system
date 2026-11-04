@@ -128,7 +128,8 @@
         <!-- the store's logo, big and faint, in the middle behind every page -->
         <img :src="logoUrl" alt="" aria-hidden="true" class="app-watermark" @error="showDefaultLogo" />
 
-        <div class="mb-5 flex items-center justify-between gap-4">
+        <!-- top right: who is logged in (name, role), then the bell -->
+        <div class="mb-5 flex items-center justify-end gap-3">
           <!-- who is logged in: name, role and the role's colour -->
           <CurrentUserBadge
             :role="role"
