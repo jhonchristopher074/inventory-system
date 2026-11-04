@@ -77,7 +77,7 @@
                 </span>
               </div>
 
-              <h2 class="line-clamp-2 text-sm font-bold leading-snug text-white @min-[440px]:text-lg">
+              <h2 class="line-clamp-2 min-h-[2.75em] text-sm font-bold leading-snug text-white @min-[440px]:text-lg">
                 {{ product.name }}
               </h2>
               <p class="truncate text-xs text-zinc-400 @min-[440px]:text-sm">
