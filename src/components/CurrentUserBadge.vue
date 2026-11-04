@@ -1,6 +1,7 @@
 <template>
   <!-- Who is logged in, at the top of every page: their initials in their
-       role's colour, their name, and the role. Opens their profile. -->
+       role's colour, the role (its own line, so it's seen first), then the
+       name. Opens their profile. -->
   <RouterLink
     :to="to"
     class="user-badge"
@@ -13,12 +14,13 @@
       <span class="user-online"></span>
     </span>
 
+    <!-- the role first (what this account can do), then whose account -->
     <span class="min-w-0">
-      <span class="user-caption">Logged in as</span>
       <span class="user-line">
-        <span class="user-name">{{ displayName }}</span>
+        <span class="user-caption">Logged in as</span>
         <span class="user-role">{{ roleLabel(role) }}</span>
       </span>
+      <span class="user-name">{{ displayName }}</span>
     </span>
 
     <NavIcon name="chevron" class="user-go h-4 w-4" />
@@ -122,6 +124,8 @@ const initials = computed(() => {
 }
 
 .user-name {
+  display: block;
+  margin-top: 0.1rem;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -153,7 +157,7 @@ const initials = computed(() => {
   color: #fff;
 }
 
-/* small phones: the caption goes, the name and role stay */
+/* small phones: "Logged in as" goes, the role and name stay */
 @media (max-width: 420px) {
   .user-caption {
     display: none;
