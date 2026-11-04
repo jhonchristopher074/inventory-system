@@ -28,6 +28,22 @@
 
         <p v-if="loading" class="text-zinc-400">Loading products...</p>
 
+        <!-- categories: only the ones that have products, with how many -->
+        <div v-if="categoryTabs.length > 2" class="-mx-1 mb-4 flex gap-2 overflow-x-auto px-1 pb-1 sm:flex-wrap sm:overflow-visible" role="group" aria-label="Category">
+          <button
+            v-for="tab in categoryTabs"
+            :key="tab.name"
+            type="button"
+            class="flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl px-3.5 py-2 text-sm font-bold transition"
+            :class="selectedCategory === tab.name ? 'bg-red-600 text-white' : 'bg-zinc-900 text-zinc-300 hover:bg-zinc-800 hover:text-white'"
+            :aria-pressed="selectedCategory === tab.name"
+            @click="selectedCategory = tab.name"
+          >
+            {{ tab.name }}
+            <span class="text-xs font-semibold" :class="selectedCategory === tab.name ? 'text-white/80' : 'text-zinc-500'">{{ count(tab.count) }}</span>
+          </button>
+        </div>
+
         <!-- what Disable / Enable just did -->
         <p v-if="posNotice" class="mb-4 rounded-xl p-3 text-sm" :class="posNotice.ok ? 'bg-emerald-600/15 text-emerald-300' : 'bg-red-600/15 text-red-400'" role="status">
           {{ posNotice.text }}
@@ -339,6 +355,7 @@ import { heldProductIds, withoutHeld } from '../../lib/heldProducts'
 import { GRID_PAGE_SIZES, usePagination } from '../../lib/usePagination'
 import { printElement } from '../../lib/printReceipt'
 import { count, peso } from '../../lib/format'
+import { NO_CATEGORY } from '../../lib/categories'
 import TablePager from '../../components/TablePager.vue'
 import PageHeader from '../../components/PageHeader.vue'
 import DisableProductModal from '../../components/DisableProductModal.vue'
@@ -374,12 +391,45 @@ const receiptCashier = computed(() => {
   return name && !name.includes('@') ? name : 'Owner'
 })
 
+// Category buttons: All, then each category that has products (A-Z,
+// Uncategorized last), with how many
+const ALL_CATEGORIES = 'All'
+const selectedCategory = ref(ALL_CATEGORIES)
+
+function categoryOf(product) {
+  return String(product.category || '').trim() || NO_CATEGORY
+}
+
+const categoryTabs = computed(() => {
+  const counts = new Map()
+  for (const product of products.value) {
+    const name = categoryOf(product)
+    counts.set(name, (counts.get(name) || 0) + 1)
+  }
+  const names = [...counts.keys()].sort((a, b) =>
+    a === NO_CATEGORY ? 1 : b === NO_CATEGORY ? -1 : a.localeCompare(b)
+  )
+  return [
+    { name: ALL_CATEGORIES, count: products.value.length },
+    ...names.map((name) => ({ name, count: counts.get(name) })),
+  ]
+})
+
+// the chosen category disappeared (its last product sold out of the list)
+watch(categoryTabs, (tabs) => {
+  if (!tabs.some((tab) => tab.name === selectedCategory.value)) selectedCategory.value = ALL_CATEGORIES
+})
+
 const filteredProducts = computed(() => {
   const search = searchQuery.value.toLowerCase().trim()
+  const inCategory =
+    selectedCategory.value === ALL_CATEGORIES
+      ? products.value
+      : products.value.filter((product) => categoryOf(product) === selectedCategory.value)
 
-  if (!search) return products.value
+  if (!search) return inCategory
 
-  return products.value.filter(product =>
+  return inCategory.filter(product =>
     product.name?.toLowerCase().includes(search) ||
     product.category?.toLowerCase().includes(search)
   )
@@ -399,8 +449,8 @@ const {
   sizes: GRID_PAGE_SIZES,
 })
 
-// a new search starts again at page 1
-watch(searchQuery, resetPage)
+// a new search or category starts again at page 1
+watch([searchQuery, selectedCategory], resetPage)
 
 const totalAmount = computed(() => {
   return cart.value.reduce((total, item) => {
