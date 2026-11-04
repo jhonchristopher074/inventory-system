@@ -256,7 +256,7 @@
           <div class="text-center">
             <h2 class="text-2xl font-extrabold">10 FIVE 7 Hardware</h2>
             <p class="text-sm">Inventory Management System</p>
-            <p class="mt-2 text-xs">Official Sales Receipt</p>
+            <p class="mt-2 text-xs">Sales Receipt</p>
           </div>
 
           <div class="my-4 border-t border-dashed border-black"></div>

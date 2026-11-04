@@ -229,7 +229,7 @@
             </p>
 
             <p class="mt-2 text-xs">
-              Official Sales Receipt
+              Sales Receipt
             </p>
           </div>
 
