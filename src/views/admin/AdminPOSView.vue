@@ -6,12 +6,25 @@
     <div class="grid gap-6 pb-24 lg:grid-cols-[1fr_380px] lg:pb-0">
       <!-- PRODUCTS (a new page scrolls back up to the search box) -->
       <div ref="productsTop" class="scroll-mt-4">
-        <input
-          v-model="searchQuery"
-          type="text"
-          placeholder="Search product..."
-          class="mb-5 w-full rounded-2xl border border-white/10 bg-zinc-900 px-4 py-3 text-white outline-none focus:border-red-600"
-        />
+        <div class="mb-5 flex gap-2">
+          <input
+            v-model="searchQuery"
+            type="text"
+            placeholder="Search product..."
+            class="min-w-0 flex-1 rounded-2xl border border-white/10 bg-zinc-900 px-4 py-3 text-white outline-none focus:border-red-600"
+          />
+          <!-- the owner refunds at once: any of today's sales, no request -->
+          <button
+            type="button"
+            class="shrink-0 rounded-2xl border border-amber-500/40 px-4 py-3 font-bold text-amber-300 hover:bg-amber-500/10 hover:text-white"
+            title="A customer returned a product: refund it now"
+            @click="refundOpen = true"
+          >
+            Refund
+          </button>
+        </div>
+
+        <RefundRequestModal v-if="refundOpen" owner @close="refundOpen = false" @sent="refundSent" />
 
         <p v-if="loading" class="text-zinc-400">Loading products...</p>
 
@@ -329,6 +342,7 @@ import { count, peso } from '../../lib/format'
 import TablePager from '../../components/TablePager.vue'
 import PageHeader from '../../components/PageHeader.vue'
 import DisableProductModal from '../../components/DisableProductModal.vue'
+import RefundRequestModal from '../../components/RefundRequestModal.vue'
 import { useDisabledProducts } from '../../lib/disabledProducts'
 
 const products = ref([])
@@ -404,6 +418,15 @@ const disableBusy = ref(false)
 const disableError = ref('')
 const enablingId = ref(null)
 const posNotice = ref(null) // { ok, text }
+
+// Refund (components/RefundRequestModal.vue, owner: applied at once)
+const refundOpen = ref(false)
+
+function refundSent(text) {
+  refundOpen.value = false
+  posNotice.value = { ok: true, text }
+  fetchProducts()
+}
 
 function askDisable(product) {
   disableError.value = ''
