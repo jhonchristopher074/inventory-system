@@ -344,7 +344,7 @@ const products = ref([])
 const sales = ref([])
 const deliveries = ref([]) // not delivered yet
 // what waits on the Approval page
-const waiting = ref({ uploads: 0, inspections: 0, prices: 0, unsent: 0 })
+const waiting = ref({ uploads: 0, inspections: 0, prices: 0, unsent: 0, refunds: 0 })
 
 const loaded = ref(false)
 const refreshing = ref(false)
@@ -371,7 +371,7 @@ async function load() {
   if (refreshing.value) return
   refreshing.value = true
 
-  const [productsResult, salesResult, uploads, inspectionList, review, unsent, deliveryList, receivingList, heldResult] = await Promise.allSettled([
+  const [productsResult, salesResult, uploads, inspectionList, review, unsent, deliveryList, receivingList, heldResult, refundList] = await Promise.allSettled([
     rpc('list_products', { p_filter: 'active', p_order_by: 'id_asc' }),
     rpc('list_all_sales'),
     rpc('admin_list_supplier_uploads', { p_status: 'pending' }),
@@ -381,6 +381,7 @@ async function load() {
     rpc('list_deliveries'),
     rpc('admin_list_receivings'),
     heldProductIds(),
+    rpc('admin_list_refunds'),
   ])
 
   const problems = []
@@ -420,6 +421,10 @@ async function load() {
           ).size
         : last.prices,
     unsent: sizeOf(unsent, last.unsent),
+    refunds:
+      refundList.status === 'fulfilled'
+        ? refundList.value.filter((request) => request.status === 'pending').length
+        : last.refunds,
   }
 
   if (deliveryList.status === 'fulfilled') deliveries.value = deliveryList.value.filter((item) => !isDelivered(item))
@@ -598,6 +603,7 @@ const attention = computed(() => {
     { key: 'unsent', n: w.unsent, label: (n) => `approved ${noun(n, 'receipt')} not sent to the scanner`, to: '/approval', icon: 'alert', tone: 'warning' },
     { key: 'uploads', n: w.uploads, label: (n) => `supplier ${noun(n, 'receipt')} to approve`, to: '/approval', icon: 'docs', tone: 'task' },
     { key: 'inspections', n: w.inspections, label: (n) => `${noun(n, 'inspection')} to approve`, to: '/approval?tab=inspections', icon: 'approval', tone: 'task' },
+    { key: 'refunds', n: w.refunds, label: (n) => `cashier ${noun(n, 'refund')} to approve`, to: '/approval?tab=refunds', icon: 'tag', tone: 'task' },
     { key: 'prices', n: w.prices, label: (n) => `${noun(n, 'receipt')} with new prices to check`, to: '/approval', icon: 'tag', tone: 'task' },
   ]
     .filter((item) => item.n > 0)

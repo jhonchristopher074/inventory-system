@@ -175,6 +175,9 @@
 
             <td data-label="Total" class="px-5 py-4 font-bold text-red-400">
               {{ peso(sale.total_amount) }}
+              <span v-if="Number(sale.refunded_amount) > 0" class="block text-xs font-bold text-amber-300">
+                {{ peso(sale.refunded_amount) }} refunded
+              </span>
             </td>
 
             <td data-label="Receipt" class="px-5 py-4">
@@ -271,6 +274,7 @@
                 Qty: {{ count(item.quantity) }}
                 ×
                 {{ peso(item.price) }}
+                <template v-if="item.refunded_qty > 0"> · {{ count(item.refunded_qty) }} refunded</template>
               </p>
             </div>
           </div>

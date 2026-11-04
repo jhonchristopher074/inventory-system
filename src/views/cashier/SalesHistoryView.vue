@@ -134,6 +134,7 @@
                 <h3 class="font-bold text-white">{{ item.product_name }}</h3>
                 <p class="text-sm text-zinc-400">
                   Qty: {{ count(item.quantity) }} × {{ peso(item.price) }}
+                  <span v-if="item.refunded_qty > 0" class="font-bold text-amber-300"> · {{ count(item.refunded_qty) }} refunded</span>
                 </p>
               </div>
 
@@ -150,8 +151,25 @@
             {{ peso(selectedSale.total_amount) }}
           </span>
         </div>
+        <p v-if="Number(selectedSale.refunded_amount) > 0" class="mt-1 text-right text-sm font-bold text-amber-300">
+          {{ peso(selectedSale.refunded_amount) }} refunded
+        </p>
+
+        <!-- a customer brought something back: ask the owner -->
+        <button
+          type="button"
+          class="mt-4 w-full rounded-2xl border border-amber-500/40 py-3 font-bold text-amber-300 hover:bg-amber-500/10 hover:text-white"
+          @click="refundSale = selectedSale"
+        >
+          Request refund
+        </button>
       </div>
     </div>
+
+    <RefundRequestModal v-if="refundSale" :sale="refundSale" @close="refundSale = null" @sent="refundSent" />
+    <p v-if="refundMessage" class="fixed bottom-4 left-1/2 z-[2100] w-[min(92vw,32rem)] -translate-x-1/2 rounded-xl bg-emerald-600 p-3 text-sm font-bold text-white shadow-2xl" role="status">
+      {{ refundMessage }}
+    </p>
 
     <!-- RECEIPT MODAL -->
     <div
@@ -233,6 +251,7 @@ import SalesInsights from '../../components/SalesInsights.vue'
 import TablePager from '../../components/TablePager.vue'
 import PageHeader from '../../components/PageHeader.vue'
 import { count, peso } from '../../lib/format'
+import RefundRequestModal from '../../components/RefundRequestModal.vue'
 
 const sales = ref([])
 const loading = ref(false)
@@ -307,6 +326,19 @@ function formatDate(date) {
 
 function printReceipt() {
   printElement('receiptArea')
+}
+
+// Request refund (components/RefundRequestModal.vue)
+const refundSale = ref(null)
+const refundMessage = ref('')
+let refundMessageTimer = null
+
+function refundSent(text) {
+  refundSale.value = null
+  selectedSale.value = null
+  refundMessage.value = text
+  clearTimeout(refundMessageTimer)
+  refundMessageTimer = setTimeout(() => (refundMessage.value = ''), 6000)
 }
 
 onMounted(fetchSales)

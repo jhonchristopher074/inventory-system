@@ -1,0 +1,154 @@
+/* The lists of the Approval page (views/admin/ApprovalView.vue and
+   components/RefundApprovals.vue): one card per list, a short row per item.
+   Colours are left to the Tailwind classes in the markup: these rules
+   aren't in a CSS layer, so a colour here would beat any bg-* / text-*
+   class on the same element. */
+.list-card {
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+  border-width: 1px;
+  background: var(--surface);
+}
+
+.list-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  border-bottom: 1px solid var(--hairline-soft);
+  padding: 0.8rem 1rem;
+}
+
+.list-title {
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: #fff;
+}
+
+.list-count {
+  display: grid;
+  place-items: center;
+  min-width: 1.4rem;
+  height: 1.4rem;
+  border-radius: 999px;
+  padding: 0 0.4rem;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+/* a short hint on the right; the full explanation is its hover text */
+.list-hint {
+  margin-left: auto;
+  font-size: 0.75rem;
+  color: var(--color-zinc-500);
+  cursor: help;
+}
+
+.list-empty {
+  padding: 1rem;
+  font-size: 0.875rem;
+  color: var(--color-zinc-500);
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem 0.85rem;
+  padding: 0.7rem 1rem;
+}
+
+.thumb {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 0.65rem;
+}
+
+.row-main {
+  min-width: 0;
+  flex: 1 1 12rem;
+}
+
+.row-name {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.92rem;
+  font-weight: 700;
+}
+
+.row-sub {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.75rem;
+}
+
+.row-buttons {
+  display: flex;
+  flex: none;
+  gap: 0.4rem;
+  margin-left: auto;
+}
+
+.chip-sm {
+  white-space: nowrap;
+  border-radius: 999px;
+  padding: 0.15rem 0.55rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.btn-sm {
+  border-radius: 0.7rem;
+  padding: 0.45rem 0.9rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.btn-sm:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-approve {
+  background: var(--color-emerald-600);
+  color: #fff;
+}
+
+.btn-approve:not(:disabled):hover {
+  background: var(--color-emerald-500);
+}
+
+/* quieter than Approve until you point at it */
+.btn-reject {
+  border: 1px solid rgba(224, 27, 50, 0.35);
+  color: var(--color-red-400);
+}
+
+.btn-reject:not(:disabled):hover {
+  border-color: var(--brand);
+  background: var(--brand);
+  color: #fff;
+}
+
+.msg {
+  border-radius: 0.8rem;
+  padding: 0.7rem 0.9rem;
+  font-size: 0.875rem;
+}
+
+.msg-error {
+  background: rgba(224, 27, 50, 0.15);
+  color: var(--color-red-400);
+}
+
+.msg-ok {
+  background: rgba(5, 150, 105, 0.15);
+  color: var(--color-emerald-400);
+}

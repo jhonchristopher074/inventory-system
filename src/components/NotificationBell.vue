@@ -416,6 +416,8 @@ const ROUTES = {
     disabled: '/inventory',
     // a staff member received a supplier delivery (in stock): its details
     received: '/approval',
+    // a cashier asks for a refund
+    refund: '/approval?tab=refunds',
     inspection: '/calendar',
     // each opens its own tab of the Approval page
     inspection_approval: '/approval?tab=inspections',
@@ -441,6 +443,8 @@ const ROUTES = {
   },
   cashier: {
     sale: '/cashier/sales',
+    // the owner approved or rejected a refund
+    refund: '/cashier/sales',
     default: '/cashier',
   },
   supplier: {
@@ -471,6 +475,7 @@ const BADGES = {
   disabled: 'bg-red-600/25 text-red-300',
   receive: 'bg-violet-500/20 text-violet-300',
   received: 'bg-emerald-500/20 text-emerald-400',
+  refund: 'bg-amber-500/20 text-amber-300',
 }
 
 function badgeClass(type) {

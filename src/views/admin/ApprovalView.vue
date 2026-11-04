@@ -2,7 +2,7 @@
   <div>
     <PageHeader
       title="Approval"
-      subtitle="Review supplier receipts and staff inspection requests."
+      subtitle="Review supplier receipts, staff inspections and cashier refunds."
     />
 
     <!-- TABS: one list at a time; the number is what's waiting in each.
@@ -335,7 +335,7 @@
          INSPECTION APPROVALS TAB: one row per inspection the staff
          submitted (every one here is submitted, so that isn't repeated)
     ============================================================ -->
-    <section v-else aria-label="Inspection approvals" class="space-y-4">
+    <section v-else-if="activeTab === 'inspections'" aria-label="Inspection approvals" class="space-y-4">
       <p v-if="errorMessage" class="msg msg-error" role="alert">{{ errorMessage }}</p>
       <p v-if="successMessage" class="msg msg-ok">{{ successMessage }}</p>
 
@@ -388,6 +388,9 @@
         </ul>
       </div>
     </section>
+
+    <!-- REFUNDS TAB: what cashiers asked to refund (components/RefundApprovals.vue) -->
+    <RefundApprovals v-if="activeTab === 'refunds'" :refunds="refunds" :ready="refundsReady" @changed="fetchRefunds" />
 
     <!-- PRICE CHECK WINDOW (components/ReceiptPriceCheck.vue): each product's
          category (saved at once) and new price (saved with Confirm). Closes
@@ -774,6 +777,8 @@ import ReceiptPriceCheck from '../../components/ReceiptPriceCheck.vue'
 import AssignReceivingModal from '../../components/AssignReceivingModal.vue'
 import DeliveryDetailsModal from '../../components/DeliveryDetailsModal.vue'
 import ReceiveDeliveryModal from '../../components/ReceiveDeliveryModal.vue'
+import RefundApprovals from '../../components/RefundApprovals.vue'
+import { listAllRefunds } from '../../lib/refunds'
 import {
   addedPieces,
   cancelReceiving,
@@ -1869,12 +1874,26 @@ async function dismissGroup(group) {
 }
 
 /* ------------------------------------------------------------------
-   Tabs: Supplier Uploads | Inspection Approvals
+   Tabs: Supplier Uploads | Inspection Approvals | Refunds
 
    The open tab is kept in the address (?tab=inspections), so a refresh
    keeps it and a notification opens the right one (lib/useQueryParam.js).
 ------------------------------------------------------------------ */
-const activeTab = useQueryParam('tab', 'uploads', ['uploads', 'inspections'])
+const activeTab = useQueryParam('tab', 'uploads', ['uploads', 'inspections', 'refunds'])
+
+// cashiers' refund requests (lib/refunds.js), checked with the other lists
+const refunds = ref([])
+const refundsReady = ref(true)
+
+async function fetchRefunds() {
+  try {
+    const { ready, list } = await listAllRefunds()
+    refundsReady.value = ready
+    refunds.value = list
+  } catch (err) {
+    console.error(err)
+  }
+}
 
 function openTab(key) {
   activeTab.value = key
@@ -1892,6 +1911,7 @@ const tabs = computed(() => {
   const toPrice = reviewGroups.value.length
   const notSent = unsentVisible.value.length
   const inspections = approvals.value.length
+  const refundsWaiting = refunds.value.filter((request) => request.status === 'pending').length
 
   return [
     {
@@ -1914,6 +1934,13 @@ const tabs = computed(() => {
       short: 'Inspections',
       count: inspections,
       hint: inspections ? `${plural(inspections, 'inspection')} to review` : 'Nothing waiting',
+    },
+    {
+      key: 'refunds',
+      label: 'Refunds',
+      short: 'Refunds',
+      count: refundsWaiting,
+      hint: refundsWaiting ? `${plural(refundsWaiting, 'refund')} to approve` : 'Nothing waiting',
     },
   ]
 })
@@ -2003,12 +2030,16 @@ onMounted(() => {
   fetchSupplierUploads()
   fetchUnsentUploads()
   fetchReviewItems()
+  fetchRefunds()
   setupSupplierRealtime()
   window.addEventListener('keydown', onKey)
   window.addEventListener('beforeunload', onBeforeUnload)
 
   // safety net: if a live update is ever missed, the list still catches up
-  pollTimer = setInterval(() => fetchSupplierUploads({ silent: true }), 30000)
+  pollTimer = setInterval(() => {
+    fetchSupplierUploads({ silent: true })
+    fetchRefunds()
+  }, 30000)
   // every 3 seconds while a receipt is being processed, otherwise every 10
   let pollCount = 0
   reviewPollTimer = setInterval(() => {
@@ -2039,158 +2070,4 @@ onUnmounted(() => {
 })
 </script>
 
-<style scoped>
-/* The lists on this page: one card per list, a short row per item.
-   Colours are left to the Tailwind classes in the markup: these rules
-   aren't in a CSS layer, so a colour here would beat any bg-* / text-*
-   class on the same element. */
-.list-card {
-  overflow: hidden;
-  border-radius: var(--radius-lg);
-  border-width: 1px;
-  background: var(--surface);
-}
-
-.list-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.5rem;
-  border-bottom: 1px solid var(--hairline-soft);
-  padding: 0.8rem 1rem;
-}
-
-.list-title {
-  font-size: 0.95rem;
-  font-weight: 800;
-  color: #fff;
-}
-
-.list-count {
-  display: grid;
-  place-items: center;
-  min-width: 1.4rem;
-  height: 1.4rem;
-  border-radius: 999px;
-  padding: 0 0.4rem;
-  font-size: 0.72rem;
-  font-weight: 800;
-}
-
-/* a short hint on the right; the full explanation is its hover text */
-.list-hint {
-  margin-left: auto;
-  font-size: 0.75rem;
-  color: var(--color-zinc-500);
-  cursor: help;
-}
-
-.list-empty {
-  padding: 1rem;
-  font-size: 0.875rem;
-  color: var(--color-zinc-500);
-}
-
-.row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.6rem 0.85rem;
-  padding: 0.7rem 1rem;
-}
-
-.thumb {
-  display: grid;
-  flex: none;
-  place-items: center;
-  width: 2.5rem;
-  height: 2.5rem;
-  border-radius: 0.65rem;
-}
-
-.row-main {
-  min-width: 0;
-  flex: 1 1 12rem;
-}
-
-.row-name {
-  display: block;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 0.92rem;
-  font-weight: 700;
-}
-
-.row-sub {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 0.75rem;
-}
-
-.row-buttons {
-  display: flex;
-  flex: none;
-  gap: 0.4rem;
-  margin-left: auto;
-}
-
-.chip-sm {
-  white-space: nowrap;
-  border-radius: 999px;
-  padding: 0.15rem 0.55rem;
-  font-size: 0.7rem;
-  font-weight: 700;
-}
-
-.btn-sm {
-  border-radius: 0.7rem;
-  padding: 0.45rem 0.9rem;
-  font-size: 0.82rem;
-  font-weight: 700;
-  white-space: nowrap;
-}
-
-.btn-sm:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.btn-approve {
-  background: var(--color-emerald-600);
-  color: #fff;
-}
-
-.btn-approve:not(:disabled):hover {
-  background: var(--color-emerald-500);
-}
-
-/* quieter than Approve until you point at it */
-.btn-reject {
-  border: 1px solid rgba(224, 27, 50, 0.35);
-  color: var(--color-red-400);
-}
-
-.btn-reject:not(:disabled):hover {
-  border-color: var(--brand);
-  background: var(--brand);
-  color: #fff;
-}
-
-.msg {
-  border-radius: 0.8rem;
-  padding: 0.7rem 0.9rem;
-  font-size: 0.875rem;
-}
-
-.msg-error {
-  background: rgba(224, 27, 50, 0.15);
-  color: var(--color-red-400);
-}
-
-.msg-ok {
-  background: rgba(5, 150, 105, 0.15);
-  color: var(--color-emerald-400);
-}
-</style>
+<style scoped src="../../styles/approvalLists.css"></style>
