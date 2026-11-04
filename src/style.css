@@ -281,6 +281,11 @@ button:not(:disabled):active {
   z-index: 1;
 }
 
+/* the top bar (account, bell) above the page: the bell's panel opens over it */
+.app-main > .app-topbar {
+  z-index: 30;
+}
+
 @media print {
   .app-watermark {
     display: none;

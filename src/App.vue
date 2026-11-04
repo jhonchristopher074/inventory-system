@@ -129,7 +129,7 @@
         <img :src="logoUrl" alt="" aria-hidden="true" class="app-watermark" @error="showDefaultLogo" />
 
         <!-- top right: who is logged in (name, role), then the bell -->
-        <div class="mb-5 flex items-center justify-end gap-3">
+        <div class="app-topbar mb-5 flex items-center justify-end gap-3">
           <!-- who is logged in: name, role and the role's colour -->
           <CurrentUserBadge
             :role="role"
