@@ -16,7 +16,9 @@ export const DEFAULT_LOGO = '/logo.svg'
 // what the Owner may pick, and how big the cropped logo may be (the bucket
 // refuses anything over 1 MB too)
 export const LOGO_TYPES = ['image/png', 'image/jpeg', 'image/webp']
-export const LOGO_MAX_INPUT_BYTES = 5 * 1024 * 1024
+// the picture picked: up to 10 MB (it's cropped and shrunk to LOGO_SIZE
+// before upload, so what's stored stays small)
+export const LOGO_MAX_INPUT_BYTES = 10 * 1024 * 1024
 export const LOGO_MAX_BYTES = 1024 * 1024
 export const LOGO_SIZE = 512 // px, square
 

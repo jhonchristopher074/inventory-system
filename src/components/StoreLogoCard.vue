@@ -16,13 +16,14 @@
       <div class="min-w-0 flex-1" title="Shown in the menu, on the login page and in the browser tab">
         <p class="font-bold text-white">Store logo</p>
         <p class="truncate text-xs text-zinc-500">{{ logoPath ? 'Your logo' : 'Built-in logo' }}</p>
+        <p class="truncate text-xs text-zinc-500">Pictures only (PNG, JPG, WebP) · up to 10 MB</p>
       </div>
 
       <!-- a label, so the whole button opens the file picker -->
       <label
         class="shrink-0 cursor-pointer rounded-xl bg-red-600 px-3.5 py-2 text-sm font-bold text-white hover:bg-red-700"
         :class="{ 'pointer-events-none opacity-50': busy }"
-        title="PNG, JPG or WebP, up to 5 MB. You crop it to a square next."
+        title="PNG, JPG or WebP, up to 10 MB. You crop it to a square next."
       >
         Change
         <input
@@ -101,7 +102,7 @@ function pick(event) {
     return
   }
   if (file.size > LOGO_MAX_INPUT_BYTES) {
-    error.value = `This picture is ${(file.size / 1024 / 1024).toFixed(1)} MB. Pick one up to 5 MB.`
+    error.value = `This picture is ${(file.size / 1024 / 1024).toFixed(1)} MB. Pick one up to 10 MB.`
     return
   }
 
