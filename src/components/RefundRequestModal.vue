@@ -1,10 +1,9 @@
 <template>
-  <!-- Cashier: ask the owner to refund products a customer brought back
-       (lib/refunds.js). Pick the sale (or start from one, :sale), how many
-       of each product came back, and why. owner: any cashier's sale, and the
-       refund is applied at once (no request). Only today's sales can be
-       refunded (the database checks it too). Nothing changes until the owner
-       approves it; then the sale goes down and the pieces go back in stock. -->
+  <!-- Refund products a customer brought back (lib/refunds.js). Pick the
+       sale (or start from one, :sale), how many of each product came back,
+       and why. It's done at once: the sale goes down and the pieces go back
+       in stock; the owner gets the details. Cashier: their own sales;
+       owner: anyone's. Only today's sales (the database checks it too). -->
   <Teleport to="body">
     <div
       class="fixed inset-0 z-[2000] flex items-center justify-center bg-black/80 p-3 sm:p-4"
@@ -69,7 +68,7 @@
 
             <!-- what was asked before -->
             <template v-if="!owner && requests.length > 0">
-              <h3 class="mt-5 text-xs font-extrabold uppercase tracking-[0.14em] text-zinc-500">Your refund requests</h3>
+              <h3 class="mt-5 text-xs font-extrabold uppercase tracking-[0.14em] text-zinc-500">Your refunds</h3>
               <ul class="mt-2 space-y-2">
                 <li v-for="request in requests.slice(0, 6)" :key="request.id" class="rounded-xl bg-white/[0.03] p-3 text-sm">
                   <div class="flex items-center justify-between gap-2">
@@ -135,8 +134,7 @@
           <footer class="flex flex-col gap-3 border-t border-white/5 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
             <p class="text-sm" :class="message ? 'font-bold text-red-400' : 'text-zinc-400'" :role="message ? 'alert' : null">
               <template v-if="message">{{ message }}</template>
-              <template v-else-if="pieces > 0 && owner">Refund <b class="text-white">{{ peso(amount) }}</b> · {{ count(pieces) }} pcs go back into stock now.</template>
-              <template v-else-if="pieces > 0">Refund <b class="text-white">{{ peso(amount) }}</b> · {{ count(pieces) }} pcs, after the owner approves.</template>
+              <template v-else-if="pieces > 0">Refund <b class="text-white">{{ peso(amount) }}</b> · {{ count(pieces) }} pcs go back into stock.</template>
               <template v-else>Choose what came back.</template>
             </p>
             <div class="flex shrink-0 gap-2">
@@ -150,7 +148,7 @@
                 Back
               </button>
               <button type="submit" class="flex-1 rounded-2xl bg-amber-500 px-6 py-3 font-bold text-black hover:bg-amber-400 disabled:opacity-50 sm:flex-none" :disabled="busy || pieces === 0">
-                {{ busy ? (owner ? 'Refunding…' : 'Sending…') : owner ? 'Refund now' : 'Send to the owner' }}
+                {{ busy ? 'Refunding…' : 'Refund now' }}
               </button>
             </div>
           </footer>
@@ -164,7 +162,7 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { supabase } from '../lib/supabase'
 import { count, dayAndTime, peso } from '../lib/format'
-import { STATUS, decideRefund, isToday, listAllRefunds, listMyRefunds, pendingBySaleItem, recent, requestRefund } from '../lib/refunds'
+import { STATUS, isToday, listAllRefunds, listMyRefunds, pendingBySaleItem, recent, refundNow } from '../lib/refunds'
 
 const props = defineProps({
   // start from this sale (Sales History); none = pick one
@@ -258,17 +256,12 @@ async function send() {
 
   busy.value = true
   try {
-    const id = await requestRefund(chosen.value.id, items, note.value.trim())
-    if (props.owner) {
-      try {
-        await decideRefund(id, true, '')
-      } catch (err) {
-        throw new Error(`Saved, but not refunded yet: ${err.message} Finish it in Approval › Refunds.`, { cause: err })
-      }
-      emit('sent', `Refunded ${peso(amount.value)} from sale #${chosen.value.id}: ${count(pieces.value)} pcs back in stock. Give the customer the money.`)
-    } else {
-      emit('sent', `Refund of ${peso(amount.value)} from sale #${chosen.value.id} sent to the owner. Give the money back once it's approved.`)
-    }
+    const done = await refundNow(chosen.value.id, items, note.value.trim())
+    emit(
+      'sent',
+      `Refunded ${peso(done?.amount ?? amount.value)} from sale #${chosen.value.id}: ` +
+        `${count(done?.pieces ?? pieces.value)} pcs back in stock. Give the customer the money.`
+    )
   } catch (err) {
     message.value = err.message
   } finally {

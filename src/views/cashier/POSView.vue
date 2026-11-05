@@ -13,11 +13,11 @@
             placeholder="Search product..."
             class="min-w-0 flex-1 rounded-2xl border border-white/10 bg-zinc-900 px-4 py-3 text-white outline-none focus:border-red-600"
           />
-          <!-- a customer brings something back: ask the owner (lib/refunds.js) -->
+          <!-- a customer brings something back: refund it (lib/refunds.js) -->
           <button
             type="button"
             class="shrink-0 rounded-2xl border border-amber-500/40 px-4 py-3 font-bold text-amber-300 hover:bg-amber-500/10 hover:text-white"
-            title="A customer returned a product: ask the owner for a refund"
+            title="A customer returned a product: refund it"
             @click="refundOpen = true"
           >
             Refund

@@ -294,8 +294,8 @@ function refundDocument(request) {
     description: [
       `${peso(request.amount)} given back to the customer; the pieces went back into stock.`,
       ...items,
-      `Asked by ${request.requested_by_name || 'a cashier'} on ${formatDate(request.created_at)}` +
-        `${request.decided_by_name ? `, approved by ${request.decided_by_name}` : ''}.`,
+      `Refunded by ${request.requested_by_name || 'a cashier'} on ${formatDate(request.created_at)}` +
+        `${request.decided_by_name && request.decided_by_name !== request.requested_by_name ? `, approved by ${request.decided_by_name}` : ''}.`,
       request.note ? `Why: ${request.note}` : '',
     ]
       .filter(Boolean)

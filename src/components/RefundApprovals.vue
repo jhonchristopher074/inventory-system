@@ -1,25 +1,22 @@
 <template>
-  <!-- Approval > Refunds (lib/refunds.js): what cashiers asked to refund.
-       Approve takes it off the sale (sales history and reports) and puts
-       the pieces back in stock; Reject changes nothing (a reason is
-       optional and goes to the cashier). Decided ones stay for 7 days. -->
+  <!-- Approval > Refunds (lib/refunds.js): the refunds of the last 7 days.
+       Cashiers refund at the POS without approval; "Waiting" only shows a
+       request left from before that (Approve / Reject). -->
   <section aria-label="Refunds" class="space-y-4">
     <p v-if="!ready" class="msg msg-error" role="alert">{{ NOT_SET_UP }}</p>
     <p v-if="error" class="msg msg-error" role="alert">{{ error }}</p>
     <p v-if="success" class="msg msg-ok">{{ success }}</p>
 
-    <div ref="waitingTop" class="list-card scroll-mt-4 border-amber-500/25">
+    <div v-if="waiting.length > 0" ref="waitingTop" class="list-card scroll-mt-4 border-amber-500/25">
       <div class="list-head">
-        <h2 class="list-title">Refunds to approve</h2>
+        <h2 class="list-title">Waiting (from before)</h2>
         <span v-if="waiting.length" class="list-count bg-amber-500/15 text-amber-300">{{ count(waiting.length) }}</span>
         <span class="list-hint" title="Approve: the sale goes down and the pieces go back in stock. Reject: nothing changes.">
           From the cashiers
         </span>
       </div>
 
-      <p v-if="waiting.length === 0" class="list-empty">No refund requests.</p>
-
-      <ul v-else class="divide-y divide-white/5">
+      <ul class="divide-y divide-white/5">
         <li v-for="request in waitingPage.visible.value" :key="request.id" class="px-4 py-4">
           <div class="flex flex-wrap items-start justify-between gap-3">
             <div class="min-w-0">
@@ -86,18 +83,22 @@
     </div>
 
     <!-- the last 7 days -->
-    <div v-if="decided.length > 0" ref="decidedTop" class="list-card scroll-mt-4 border-white/10">
+    <div ref="decidedTop" class="list-card scroll-mt-4 border-white/10">
       <div class="list-head">
-        <h2 class="list-title">Decided</h2>
-        <span class="list-hint">Last 7 days</span>
+        <h2 class="list-title">Refunds</h2>
+        <span class="list-hint" title="Cashiers refund at the POS; the sale goes down and the pieces go back in stock. Every refund is kept in Documentation › Refunded.">
+          Last 7 days
+        </span>
       </div>
-      <ul class="divide-y divide-white/5">
+      <p v-if="decided.length === 0" class="list-empty">No refunds in the last 7 days.</p>
+      <ul v-else class="divide-y divide-white/5">
         <li v-for="request in decidedPage.visible.value" :key="request.id" class="row">
           <div class="row-main">
             <p class="row-name text-white">Sale #{{ request.sale_id }} · {{ peso(request.amount) }}</p>
             <p class="row-sub text-zinc-500">
               {{ request.items.map((item) => `${item.quantity} × ${item.product_name}`).join(', ') }}
               · by {{ request.requested_by_name || 'cashier' }} · {{ dayAndTime(request.decided_at) }}
+              <template v-if="request.note"> · {{ request.note }}</template>
               <template v-if="request.reject_reason"> · {{ request.reject_reason }}</template>
             </p>
           </div>
@@ -107,6 +108,7 @@
         </li>
       </ul>
       <TablePager
+        v-if="decided.length > 0"
         v-model:page="decidedPage.page.value"
         v-model:page-size="decidedPage.pageSize.value"
         :total="decided.length"

@@ -1940,7 +1940,7 @@ const tabs = computed(() => {
       label: 'Refunds',
       short: 'Refunds',
       count: refundsWaiting,
-      hint: refundsWaiting ? `${plural(refundsWaiting, 'refund')} to approve` : 'Nothing waiting',
+      hint: refundsWaiting ? `${plural(refundsWaiting, 'refund')} from before to approve` : 'The refunds of the last 7 days',
     },
   ]
 })

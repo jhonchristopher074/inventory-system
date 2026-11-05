@@ -1,10 +1,11 @@
 // Refunds (supabase/migrations/20261104000001_refund_requests.sql)
 //
 //   cashier  POS > Refund (or Sales History > a sale): picks the sale, how
-//            many of each product came back, and a note -> a request
-//   owner    Approval > Refunds: Approve takes it off the sale (sales
-//            history and reports) and puts the pieces back in stock;
-//            Reject changes nothing
+//   / owner  many of each product came back, and a note. It's done at once
+//            (20261105000001_refund_no_approval.sql): off the sale (sales
+//            history and reports), the pieces back in stock. The owner gets
+//            the details in the bell; Approval > Refunds and Documentation >
+//            Refunded keep the record.
 //
 // Each call throws an Error with a message for the screen. Until the SQL
 // is run, the lists are empty and sending one says what to run.
@@ -32,6 +33,19 @@ async function list(name) {
     return { ready: true, list: (await call(name)) || [] }
   } catch (err) {
     if (err.missingSql) return { ready: false, list: [] }
+    throw err
+  }
+}
+
+export const NO_APPROVAL_SQL =
+  "Refunds need an update: run supabase/migrations/20261105000001_refund_no_approval.sql in Supabase first."
+
+// the refund, done at once: { id, amount, pieces }
+export async function refundNow(saleId, items, note) {
+  try {
+    return await call('pos_refund', { p_sale_id: saleId, p_items: items, p_note: note || null })
+  } catch (err) {
+    if (err.missingSql) throw new Error(NO_APPROVAL_SQL, { cause: err })
     throw err
   }
 }
@@ -95,6 +109,6 @@ export function piecesOf(request) {
 
 export const STATUS = {
   pending: { text: 'Waiting for the owner', tone: 'bg-amber-500/15 text-amber-300' },
-  approved: { text: 'Approved', tone: 'bg-emerald-600/15 text-emerald-300' },
+  approved: { text: 'Refunded', tone: 'bg-emerald-600/15 text-emerald-300' },
   rejected: { text: 'Rejected', tone: 'bg-red-600/15 text-red-400' },
 }
