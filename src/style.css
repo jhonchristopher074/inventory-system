@@ -264,9 +264,6 @@ button:not(:disabled):active {
   position: relative;
   min-width: 0;
   padding: 1.75rem;
-  /* nothing in a page can push it sideways (a phone showed the page
-     scrolled to the left when something was too wide) */
-  overflow-x: clip;
 }
 
 /* the store's logo, big and faint, centred in the page area (beside the
@@ -572,9 +569,6 @@ button:not(:disabled):active {
    Reusable surfaces + controls
    ------------------------------------------------------------ */
 .card {
-  /* in a grid or a row a card can shrink to its column: without this a
-     wide line (a chart, a long name) made it wider than a phone screen */
-  min-width: 0;
   border-radius: var(--radius-lg);
   border: 1px solid var(--hairline);
   background: var(--surface);
@@ -816,29 +810,6 @@ tbody tr:hover {
     display: block;
     background: rgba(0, 0, 0, 0.6);
     backdrop-filter: blur(2px);
-  }
-}
-
-/* Receipts (POS and both Sales History pages) on a phone: narrower and
-   tighter, so the whole receipt and its buttons fit without scrolling.
-   Printing is untouched. */
-@media screen and (max-width: 760px) {
-  div:has(> #receiptArea) {
-    max-width: 21rem;
-    padding: 0.75rem;
-  }
-
-  #receiptArea {
-    padding: 1rem;
-    font-size: 0.875rem;
-  }
-
-  #receiptArea h2 {
-    font-size: 1.2rem;
-  }
-
-  #receiptArea .text-xl {
-    font-size: 1.05rem;
   }
 }
 
