@@ -8,8 +8,14 @@
     stroke-linejoin="round"
     aria-hidden="true"
   >
+    <!-- notifications -->
+    <template v-if="name === 'bell'">
+      <path d="M6 8a6 6 0 0112 0c0 7 3 9 3 9H3s3-2 3-9" />
+      <path d="M10.3 21a1.94 1.94 0 003.4 0" />
+    </template>
+
     <!-- dashboard -->
-    <template v-if="name === 'dashboard'">
+    <template v-else-if="name === 'dashboard'">
       <rect x="3" y="3" width="7" height="9" rx="1" />
       <rect x="14" y="3" width="7" height="5" rx="1" />
       <rect x="14" y="12" width="7" height="9" rx="1" />

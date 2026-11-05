@@ -2,7 +2,7 @@
   <div>
     <PageHeader
       title="Approval"
-      subtitle="Review supplier receipts, staff inspections and cashier refunds."
+      subtitle="Review supplier receipts and staff inspection requests."
     />
 
     <!-- TABS: one list at a time; the number is what's waiting in each.
@@ -389,9 +389,6 @@
       </div>
     </section>
 
-    <!-- REFUNDS TAB: what cashiers asked to refund (components/RefundApprovals.vue) -->
-    <RefundApprovals v-if="activeTab === 'refunds'" :refunds="refunds" :ready="refundsReady" @changed="fetchRefunds" />
-
     <!-- PRICE CHECK WINDOW (components/ReceiptPriceCheck.vue): each product's
          category (saved at once) and new price (saved with Confirm). Closes
          by itself after Confirm / Keep: the receipt then leaves the list. -->
@@ -777,8 +774,6 @@ import ReceiptPriceCheck from '../../components/ReceiptPriceCheck.vue'
 import AssignReceivingModal from '../../components/AssignReceivingModal.vue'
 import DeliveryDetailsModal from '../../components/DeliveryDetailsModal.vue'
 import ReceiveDeliveryModal from '../../components/ReceiveDeliveryModal.vue'
-import RefundApprovals from '../../components/RefundApprovals.vue'
-import { listAllRefunds } from '../../lib/refunds'
 import {
   addedPieces,
   cancelReceiving,
@@ -1874,26 +1869,12 @@ async function dismissGroup(group) {
 }
 
 /* ------------------------------------------------------------------
-   Tabs: Supplier Uploads | Inspection Approvals | Refunds
+   Tabs: Supplier Uploads | Inspection Approvals
 
    The open tab is kept in the address (?tab=inspections), so a refresh
    keeps it and a notification opens the right one (lib/useQueryParam.js).
 ------------------------------------------------------------------ */
-const activeTab = useQueryParam('tab', 'uploads', ['uploads', 'inspections', 'refunds'])
-
-// cashiers' refund requests (lib/refunds.js), checked with the other lists
-const refunds = ref([])
-const refundsReady = ref(true)
-
-async function fetchRefunds() {
-  try {
-    const { ready, list } = await listAllRefunds()
-    refundsReady.value = ready
-    refunds.value = list
-  } catch (err) {
-    console.error(err)
-  }
-}
+const activeTab = useQueryParam('tab', 'uploads', ['uploads', 'inspections'])
 
 function openTab(key) {
   activeTab.value = key
@@ -1911,7 +1892,6 @@ const tabs = computed(() => {
   const toPrice = reviewGroups.value.length
   const notSent = unsentVisible.value.length
   const inspections = approvals.value.length
-  const refundsWaiting = refunds.value.filter((request) => request.status === 'pending').length
 
   return [
     {
@@ -1934,13 +1914,6 @@ const tabs = computed(() => {
       short: 'Inspections',
       count: inspections,
       hint: inspections ? `${plural(inspections, 'inspection')} to review` : 'Nothing waiting',
-    },
-    {
-      key: 'refunds',
-      label: 'Refunds',
-      short: 'Refunds',
-      count: refundsWaiting,
-      hint: refundsWaiting ? `${plural(refundsWaiting, 'refund')} from before to approve` : 'The refunds of the last 7 days',
     },
   ]
 })
@@ -2030,16 +2003,12 @@ onMounted(() => {
   fetchSupplierUploads()
   fetchUnsentUploads()
   fetchReviewItems()
-  fetchRefunds()
   setupSupplierRealtime()
   window.addEventListener('keydown', onKey)
   window.addEventListener('beforeunload', onBeforeUnload)
 
   // safety net: if a live update is ever missed, the list still catches up
-  pollTimer = setInterval(() => {
-    fetchSupplierUploads({ silent: true })
-    fetchRefunds()
-  }, 30000)
+  pollTimer = setInterval(() => fetchSupplierUploads({ silent: true }), 30000)
   // every 3 seconds while a receipt is being processed, otherwise every 10
   let pollCount = 0
   reviewPollTimer = setInterval(() => {

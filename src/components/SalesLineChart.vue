@@ -11,7 +11,7 @@
 //
 // It is at least 11rem tall, and grows with a taller box around it (the
 // Dashboard stretches it to the card next to it).
-import { computed } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { count, niceTop, peso, pesoShort } from '../lib/format'
 
 const props = defineProps({
@@ -50,8 +50,38 @@ const areaPath = computed(() => {
 // a dot on every point while they aren't crowded; otherwise only on hover
 const showDots = computed(() => props.points.length <= 14)
 
-// about 8 labels under the chart, whatever the number of points
-const labelEvery = computed(() => Math.max(1, Math.ceil(props.points.length / 8)))
+// As many labels under the chart as fit its width (a month label like
+// "May 2026" needs about 60px), 8 at most; on a phone the months crowded
+// into each other. "Now" is always shown, so the ones too close to it go.
+const root = ref(null)
+const width = ref(0)
+let observer = null
+
+onMounted(() => {
+  if (!root.value || typeof ResizeObserver === 'undefined') return
+  observer = new ResizeObserver(([entry]) => {
+    width.value = entry.contentRect.width
+  })
+  observer.observe(root.value)
+})
+
+onBeforeUnmount(() => observer?.disconnect())
+
+const longestLabel = computed(() => Math.max(1, ...props.points.map((p) => String(p.label || '').length)))
+
+const labelEvery = computed(() => {
+  const n = props.points.length
+  const room = Math.max(longestLabel.value * 7 + 10, 36) // px one label needs
+  const fit = width.value ? Math.max(2, Math.floor((width.value - 56) / room)) : 8
+  return Math.max(1, Math.ceil(n / Math.min(8, fit)))
+})
+
+function showLabel(point, i) {
+  if (point.current) return true
+  if (i % labelEvery.value !== 0) return false
+  const now = placed.value.findIndex((p) => p.current)
+  return now < 0 || Math.abs(now - i) >= labelEvery.value
+}
 
 const noSales = computed(() => props.points.every((p) => p.total === 0))
 
@@ -69,7 +99,7 @@ function tipSide(i) {
 </script>
 
 <template>
-  <div class="flex flex-col">
+  <div ref="root" class="flex flex-col">
     <div class="flex min-h-44 flex-1 gap-2">
       <!-- the scale: three clean amounts, with faint lines across -->
       <div class="relative w-12 shrink-0 text-right text-[11px] tabular-nums text-zinc-500" aria-hidden="true">
@@ -160,7 +190,7 @@ function tipSide(i) {
         class="flex min-w-0 flex-1 justify-center whitespace-nowrap"
         :class="point.current ? 'font-bold text-white' : 'text-zinc-500'"
       >
-        {{ i % labelEvery === 0 || point.current ? point.label : '' }}
+        {{ showLabel(point, i) ? point.label : '' }}
       </span>
     </div>
   </div>

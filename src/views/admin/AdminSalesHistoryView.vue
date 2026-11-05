@@ -38,8 +38,40 @@
     <PageHeader
       v-else
       title="Sales History"
-      subtitle="Monitor all cashier transactions and receipts. Click a cashier name to see their sales."
+      subtitle="Monitor all cashier transactions, receipts and refunds. Click a cashier name to see their sales."
     />
+
+    <!-- Sales | Refunds (?view=refunds keeps it on a refresh, and the bell
+         opens it). Refunds: components/RefundApprovals.vue -->
+    <div v-if="!selectedCashier" class="mb-4 inline-flex max-w-full gap-1 rounded-2xl border border-white/5 bg-zinc-900 p-1">
+      <button
+        v-for="tab in VIEW_TABS"
+        :key="tab.key"
+        type="button"
+        class="flex shrink-0 items-center gap-2 whitespace-nowrap rounded-xl px-3.5 py-2 text-sm font-bold transition"
+        :class="view === tab.key ? 'bg-red-600 text-white' : 'text-zinc-400 hover:bg-white/5 hover:text-white'"
+        :aria-pressed="view === tab.key"
+        @click="view = tab.key"
+      >
+        {{ tab.label }}
+        <span
+          v-if="tab.key === 'refunds' && refundsWaiting > 0"
+          class="grid h-5 min-w-5 place-items-center rounded-full px-1.5 text-[0.7rem] font-extrabold"
+          :class="view === tab.key ? 'bg-white text-red-600' : 'bg-red-600 text-white'"
+        >
+          {{ count(refundsWaiting) }}
+        </span>
+      </button>
+    </div>
+
+    <RefundApprovals
+      v-if="view === 'refunds' && !selectedCashier"
+      :refunds="refunds"
+      :ready="refundsReady"
+      @changed="fetchRefunds"
+    />
+
+    <template v-else>
 
     <!-- DATE FILTER, with the cashier search at the right end of its row
          (not needed once a cashier's name was clicked) -->
@@ -211,6 +243,8 @@
       />
     </div>
 
+    </template>
+
     <!-- RECEIPT MODAL -->
     <div
       v-if="receiptSale"
@@ -328,6 +362,9 @@ import SalesInsights from '../../components/SalesInsights.vue'
 import NavIcon from '../../components/NavIcon.vue'
 import PageHeader from '../../components/PageHeader.vue'
 import TablePager from '../../components/TablePager.vue'
+import RefundApprovals from '../../components/RefundApprovals.vue'
+import { listAllRefunds } from '../../lib/refunds'
+import { useQueryParam } from '../../lib/useQueryParam'
 import { count, peso } from '../../lib/format'
 
 const sales = ref([])
@@ -518,5 +555,37 @@ function printReceipt() {
   printElement('receiptArea')
 }
 
-onMounted(fetchSales)
+/* ---- Sales | Refunds ---- */
+const VIEW_TABS = [
+  { key: 'sales', label: 'Sales' },
+  { key: 'refunds', label: 'Refunds' },
+]
+const view = useQueryParam('view', 'sales', ['sales', 'refunds'])
+
+// the refunds of the last 7 days (lib/refunds.js)
+const refunds = ref([])
+const refundsReady = ref(true)
+// a request left from before refunds needed no approval
+const refundsWaiting = computed(() => refunds.value.filter((request) => request.status === 'pending').length)
+
+async function fetchRefunds() {
+  try {
+    const { ready, list } = await listAllRefunds()
+    refundsReady.value = ready
+    refunds.value = list
+  } catch (err) {
+    console.error(err)
+  }
+}
+
+// a refund lowers a sale: the list and totals follow
+watch(view, (next) => {
+  if (next === 'refunds') fetchRefunds()
+  else fetchSales()
+})
+
+onMounted(() => {
+  fetchSales()
+  fetchRefunds()
+})
 </script>

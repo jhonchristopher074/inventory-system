@@ -1,10 +1,12 @@
 <template>
   <div ref="root" class="relative">
     <button
-      class="relative flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-zinc-900 text-lg text-white transition hover:bg-zinc-800"
+      class="relative flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-zinc-900 text-white transition hover:bg-zinc-800"
+      :class="unreadCount > 0 ? 'text-white' : 'text-zinc-300'"
+      :aria-label="unreadCount > 0 ? `Notifications, ${unreadCount} unread` : 'Notifications'"
       @click="toggleList"
     >
-      🔔
+      <NavIcon name="bell" class="h-5 w-5" />
 
       <span
         v-if="unreadCount > 0"
@@ -127,6 +129,7 @@
 
 <script setup>
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import NavIcon from './NavIcon.vue'
 import { useRoute, useRouter } from 'vue-router'
 import { supabase, uniqueChannelName } from '../lib/supabase'
 import {
@@ -416,8 +419,8 @@ const ROUTES = {
     disabled: '/inventory',
     // a staff member received a supplier delivery (in stock): its details
     received: '/approval',
-    // a cashier asks for a refund
-    refund: '/approval?tab=refunds',
+    // a cashier refunded a sale: Sales History > Refunds
+    refund: '/admin/sales?view=refunds',
     inspection: '/calendar',
     // each opens its own tab of the Approval page
     inspection_approval: '/approval?tab=inspections',

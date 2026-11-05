@@ -603,7 +603,7 @@ const attention = computed(() => {
     { key: 'unsent', n: w.unsent, label: (n) => `approved ${noun(n, 'receipt')} not sent to the scanner`, to: '/approval', icon: 'alert', tone: 'warning' },
     { key: 'uploads', n: w.uploads, label: (n) => `supplier ${noun(n, 'receipt')} to approve`, to: '/approval', icon: 'docs', tone: 'task' },
     { key: 'inspections', n: w.inspections, label: (n) => `${noun(n, 'inspection')} to approve`, to: '/approval?tab=inspections', icon: 'approval', tone: 'task' },
-    { key: 'refunds', n: w.refunds, label: (n) => `cashier ${noun(n, 'refund')} to approve`, to: '/approval?tab=refunds', icon: 'tag', tone: 'task' },
+    { key: 'refunds', n: w.refunds, label: (n) => `cashier ${noun(n, 'refund')} to approve`, to: '/admin/sales?view=refunds', icon: 'tag', tone: 'task' },
     { key: 'prices', n: w.prices, label: (n) => `${noun(n, 'receipt')} with new prices to check`, to: '/approval', icon: 'tag', tone: 'task' },
   ]
     .filter((item) => item.n > 0)
