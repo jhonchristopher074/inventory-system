@@ -5,7 +5,7 @@
     <!-- pb-24 on phones: room for the cart bar fixed at the bottom -->
     <div class="grid gap-6 pb-24 lg:grid-cols-[1fr_380px] lg:pb-0">
       <!-- PRODUCTS (a new page scrolls back up to the search box) -->
-      <div ref="productsTop" class="scroll-mt-4">
+      <div ref="productsTop" class="min-w-0 scroll-mt-4">
         <div class="mb-5 flex gap-2">
           <input
             v-model="searchQuery"

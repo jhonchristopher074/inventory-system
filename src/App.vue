@@ -9,6 +9,9 @@
 
   <div v-else class="min-h-screen text-white app-scale">
     <div class="app-shell" :class="{ collapsed }">
+      <!-- phones: the open menu floats over the page; tap beside it to close -->
+      <div v-if="!collapsed" class="side-scrim" aria-hidden="true" @click="closeOnPhone"></div>
+
       <aside class="app-side">
         <div class="side-top">
           <div class="brand-card">
@@ -163,6 +166,9 @@ import { loadStoreLogo, logoUrl, showDefaultLogo } from './lib/storeLogo'
 const router = useRouter()
 const route = useRoute()
 
+// a phone: going to another page closes the menu
+watch(() => route.path, closeOnPhone)
+
 // set by the router's check on every page change ('' = not logged in)
 const role = currentRole
 
@@ -188,8 +194,20 @@ let userChoseState = false
 // stops the auto-logout watcher (started in onMounted)
 let stopIdleWatch = null
 
+// a phone (the same 760px as the phone layout in style.css)
+function isPhone() {
+  return window.matchMedia('(max-width: 760px)').matches
+}
+
+// On a phone the menu floats over the page, so it starts closed on every
+// page and isn't remembered (a remembered "open" covered the next page).
+function closeOnPhone() {
+  if (isPhone()) collapsed.value = true
+}
+
 function toggleSidebar() {
   collapsed.value = !collapsed.value
+  if (isPhone()) return
   userChoseState = true
 
   try {
@@ -200,6 +218,10 @@ function toggleSidebar() {
 }
 
 function applyWidth() {
+  if (isPhone()) {
+    collapsed.value = true
+    return
+  }
   if (userChoseState) return
   collapsed.value = window.innerWidth < NARROW
 }
@@ -216,7 +238,9 @@ onMounted(() => {
     saved = null
   }
 
-  if (saved === '1' || saved === '0') {
+  if (isPhone()) {
+    collapsed.value = true
+  } else if (saved === '1' || saved === '0') {
     collapsed.value = saved === '1'
     userChoseState = true
   } else {
