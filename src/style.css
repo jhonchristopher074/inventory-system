@@ -813,6 +813,44 @@ tbody tr:hover {
   }
 }
 
+/* Phones only (the computer layout is unchanged):
+   - a card in a grid shrinks to its column (the cashier's Last 7 days and
+     some owner cards were wider than the screen, so the page showed cut
+     off on the left), and nothing can push the page sideways
+   - receipts (POS, both Sales History pages): narrower and tighter, so
+     the receipt and its buttons fit; printing is untouched */
+@media screen and (max-width: 760px) {
+  .app-main {
+    overflow-x: clip;
+  }
+
+  .app-main .card {
+    min-width: 0;
+  }
+
+  .app-main .card-head {
+    flex-wrap: wrap;
+  }
+
+  div:has(> #receiptArea) {
+    max-width: 21rem;
+    padding: 0.75rem;
+  }
+
+  #receiptArea {
+    padding: 1rem;
+    font-size: 0.875rem;
+  }
+
+  #receiptArea h2 {
+    font-size: 1.2rem;
+  }
+
+  #receiptArea .text-xl {
+    font-size: 1.05rem;
+  }
+}
+
 /* only phones have a menu floating over the page */
 .side-scrim {
   display: none;

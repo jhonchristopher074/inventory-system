@@ -131,19 +131,23 @@ onMounted(fetchProfile)
         aria-labelledby="password-title"
         role="group"
       >
-        <span class="icon-badge">
-          <NavIcon name="key" class="h-5 w-5" />
-        </span>
+        <!-- phones: the key beside the text; from sm up this wrapper
+             disappears (contents), so the computer layout is as before -->
+        <div class="flex min-w-0 items-start gap-3 sm:contents">
+          <span class="icon-badge">
+            <NavIcon name="key" class="h-5 w-5" />
+          </span>
 
-        <div class="min-w-0 flex-1">
-          <h3 id="password-title" class="font-bold text-white">Password</h3>
-          <p class="text-sm text-zinc-400">
-            Change it any time. You'll be asked for your current password first.
-          </p>
-          <p class="mt-1 text-xs text-zinc-500">
-            A strong password has at least 8 characters, upper and lower case letters, a
-            number and a symbol.
-          </p>
+          <div class="min-w-0 flex-1">
+            <h3 id="password-title" class="font-bold text-white">Password</h3>
+            <p class="text-sm text-zinc-400">
+              Change it any time. You'll be asked for your current password first.
+            </p>
+            <p class="mt-1 text-xs text-zinc-500">
+              A strong password has at least 8 characters, upper and lower case letters, a
+              number and a symbol.
+            </p>
+          </div>
         </div>
 
         <button
