@@ -898,6 +898,7 @@ import AssignReceivingModal from '../../components/AssignReceivingModal.vue'
 import DeliveryDetailsModal from '../../components/DeliveryDetailsModal.vue'
 import ReceiptUploadForm from '../../components/ReceiptUploadForm.vue'
 import { toast } from '../../lib/toast'
+import { refreshTasksSoon } from '../../lib/taskCounts'
 import ReceiveDeliveryModal from '../../components/ReceiveDeliveryModal.vue'
 import {
   cancelReceiving,
@@ -2155,6 +2156,13 @@ function formatDate(date) {
     day: 'numeric',
   })
 }
+
+// approved, rejected, priced, sent: the menu's numbers follow (only when a
+// number here changes; the lists themselves reload every few seconds)
+watch(
+  () => tabs.value.map((tab) => tab.count).join(','),
+  () => refreshTasksSoon()
+)
 
 // "Done" messages pop up at the top and go by themselves (lib/toast.js),
 // instead of piling up between the lists. Problems stay in the page.

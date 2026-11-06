@@ -9,6 +9,12 @@
         @click="activeTab = 'inspection'"
       >
         Inspection
+        <span
+          v-if="taskBadges.tabs['admin:inspection']"
+          class="ml-2 inline-grid h-5 min-w-5 place-items-center rounded-full px-1.5 align-middle text-[0.7rem] font-extrabold"
+          :class="activeTab === 'inspection' ? 'bg-white text-red-600' : 'bg-red-600 text-white'"
+          :title="'Inspections overdue'"
+        >{{ taskBadges.tabs['admin:inspection'] }}</span>
       </button>
 
       <button
@@ -17,6 +23,12 @@
         @click="activeTab = 'delivery'"
       >
         Delivery
+        <span
+          v-if="taskBadges.tabs['admin:delivery']"
+          class="ml-2 inline-grid h-5 min-w-5 place-items-center rounded-full px-1.5 align-middle text-[0.7rem] font-extrabold"
+          :class="activeTab === 'delivery' ? 'bg-white text-red-600' : 'bg-red-600 text-white'"
+          :title="'Deliveries overdue'"
+        >{{ taskBadges.tabs['admin:delivery'] }}</span>
       </button>
 
       <!-- here, not floating over the page: a floating button covered
@@ -327,6 +339,7 @@
 
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { refreshTasksSoon, taskBadges } from '../../lib/taskCounts'
 import { supabase } from '../../lib/supabase'
 import PageHeader from '../../components/PageHeader.vue'
 import InspectionTable from '../../components/InspectionTable.vue'
@@ -342,6 +355,9 @@ const products = ref([])
 const allProducts = ref([])
 const deliveries = ref([])
 const approvals = ref([])
+
+// a schedule added or changed here: the menu's numbers follow
+watch([products, deliveries, approvals], () => refreshTasksSoon())
 
 const loading = ref(false)
 const errorMessage = ref('')

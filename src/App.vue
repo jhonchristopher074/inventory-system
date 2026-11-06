@@ -59,10 +59,21 @@
               :to="item.to"
               class="nav-link"
               active-class="active-link"
-              :data-label="item.label"
+              :data-label="badgeOf(item.to)?.hint ? `${item.label} · ${badgeOf(item.to).hint}` : item.label"
+              :aria-label="badgeOf(item.to)?.hint ? `${item.label}: ${badgeOf(item.to).hint}` : undefined"
             >
               <NavIcon :name="item.icon" class="nav-ico" />
               <span class="nav-text">{{ item.label }}</span>
+              <!-- what's waiting here (lib/taskCounts.js) -->
+              <span
+                v-if="badgeOf(item.to)"
+                class="nav-badge"
+                :class="`nav-badge-${badgeOf(item.to).tone}`"
+                :title="badgeOf(item.to).hint"
+                aria-hidden="true"
+              >
+                {{ badgeOf(item.to).n > 99 ? '99+' : badgeOf(item.to).n }}
+              </span>
             </RouterLink>
           </template>
 
@@ -163,6 +174,7 @@ import { currentRole } from './router'
 import { currentUser } from './lib/currentUser'
 import CurrentUserBadge from './components/CurrentUserBadge.vue'
 import ToastHost from './components/ToastHost.vue'
+import { clearTasks, refreshTasksSoon, taskBadges } from './lib/taskCounts'
 import { loadStoreLogo, logoUrl, showDefaultLogo } from './lib/storeLogo'
 
 const router = useRouter()
@@ -170,6 +182,52 @@ const route = useRoute()
 
 // a phone: going to another page closes the menu
 watch(() => route.path, closeOnPhone)
+
+/* ------------------------------------------------------------------
+   What's waiting (lib/taskCounts.js): numbers on the menu and in the
+   browser tab. Counted again on every page change, every minute, back on
+   the tab, and when a notification arrives (NotificationBell).
+------------------------------------------------------------------ */
+function badgeOf(path) {
+  const badge = taskBadges.byPath[path]
+  return badge && badge.n > 0 ? badge : null
+}
+
+watch(
+  [() => currentRole.value, () => route.path],
+  ([who]) => {
+    if (who) refreshTasksSoon(who)
+    else clearTasks()
+  },
+  { immediate: true }
+)
+
+const BASE_TITLE = document.title
+watch(
+  () => taskBadges.total,
+  (total) => {
+    document.title = total > 0 ? `(${total}) ${BASE_TITLE}` : BASE_TITLE
+  },
+  { immediate: true }
+)
+
+let taskTimer = null
+
+function onTaskVisibility() {
+  if (document.visibilityState === 'visible' && currentRole.value) refreshTasksSoon(currentRole.value)
+}
+
+onMounted(() => {
+  taskTimer = setInterval(() => {
+    if (currentRole.value && document.visibilityState === 'visible') refreshTasksSoon(currentRole.value)
+  }, 60 * 1000)
+  document.addEventListener('visibilitychange', onTaskVisibility)
+})
+
+onBeforeUnmount(() => {
+  clearInterval(taskTimer)
+  document.removeEventListener('visibilitychange', onTaskVisibility)
+})
 
 // set by the router's check on every page change ('' = not logged in)
 const role = currentRole

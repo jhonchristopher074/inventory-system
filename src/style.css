@@ -500,6 +500,46 @@ button:not(:disabled):active {
   background: var(--brand-bright);
 }
 
+/* what's waiting on that page (lib/taskCounts.js): red = tasks,
+   orange = an alert (stock running low) */
+.nav-badge {
+  display: grid;
+  flex: none;
+  place-items: center;
+  min-width: 1.35rem;
+  height: 1.35rem;
+  margin-left: auto;
+  border-radius: 999px;
+  padding: 0 0.4rem;
+  font-size: 0.7rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.nav-badge-task {
+  background: var(--brand-bright);
+  color: #fff;
+  box-shadow: 0 0 0 3px rgba(244, 52, 76, 0.18);
+}
+
+.nav-badge-alert {
+  background: var(--alert);
+  color: #1a1000;
+}
+
+/* collapsed: a small number on the icon's corner */
+.collapsed .nav-badge {
+  position: absolute;
+  top: 2px;
+  right: 50%;
+  margin: 0 -1.35rem 0 0;
+  min-width: 1.05rem;
+  height: 1.05rem;
+  padding: 0 0.25rem;
+  font-size: 0.6rem;
+  box-shadow: 0 0 0 2px var(--surface);
+}
+
 /* collapsed: icons only */
 .collapsed .nav-link,
 .collapsed .logout-btn {

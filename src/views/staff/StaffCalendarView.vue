@@ -12,6 +12,12 @@
         @click="activeTab = 'inspection'"
       >
         Inspection
+        <span
+          v-if="taskBadges.tabs['staff:inspection']"
+          class="ml-2 inline-grid h-5 min-w-5 place-items-center rounded-full px-1.5 align-middle text-[0.7rem] font-extrabold"
+          :class="activeTab === 'inspection' ? 'bg-white text-red-600' : 'bg-red-600 text-white'"
+          :title="'Inspections to do today or overdue'"
+        >{{ taskBadges.tabs['staff:inspection'] }}</span>
       </button>
 
       <button
@@ -20,6 +26,12 @@
         @click="activeTab = 'delivery'"
       >
         Delivery
+        <span
+          v-if="taskBadges.tabs['staff:delivery']"
+          class="ml-2 inline-grid h-5 min-w-5 place-items-center rounded-full px-1.5 align-middle text-[0.7rem] font-extrabold"
+          :class="activeTab === 'delivery' ? 'bg-white text-red-600' : 'bg-red-600 text-white'"
+          :title="'Deliveries due, and supplier deliveries to receive'"
+        >{{ taskBadges.tabs['staff:delivery'] }}</span>
       </button>
     </div>
 
@@ -388,7 +400,8 @@
 
 <script setup>
 import { readCurrentUser } from '../../lib/currentUser'
-import { computed, nextTick, onMounted, ref } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
+import { refreshTasksSoon, taskBadges } from '../../lib/taskCounts'
 import { supabase } from '../../lib/supabase'
 import PageHeader from '../../components/PageHeader.vue'
 import InspectionTable from '../../components/InspectionTable.vue'
@@ -597,6 +610,9 @@ async function fetchDeliveries() {
 
 // ----- Supplier deliveries the owner chose you to receive -----
 const receivings = ref([])
+
+// work done here (saved, submitted, received): the menu's numbers follow
+watch([inspections, approvals, deliveries, receivings], () => refreshTasksSoon())
 const receiveTarget = ref(null)
 const receiveBusy = ref(false)
 const receiveError = ref('')

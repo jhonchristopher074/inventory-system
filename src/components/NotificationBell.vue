@@ -130,6 +130,7 @@
 <script setup>
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import NavIcon from './NavIcon.vue'
+import { refreshTasksSoon } from '../lib/taskCounts'
 import { useRoute, useRouter } from 'vue-router'
 import { supabase, uniqueChannelName } from '../lib/supabase'
 import {
@@ -372,6 +373,8 @@ function setupRealtime() {
 
         notifications.value.unshift(payload.new)
         if (unreadTotal.value !== null) unreadTotal.value += 1
+        // something new may be waiting: the menu's numbers follow
+        refreshTasksSoon()
 
         playSound()
       }
