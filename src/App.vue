@@ -148,6 +148,7 @@
       </main>
     </div>
   </div>
+  <ToastHost />
 </template>
 
 <script setup>
@@ -161,6 +162,7 @@ import { confirmLeave } from './lib/leaveGuard'
 import { currentRole } from './router'
 import { currentUser } from './lib/currentUser'
 import CurrentUserBadge from './components/CurrentUserBadge.vue'
+import ToastHost from './components/ToastHost.vue'
 import { loadStoreLogo, logoUrl, showDefaultLogo } from './lib/storeLogo'
 
 const router = useRouter()

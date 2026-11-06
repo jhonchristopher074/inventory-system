@@ -42,7 +42,6 @@
     ============================================================ -->
     <section v-if="activeTab === 'uploads'" aria-label="Supplier uploads" class="space-y-4">
       <p v-if="supplierError" class="msg msg-error" role="alert">{{ supplierError }}</p>
-      <p v-if="supplierSuccess" class="msg msg-ok">{{ supplierSuccess }}</p>
 
       <div class="list-card border-white/10">
         <div class="list-head">
@@ -179,7 +178,6 @@
            every product the receipt added or restocked, with its price.
       ============================================================ -->
       <p v-if="itemsError" class="msg msg-error" role="alert">{{ itemsError }}</p>
-      <p v-if="itemsSuccess" class="msg msg-ok">{{ itemsSuccess }}</p>
 
       <div v-if="reviewGroups.length > 0" class="list-card border-white/10">
         <div class="list-head">
@@ -244,7 +242,6 @@
            listed for 14 days.
       ============================================================ -->
       <p v-if="receivingError" class="msg msg-error" role="alert">{{ receivingError }}</p>
-      <p v-if="receivingSuccess" class="msg msg-ok">{{ receivingSuccess }}</p>
 
       <div v-if="receivings.length > 0" class="list-card border-sky-500/25">
         <div class="list-head">
@@ -351,7 +348,6 @@
     ============================================================ -->
     <section v-else-if="activeTab === 'inspections'" aria-label="Inspection approvals" class="space-y-4">
       <p v-if="errorMessage" class="msg msg-error" role="alert">{{ errorMessage }}</p>
-      <p v-if="successMessage" class="msg msg-ok">{{ successMessage }}</p>
 
       <div class="list-card border-white/10">
         <div class="list-head">
@@ -696,7 +692,10 @@
         aria-live="polite"
       >
         <div class="w-full max-w-md rounded-[24px] border border-white/10 bg-zinc-900 p-6 text-center shadow-2xl">
-          <div class="mx-auto h-14 w-14 animate-spin rounded-full border-4 border-zinc-700 border-t-emerald-500"></div>
+          <svg class="mx-auto h-14 w-14 animate-spin text-emerald-400" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <circle cx="12" cy="12" r="9.5" stroke="currentColor" stroke-opacity="0.18" stroke-width="2.5" />
+            <path d="M21.5 12A9.5 9.5 0 0 0 12 2.5" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" />
+          </svg>
 
           <h2 class="mt-5 text-xl font-bold text-white">{{ processingTitle }}</h2>
           <p class="mt-1 text-sm text-zinc-400">
@@ -745,11 +744,18 @@
 
       <button
         v-else-if="processing"
-        class="fixed bottom-4 right-4 z-[1900] flex items-center gap-3 rounded-full border border-white/10 bg-zinc-900 px-4 py-3 text-sm font-bold text-white shadow-2xl hover:bg-zinc-800"
+        class="fixed bottom-4 right-4 z-[1900] flex items-center gap-3 rounded-2xl border border-emerald-500/25 bg-zinc-900/95 py-2.5 pl-3 pr-4 text-left text-white shadow-2xl backdrop-blur hover:border-emerald-500/50"
+        title="Show the steps"
         @click="overlayHidden = false"
       >
-        <span class="h-4 w-4 animate-spin rounded-full border-2 border-zinc-600 border-t-emerald-500"></span>
-        Processing receipt…
+        <svg class="h-6 w-6 shrink-0 animate-spin text-emerald-400" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-opacity="0.2" stroke-width="3" />
+          <path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" stroke-width="3" stroke-linecap="round" />
+        </svg>
+        <span class="leading-tight">
+          <span class="block text-sm font-bold">Processing receipt…</span>
+          <span class="block text-xs text-zinc-400">Tap to see the steps</span>
+        </span>
       </button>
 
       <!-- LEAVE QUESTION: receipts in line are sent from this page -->
@@ -816,6 +822,7 @@ import ReceiptPriceCheck from '../../components/ReceiptPriceCheck.vue'
 import AssignReceivingModal from '../../components/AssignReceivingModal.vue'
 import DeliveryDetailsModal from '../../components/DeliveryDetailsModal.vue'
 import ReceiptUploadForm from '../../components/ReceiptUploadForm.vue'
+import { toast } from '../../lib/toast'
 import ReceiveDeliveryModal from '../../components/ReceiveDeliveryModal.vue'
 import {
   addedPieces,
@@ -2050,6 +2057,16 @@ function formatDate(date) {
     year: 'numeric',
     month: 'short',
     day: 'numeric',
+  })
+}
+
+// "Done" messages pop up at the top and go by themselves (lib/toast.js),
+// instead of piling up between the lists. Problems stay in the page.
+for (const message of [supplierSuccess, itemsSuccess, receivingSuccess, successMessage]) {
+  watch(message, (text) => {
+    if (!text) return
+    toast(text)
+    message.value = ''
   })
 }
 

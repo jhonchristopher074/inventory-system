@@ -11,18 +11,19 @@
 
     <div class="grid gap-6 lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)] lg:items-start">
       <!-- UPLOAD -->
-      <section class="card p-5 sm:p-6" aria-labelledby="upload-title">
+      <section class="card p-5" aria-labelledby="upload-title">
         <h2 id="upload-title" class="text-lg font-bold text-white">Upload a receipt</h2>
 
         <!-- what happens next -->
-        <ol class="mt-3 grid grid-cols-3 gap-2 text-center" aria-label="What happens next">
-          <li v-for="(step, i) in STEPS" :key="step" class="rounded-xl bg-white/[0.03] px-2 py-2.5">
-            <span class="mx-auto grid h-6 w-6 place-items-center rounded-full bg-red-600/15 text-xs font-extrabold text-red-400">{{ i + 1 }}</span>
-            <p class="mt-1.5 text-[0.7rem] font-semibold leading-tight text-zinc-300">{{ step }}</p>
+        <ol class="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-zinc-400" aria-label="What happens next">
+          <li v-for="(step, i) in STEPS" :key="step" class="flex items-center gap-1.5">
+            <span class="grid h-5 w-5 place-items-center rounded-full bg-red-600/15 text-[0.65rem] font-extrabold text-red-400">{{ i + 1 }}</span>
+            {{ step }}
+            <span v-if="i < STEPS.length - 1" class="text-zinc-600" aria-hidden="true">›</span>
           </li>
         </ol>
 
-        <ReceiptUploadForm class="mt-5" mode="staff" @done="fetchUploads" />
+        <ReceiptUploadForm class="mt-4" mode="staff" @done="fetchUploads" />
       </section>
 
       <!-- MY UPLOADS -->
@@ -35,7 +36,6 @@
         </div>
 
         <p v-if="listError" class="m-5 rounded-xl bg-red-600/15 p-3 text-sm text-red-400" role="alert">{{ listError }}</p>
-        <p v-if="message" class="m-5 rounded-xl bg-emerald-600/15 p-3 text-sm text-emerald-300" role="status">{{ message }}</p>
 
         <p v-if="loading && uploads.length === 0" class="p-5 text-sm text-zinc-400">Loading…</p>
         <p v-else-if="uploads.length === 0" class="p-5 text-sm text-zinc-400">
@@ -171,6 +171,7 @@ import {
   signReceiptLinks,
 } from '../../lib/receipts'
 import { SETUP_SQL, cancelReceiptUpload, listMyReceiptUploads } from '../../lib/receiptUploads'
+import { toast } from '../../lib/toast'
 
 const STEPS = ['You upload it', 'The owner checks it', 'The stock is added']
 
@@ -178,7 +179,6 @@ const uploads = ref([])
 const ready = ref(true)
 const loading = ref(false)
 const listError = ref('')
-const message = ref('')
 
 async function fetchUploads() {
   loading.value = true
@@ -308,10 +308,9 @@ const busyId = ref(null)
 async function takeBack(row) {
   busyId.value = row.id
   listError.value = ''
-  message.value = ''
   try {
     await cancelReceiptUpload(row)
-    message.value = `Removed "${row.file_name}". The owner won't see it.`
+    toast(`Removed "${row.file_name}". The owner won't see it.`)
     takingBack.value = null
     await fetchUploads()
   } catch (err) {

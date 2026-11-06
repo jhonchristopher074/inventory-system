@@ -5,7 +5,7 @@
                 percentage is asked here and the Approval page sends it to
                 the receipt scanner (@done gives { row, file, percent })
        Phones get "Take a photo" (the camera straight away). -->
-  <form class="flex flex-col gap-5" novalidate @submit.prevent="submit">
+  <form class="flex flex-col gap-4" novalidate @submit.prevent="submit">
     <!-- 1. the receipt -->
     <div>
       <p class="field-label">1. The receipt</p>
@@ -15,7 +15,7 @@
           v-if="previewUrl"
           :src="previewUrl"
           alt="The receipt you chose"
-          class="mx-auto max-h-56 w-full rounded-xl object-contain"
+          class="mx-auto max-h-40 w-full rounded-xl object-contain"
         />
         <div class="flex items-center gap-3" :class="{ 'mt-3': previewUrl }">
           <span class="file-kind">{{ isPdf ? 'PDF' : 'IMG' }}</span>
@@ -74,21 +74,17 @@
 
     <!-- 2. where it came from -->
     <div>
-      <label class="field-label" :for="`${uid}-supplier`">2. From which supplier?</label>
+      <label class="field-label" :for="`${uid}-supplier`">2. Supplier name</label>
       <input
         :id="`${uid}-supplier`"
         v-model="supplierName"
         type="text"
         maxlength="120"
         autocomplete="off"
-        :list="`${uid}-names`"
-        placeholder="e.g. JM Supply"
+        placeholder="As written on the receipt"
         class="field-input"
         :disabled="busy"
       />
-      <datalist :id="`${uid}-names`">
-        <option v-for="name in names" :key="name" :value="name" />
-      </datalist>
     </div>
 
     <!-- 3. staff: a note for the owner / owner: the profit -->
@@ -102,7 +98,7 @@
         type="text"
         maxlength="300"
         autocomplete="off"
-        placeholder="e.g. 2 boxes are still on the truck"
+        placeholder="Anything the owner should know"
         class="field-input"
         :disabled="busy"
       />
@@ -129,7 +125,6 @@
     </div>
 
     <p v-if="error" class="rounded-xl bg-red-600/15 p-3 text-sm text-red-400" role="alert">{{ error }}</p>
-    <p v-if="success" class="rounded-xl bg-emerald-600/15 p-3 text-sm text-emerald-300" role="status">{{ success }}</p>
 
     <div class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
       <button
@@ -155,16 +150,16 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref, useId, watch } from 'vue'
+import { computed, ref, useId, watch } from 'vue'
 import NavIcon from './NavIcon.vue'
 import {
   RECEIPT_ACCEPT,
   RECEIPT_MAX_BYTES,
   checkReceiptFile,
   formatFileSize,
-  listSupplierNames,
   submitReceipt,
 } from '../lib/receiptUploads'
+import { toast } from '../lib/toast'
 
 const props = defineProps({
   // 'staff' (waits for the owner) or 'owner' (straight to the scanner)
@@ -181,10 +176,8 @@ const dragging = ref(false)
 const supplierName = ref('')
 const note = ref('')
 const percent = ref('')
-const names = ref([])
 const busy = ref(false)
 const error = ref('')
-const success = ref('')
 
 const isPdf = computed(() => file.value?.type === 'application/pdf')
 
@@ -209,7 +202,6 @@ function openCamera() {
 function useFile(chosen) {
   if (!chosen || busy.value) return
   error.value = ''
-  success.value = ''
   const problem = checkReceiptFile(chosen)
   if (problem) {
     error.value = problem
@@ -235,7 +227,6 @@ function clearFile() {
 
 async function submit() {
   error.value = ''
-  success.value = ''
 
   const problem = checkReceiptFile(file.value)
   if (problem) {
@@ -274,8 +265,9 @@ async function submit() {
     })
 
     if (props.mode === 'staff') {
-      success.value = `Sent "${row.file_name}" to the owner. You'll see here when it's approved.`
+      toast(`Sent "${row.file_name}" to the owner. You'll see here when it's approved.`)
       file.value = null
+      supplierName.value = ''
       note.value = ''
     }
 
@@ -286,10 +278,6 @@ async function submit() {
     busy.value = false
   }
 }
-
-onMounted(async () => {
-  names.value = await listSupplierNames()
-})
 </script>
 
 <style scoped>
@@ -327,7 +315,7 @@ onMounted(async () => {
   border-radius: 1.1rem;
   border: 2px dashed rgba(255, 255, 255, 0.14);
   background: rgba(0, 0, 0, 0.35);
-  padding: 1.6rem 1rem;
+  padding: 1.1rem 1rem;
   text-align: center;
   cursor: pointer;
   transition: border-color 0.15s, background 0.15s;
