@@ -338,6 +338,7 @@ const NAV = {
       section: 'Inspection',
       items: [
         { to: '/staff/calendar', label: 'Inspection Calendar', icon: 'calendar' },
+        { to: '/staff/receipts', label: 'Supplier Receipts', icon: 'upload' },
         { to: '/staff/documentation', label: 'Documentation', icon: 'docs' },
       ],
     },

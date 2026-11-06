@@ -48,6 +48,16 @@
         <div class="list-head">
           <h2 class="list-title">Receipts to approve</h2>
           <span v-if="supplierUploads.length > 0" class="list-count bg-red-600/20 text-red-400">{{ count(supplierUploads.length) }}</span>
+          <!-- a receipt handed to the owner: no approval, straight to the scanner -->
+          <button
+            type="button"
+            class="ml-auto inline-flex items-center gap-1.5 rounded-xl bg-red-600 px-3.5 py-2 text-sm font-bold text-white hover:bg-red-700"
+            title="A supplier handed you the paper receipt: upload it. No approval needed."
+            @click="ownUploadOpen = true"
+          >
+            <NavIcon name="upload" class="h-4 w-4" />
+            Upload receipt
+          </button>
         </div>
 
         <p v-if="supplierLoading && supplierUploads.length === 0" class="list-empty">Loading…</p>
@@ -104,7 +114,11 @@
               </p>
               <p v-else class="row-sub text-zinc-500">
                 {{ upload.supplier_name || upload.supplier_email || 'Supplier' }} · {{ formatDate(upload.created_at) }}
+                <span v-if="upload.uploader_role === 'staff'" class="font-bold text-violet-300">
+                  · uploaded by {{ upload.uploader_name || 'staff' }} (staff)
+                </span>
               </p>
+              <p v-if="upload.note" class="row-sub text-zinc-400" :title="upload.note">“{{ upload.note }}”</p>
             </div>
 
             <div class="row-buttons">
@@ -461,6 +475,28 @@
       @cancel="goToDeliveryStep('')"
     />
 
+    <!-- UPLOAD RECEIPT (the owner's own): components/ReceiptUploadForm.vue.
+         Closes only with Cancel, so an upload can't be cut off halfway. -->
+    <Teleport to="body">
+      <div
+        v-if="ownUploadOpen"
+        class="fixed inset-0 z-[2000] flex items-center justify-center bg-black/80 p-3 sm:p-4"
+      >
+        <div
+          class="max-h-[94vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-white/10 bg-zinc-900 p-4 shadow-2xl sm:rounded-[24px] sm:p-6"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="own-upload-title"
+        >
+          <p class="text-xs font-extrabold uppercase tracking-[0.14em] text-red-400">Upload receipt</p>
+          <h2 id="own-upload-title" class="mt-1 text-xl font-bold text-white sm:text-2xl">A receipt handed to you</h2>
+          <p class="mt-1 text-sm text-zinc-400">No approval needed: it goes straight to the receipt scanner.</p>
+
+          <ReceiptUploadForm class="mt-5" mode="owner" @done="ownReceiptUploaded" @cancel="ownUploadOpen = false" />
+        </div>
+      </div>
+    </Teleport>
+
     <!-- ============================================================
          REVIEW WINDOW: opens when Approve / Send again is pressed.
          Ask for the profit percentage, and let the owner zoom the receipt.
@@ -479,6 +515,12 @@
           <p class="mt-1 truncate text-sm text-zinc-400">
             {{ review.upload.file_name }} · From
             {{ review.upload.supplier_name || review.upload.supplier_email || 'Supplier' }}
+            <template v-if="review.upload.uploader_role === 'staff'">
+              · uploaded by {{ review.upload.uploader_name || 'staff' }}
+            </template>
+          </p>
+          <p v-if="review.upload.note" class="mt-2 rounded-xl bg-white/5 p-3 text-sm text-zinc-300">
+            <b class="text-zinc-400">Note:</b> {{ review.upload.note }}
           </p>
 
           <!-- receipt preview: click to zoom -->
@@ -773,6 +815,7 @@ import NavIcon from '../../components/NavIcon.vue'
 import ReceiptPriceCheck from '../../components/ReceiptPriceCheck.vue'
 import AssignReceivingModal from '../../components/AssignReceivingModal.vue'
 import DeliveryDetailsModal from '../../components/DeliveryDetailsModal.vue'
+import ReceiptUploadForm from '../../components/ReceiptUploadForm.vue'
 import ReceiveDeliveryModal from '../../components/ReceiveDeliveryModal.vue'
 import {
   addedPieces,
@@ -1352,6 +1395,19 @@ async function fetchUnsentUploads() {
   refreshFileLinks(unsentUploads.value)
 }
 
+// The owner uploaded a receipt himself (ReceiptUploadForm): it's approved
+// already, so it goes in line for the scanner like an approved one.
+const ownUploadOpen = ref(false)
+
+function ownReceiptUploaded({ row, file, percent }) {
+  ownUploadOpen.value = false
+  supplierError.value = ''
+  busyIds.value.add(row.id)
+  enqueueSend({ upload: row, blob: file, percent, mode: 'approve' })
+  showProcessing()
+  supplierSuccess.value = `Uploaded "${row.file_name}". It is in line to be sent to the receipt scanner.`
+}
+
 async function resendSupplierUpload(upload, profitPercent) {
   supplierError.value = ''
   supplierSuccess.value = ''
@@ -1473,7 +1529,7 @@ const reviewGroups = computed(() => {
 // lock page scrolling behind the windows (placed after reviewGroups: the
 // watch reads priceWindow right away, which needs reviewGroups to exist)
 watch(
-  () => Boolean(review.value || priceWindow.value),
+  () => Boolean(review.value || priceWindow.value || ownUploadOpen.value),
   (open) => {
     document.body.style.overflow = open ? 'hidden' : ''
   }

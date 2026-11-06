@@ -35,6 +35,7 @@ const StaffInventoryView = () => import('../views/staff/StaffInventoryView.vue')
 const StaffCalendarView = () => import('../views/staff/StaffCalendarView.vue')
 const StaffDocumentationView = () => import('../views/staff/StaffDocumentationView.vue')
 const StaffProfileView = () => import('../views/staff/StaffProfileView.vue')
+const StaffReceiptsView = () => import('../views/staff/StaffReceiptsView.vue')
 
 const SupplierDropBoxView = () => import('../views/supplier/SupplierDropBoxView.vue')
 const SupplierProfileView = () => import('../views/supplier/SupplierProfileView.vue')
@@ -64,6 +65,7 @@ const routes = [
   { path: '/staff/inventory', component: StaffInventoryView, meta: { requiresAuth: true, role: 'staff' } },
   { path: '/staff/calendar', component: StaffCalendarView, meta: { requiresAuth: true, role: 'staff' } },
   { path: '/staff/documentation', component: StaffDocumentationView, meta: { requiresAuth: true, role: 'staff' } },
+  { path: '/staff/receipts', component: StaffReceiptsView, meta: { requiresAuth: true, role: 'staff' } },
   { path: '/staff/profile', component: StaffProfileView, meta: { requiresAuth: true, role: 'staff' } },
 
   { path: '/SupplierDropBoxView', component: SupplierDropBoxView, meta: { requiresAuth: true, role: 'supplier' } },

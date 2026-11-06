@@ -442,6 +442,8 @@ const ROUTES = {
     restore: '/staff/inventory',
     // a supplier delivery to receive (or cancelled)
     receive: '/staff/calendar?tab=delivery',
+    // a receipt they uploaded was approved or denied
+    receipt: '/staff/receipts',
     default: '/staff',
   },
   cashier: {
@@ -479,6 +481,7 @@ const BADGES = {
   receive: 'bg-violet-500/20 text-violet-300',
   received: 'bg-emerald-500/20 text-emerald-400',
   refund: 'bg-amber-500/20 text-amber-300',
+  receipt: 'bg-sky-500/20 text-sky-300',
 }
 
 function badgeClass(type) {
