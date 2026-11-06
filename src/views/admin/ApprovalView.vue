@@ -272,10 +272,11 @@
       ============================================================ -->
       <p v-if="receivingError" class="msg msg-error" role="alert">{{ receivingError }}</p>
 
-      <div v-if="receivingReady" ref="deliveriesTop" class="list-card scroll-mt-4 border-sky-500/25">
+      <!-- only while something is on the way -->
+      <div v-if="waitingDeliveries.length > 0" ref="deliveriesTop" class="list-card scroll-mt-4 border-sky-500/25">
         <div class="list-head">
           <h2 class="list-title">Deliveries on the way</h2>
-          <span v-if="waitingDeliveries.length > 0" class="list-count bg-sky-500/15 text-sky-300">{{ count(waitingDeliveries.length) }}</span>
+          <span class="list-count bg-sky-500/15 text-sky-300">{{ count(waitingDeliveries.length) }}</span>
           <span class="list-hint" title="Receipts whose goods haven't arrived yet. When the staff member marks one delivered, what arrived goes into stock at your prices and you get the details.">
             Added to stock when received
           </span>
@@ -292,9 +293,6 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-if="waitingDeliveries.length === 0" class="empty-row">
-              <td colspan="5">Nothing on the way. A receipt you mark "Not delivered yet" shows here until it's received.</td>
-            </tr>
             <tr v-for="delivery in deliveriesVisible" :key="delivery.id">
               <td class="cell-main">
                 <div class="flex min-w-0 items-center gap-3">
@@ -326,7 +324,6 @@
           </tbody>
         </table>
         <TablePager
-          v-if="waitingDeliveries.length > 0"
           v-model:page="deliveriesPageNo"
           v-model:page-size="deliveriesPageSize"
           :total="waitingDeliveries.length"
