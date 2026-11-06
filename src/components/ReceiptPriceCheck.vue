@@ -424,6 +424,7 @@ onBeforeUnmount(() => {
             <thead>
               <tr>
                 <th>Product</th>
+                <th class="num">Pcs</th>
                 <th>Category</th>
                 <th class="num">Cost</th>
                 <th class="num">Price now</th>
@@ -433,44 +434,64 @@ onBeforeUnmount(() => {
             </thead>
 
             <tbody>
-              <tr v-for="item in items" :key="item.id">
+              <tr
+                v-for="item in items"
+                :key="item.id"
+                :class="{ 'is-skipped': qtyEditable && isQtyValid(item) && Number(qtyOf(item)) === 0 }"
+              >
                 <td class="cell-main">
                   <div class="min-w-0">
-                    <p class="font-bold leading-snug text-white">{{ item.product_name || 'Product' }}</p>
-                    <p class="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-zinc-400">
-                      <span class="badge" :class="item.is_new ? 'bg-sky-500/20 text-sky-300' : 'bg-amber-500/20 text-amber-300'">
-                        {{ item.is_new ? 'New' : 'Restock' }}
-                      </span>
-                      <template v-if="!qtyEditable">
-                        +{{ count(item.qty_added) }} pcs<template v-if="waiting"> on confirm</template>
-                      </template>
-                    </p>
-                    <!-- not in stock yet: how many really go in -->
-                    <div v-if="qtyEditable" class="mt-2 flex flex-wrap items-center gap-2 text-xs">
-                      <label class="text-zinc-400" :for="'qty-' + item.id">Pcs to add</label>
+                    <p class="product-name" :title="item.product_name">{{ item.product_name || 'Product' }}</p>
+                    <span class="badge mt-1" :class="item.is_new ? 'bg-sky-500/20 text-sky-300' : 'bg-white/5 text-zinc-400'">
+                      {{ item.is_new ? 'New product' : 'Restock' }}
+                    </span>
+                  </div>
+                </td>
+
+                <!-- pieces: a stepper while nothing is in stock, else just the number -->
+                <td data-label="Pcs" class="num">
+                  <div v-if="qtyEditable" class="qty-cell">
+                    <div
+                      class="qty-stepper"
+                      :class="{ 'is-changed': isQtyChanged(item), 'is-invalid': !isQtyValid(item), 'is-zero': isQtyValid(item) && Number(qtyOf(item)) === 0 }"
+                    >
+                      <button
+                        type="button"
+                        :disabled="!isQtyValid(item) || Number(qtyOf(item)) <= 0"
+                        :aria-label="'One less ' + (item.product_name || '')"
+                        @click="emit('qty', item.id, String(Number(qtyOf(item)) - 1))"
+                      >
+                        −
+                      </button>
                       <input
-                        :id="'qty-' + item.id"
-                        class="qty-box"
-                        :class="{ 'is-changed': isQtyChanged(item), 'is-invalid': !isQtyValid(item) }"
                         type="number"
                         inputmode="numeric"
                         min="0"
                         step="1"
                         :value="qtyOf(item)"
+                        :aria-label="'Pieces of ' + (item.product_name || 'this product') + ' to add'"
                         @input="emit('qty', item.id, $event.target.value)"
                       />
-                      <span v-if="isQtyChanged(item)" class="text-zinc-500">receipt: {{ count(item.qty_added) }}</span>
-                      <span v-if="isQtyValid(item) && Number(qtyOf(item)) === 0" class="font-bold text-amber-300">not added</span>
                       <button
-                        v-if="isQtyChanged(item) || !isQtyValid(item)"
                         type="button"
-                        class="reset-link"
-                        @click="emit('qty', item.id, String(item.qty_added ?? 0))"
+                        :disabled="!isQtyValid(item)"
+                        :aria-label="'One more ' + (item.product_name || '')"
+                        @click="emit('qty', item.id, String(Number(qtyOf(item)) + 1))"
                       >
-                        Reset
+                        +
                       </button>
                     </div>
+                    <button
+                      v-if="isQtyChanged(item) || !isQtyValid(item)"
+                      type="button"
+                      class="reset-link"
+                      :title="'Back to the receipt\'s ' + count(item.qty_added)"
+                      @click="emit('qty', item.id, String(item.qty_added ?? 0))"
+                    >
+                      {{ isQtyValid(item) && Number(qtyOf(item)) === 0 ? 'Not added · ' : '' }}receipt {{ count(item.qty_added) }} · Reset
+                    </button>
                   </div>
+                  <span v-else class="text-sm font-bold text-zinc-200">+{{ count(item.qty_added) }}</span>
                 </td>
 
                 <td data-label="Category">
@@ -682,8 +703,13 @@ onBeforeUnmount(() => {
 }
 
 .price-table td {
-  padding-top: 0.75rem;
-  padding-bottom: 0.75rem;
+  padding-top: 0.6rem;
+  padding-bottom: 0.6rem;
+}
+
+/* a product left out (0 pcs) fades */
+.price-table tr.is-skipped td {
+  opacity: 0.55;
 }
 
 .category-cell {
@@ -782,29 +808,83 @@ onBeforeUnmount(() => {
   -webkit-appearance: none;
 }
 
-/* "Pcs to add": amber when changed from the receipt, red when not a number */
-.qty-box {
-  width: 5.5rem;
-  border-radius: 0.6rem;
+.product-name {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  font-weight: 700;
+  line-height: 1.3;
+  color: #fff;
+}
+
+.qty-cell {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.2rem;
+}
+
+/* [ − 12 + ]: amber when changed from the receipt, red when not a number,
+   dimmed at 0 (that product isn't added) */
+.qty-stepper {
+  display: inline-flex;
+  align-items: center;
+  overflow: hidden;
+  border-radius: 0.7rem;
   border: 1px solid var(--hairline);
   background: var(--surface-sunken);
-  padding: 0.3rem 0.5rem;
-  text-align: right;
+}
+
+.qty-stepper button {
+  width: 1.9rem;
+  align-self: stretch;
+  font-weight: 800;
+  color: var(--color-zinc-300);
+}
+
+.qty-stepper button:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+
+.qty-stepper button:disabled {
+  opacity: 0.3;
+}
+
+.qty-stepper input {
+  width: 3.2rem;
+  border: 0;
+  background: transparent;
+  padding: 0.5rem 0;
+  text-align: center;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   color: #fff;
   outline: none;
+  -moz-appearance: textfield;
+  appearance: textfield;
 }
 
-.qty-box:focus {
+.qty-stepper input::-webkit-outer-spin-button,
+.qty-stepper input::-webkit-inner-spin-button {
+  margin: 0;
+  -webkit-appearance: none;
+}
+
+.qty-stepper:focus-within {
   border-color: rgba(224, 27, 50, 0.55);
 }
 
-.qty-box.is-changed {
+.qty-stepper.is-changed {
   border-color: rgba(251, 191, 36, 0.65);
 }
 
-.qty-box.is-invalid {
+.qty-stepper.is-zero {
+  opacity: 0.6;
+}
+
+.qty-stepper.is-invalid {
   border-color: rgba(239, 68, 68, 0.85);
 }
 
