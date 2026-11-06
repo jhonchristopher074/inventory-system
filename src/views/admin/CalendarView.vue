@@ -34,11 +34,12 @@
       <!-- here, not floating over the page: a floating button covered
            the buttons of the table rows under it -->
       <button
-        class="ml-auto rounded-2xl border border-red-500/40 bg-red-600/15 px-4 py-3 font-bold text-red-200 transition hover:bg-red-600 hover:text-white"
-        title="Add an inspection or delivery schedule"
+        class="ml-auto inline-flex items-center gap-1.5 rounded-2xl bg-red-600 px-4 py-3 font-bold text-white shadow-lg shadow-red-900/40 transition hover:bg-red-700"
+        :title="activeTab === 'delivery' ? 'Schedule a delivery' : 'Schedule an inspection'"
         @click="openAddModal"
       >
-        + Add<span class="hidden sm:inline"> Schedule</span>
+        <span class="text-lg leading-none">+</span>
+        Add {{ activeTab === 'delivery' ? 'delivery' : 'inspection' }}
       </button>
     </div>
 
@@ -57,11 +58,22 @@
 
     <!-- DELIVERY -->
     <div v-if="activeTab === 'delivery'">
+      <!-- nothing yet: the way to add one, right here -->
       <div
         v-if="deliveries.length === 0"
-        class="rounded-[24px] border border-white/10 bg-zinc-900 p-5 text-zinc-400"
+        class="flex flex-col items-center gap-3 rounded-[24px] border border-dashed border-white/15 bg-zinc-900 px-5 py-10 text-center"
       >
-        No delivery schedules.
+        <p class="font-bold text-white">No deliveries scheduled</p>
+        <p class="max-w-sm text-sm text-zinc-400">
+          Expecting goods from a supplier? Add the delivery so the staff know when it comes.
+        </p>
+        <button
+          type="button"
+          class="mt-1 rounded-2xl bg-red-600 px-5 py-2.5 font-bold text-white hover:bg-red-700"
+          @click="openAddModal"
+        >
+          + Add delivery
+        </button>
       </div>
 
       <div v-else class="grid grid-cols-1 gap-5 sm:grid-cols-[repeat(auto-fill,260px)]">
