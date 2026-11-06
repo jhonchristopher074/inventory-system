@@ -203,7 +203,8 @@
 
             <div>
               <label class="label">Schedule Date</label>
-              <input v-model="newSchedule.date" type="date" class="calendar-date-input" />
+              <!-- today or later: a schedule in the past would be overdue at once -->
+              <input v-model="newSchedule.date" type="date" :min="getToday()" class="calendar-date-input" />
             </div>
           </div>
 
@@ -213,7 +214,7 @@
               <input
                 v-model="newSchedule.title"
                 type="text"
-                placeholder="e.g. Roofing materials delivery"
+                placeholder="What's being delivered, e.g. 50 bags of cement"
                 class="input"
               />
             </div>
@@ -223,14 +224,14 @@
               <input
                 v-model="newSchedule.supplier"
                 type="text"
-                placeholder="Supplier name"
+                placeholder="Who delivers it, e.g. JM Supply"
                 class="input"
               />
             </div>
 
             <div>
               <label class="label">Delivery Date</label>
-              <input v-model="newSchedule.date" type="date" class="calendar-date-input" />
+              <input v-model="newSchedule.date" type="date" :min="getToday()" class="calendar-date-input" />
             </div>
           </div>
         </div>
@@ -633,7 +634,8 @@ function openAddModal() {
     product_id: '',
     title: '',
     supplier: '',
-    date: '',
+    // starts at today
+    date: getToday(),
   }
 
   pickedProductName.value = ''
@@ -659,6 +661,12 @@ async function saveSchedule() {
 
   if (!newSchedule.value.date) {
     modalError.value = 'Please select a date.'
+    return
+  }
+
+  // typed in by hand: the picker alone doesn't stop it
+  if (newSchedule.value.date < getToday()) {
+    modalError.value = "Pick today or a later date: that day has already passed."
     return
   }
 
