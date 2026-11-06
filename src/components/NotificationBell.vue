@@ -416,6 +416,7 @@ async function markAllAsRead() {
 const ROUTES = {
   admin: {
     low_stock: '/inventory',
+    purchase_order: '/inventory?reorder=orders',
     restore: '/inventory',
     archive: '/archived',
     // a product disabled at the POS: Inventory shows it, with Enable
