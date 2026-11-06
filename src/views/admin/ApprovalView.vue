@@ -265,19 +265,19 @@
       </div>
 
       <!-- ============================================================
-           DELIVERIES: receipts that came before their goods ("Not
-           delivered yet" in Check prices). When the staff member marks
-           one delivered, what arrived goes into stock at the owner's
-           prices and the owner gets the details. Received ones stay
-           listed for 14 days.
+           DELIVERIES ON THE WAY: receipts whose goods hadn't arrived ("Not
+           delivered yet" in Check prices). Shown only while one waits: the
+           owner may receive it himself, give it to someone else or cancel
+           it. Once received, its stock is added and the details come in the
+           bell, so it leaves this page.
       ============================================================ -->
       <p v-if="receivingError" class="msg msg-error" role="alert">{{ receivingError }}</p>
 
-      <div v-if="receivings.length > 0" class="list-card border-sky-500/25">
+      <div v-if="waitingDeliveries.length > 0" class="list-card border-sky-500/25">
         <div class="list-head">
-          <h2 class="list-title">Deliveries</h2>
-          <span v-if="waitingDeliveries.length > 0" class="list-count bg-sky-500/15 text-sky-300">{{ count(waitingDeliveries.length) }} waiting</span>
-          <span class="list-hint" title="Receipts whose goods hadn't arrived yet. When the staff member marks one delivered, what arrived goes into stock at your prices. Received ones stay here for 14 days.">
+          <h2 class="list-title">Deliveries on the way</h2>
+          <span class="list-count bg-sky-500/15 text-sky-300">{{ count(waitingDeliveries.length) }}</span>
+          <span class="list-hint" title="Receipts whose goods haven't arrived yet. When the staff member marks one delivered, what arrived goes into stock at your prices and you get the details.">
             Added to stock when received
           </span>
         </div>
@@ -286,52 +286,37 @@
           <thead>
             <tr>
               <th>Receipt</th>
-              <th>Staff</th>
+              <th>Receives it</th>
               <th>Status</th>
-              <th>When</th>
-              <th>Result</th>
+              <th>Expected</th>
               <th class="text-right">Action</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-for="delivery in receivings" :key="delivery.id">
+            <tr v-for="delivery in waitingDeliveries" :key="delivery.id">
               <td class="cell-main">
                 <div class="flex min-w-0 items-center gap-3">
-                  <span
-                    class="thumb"
-                    :class="delivery.status === 'received' ? 'bg-emerald-600/15 text-emerald-400' : 'bg-sky-500/15 text-sky-300'"
-                  >
-                    <NavIcon :name="delivery.status === 'received' ? 'check' : 'inventory'" class="h-4 w-4" />
+                  <span class="thumb bg-sky-500/15 text-sky-300">
+                    <NavIcon name="inventory" class="h-4 w-4" />
                   </span>
                   <p class="row-name cell-text text-white" :title="delivery.file_name">{{ delivery.file_name || 'Receipt' }}</p>
                 </div>
               </td>
-              <td data-label="Staff">
-                {{ delivery.status === 'received' ? delivery.received_by_name || delivery.assigned_name : delivery.assigned_name }}
-              </td>
+              <td data-label="Receives it">{{ delivery.assigned_name }}</td>
               <td data-label="Status">
-                <span v-if="delivery.status === 'received'" class="chip-sm bg-emerald-600/15 text-emerald-400">Received</span>
-                <span v-else-if="isLateDelivery(delivery)" class="chip-sm bg-red-600/15 text-red-400">Late</span>
-                <span v-else class="chip-sm bg-sky-500/15 text-sky-300">Waiting</span>
+                <span v-if="isLateDelivery(delivery)" class="chip-sm bg-red-600/15 text-red-400">Late</span>
+                <span v-else class="chip-sm bg-sky-500/15 text-sky-300">On the way</span>
               </td>
-              <td data-label="When" class="whitespace-nowrap">
-                <template v-if="delivery.status === 'received'">{{ dayAndTime(delivery.received_at) }}</template>
-                <span v-else-if="delivery.expected_date" :class="isLateDelivery(delivery) ? 'font-bold text-red-400' : ''">
-                  Expected {{ dayText(delivery.expected_date) }}
-                </span>
-                <span v-else class="text-zinc-500">—</span>
-              </td>
-              <td data-label="Result">
-                <span v-if="delivery.status === 'received'">
-                  <span class="font-bold text-emerald-300">{{ count(addedPieces(delivery)) }} pcs added</span>
-                  <span v-if="shortItems(delivery).length" class="font-bold text-amber-300"> · {{ count(shortItems(delivery).length) }} short</span>
+              <td data-label="Expected" class="whitespace-nowrap">
+                <span v-if="delivery.expected_date" :class="isLateDelivery(delivery) ? 'font-bold text-red-400' : ''">
+                  {{ dayText(delivery.expected_date) }}
                 </span>
                 <span v-else class="text-zinc-500">—</span>
               </td>
               <td class="cell-actions">
                 <div class="row-actions">
                   <button type="button" class="btn-sm bg-zinc-800 text-zinc-200 hover:bg-zinc-700" @click="openDelivery(delivery)">
-                    {{ delivery.status === 'received' ? 'Details' : 'Open' }}
+                    Open
                   </button>
                 </div>
               </td>
@@ -887,7 +872,7 @@ import { onBeforeRouteLeave } from 'vue-router'
 import { supabase, uniqueChannelName } from '../../lib/supabase'
 import { useQueryParam } from '../../lib/useQueryParam'
 import { setLeaveQuestion } from '../../lib/leaveGuard'
-import { count, dayAndTime } from '../../lib/format'
+import { count } from '../../lib/format'
 import {
   APPROVED_BUCKET,
   LINK_SECONDS,
@@ -909,14 +894,12 @@ import ReceiptUploadForm from '../../components/ReceiptUploadForm.vue'
 import { toast } from '../../lib/toast'
 import ReceiveDeliveryModal from '../../components/ReceiveDeliveryModal.vue'
 import {
-  addedPieces,
   cancelReceiving,
   dayText,
   listAllReceivings,
   piecesOf,
   reassignReceiving,
   receiveDelivery,
-  shortItems,
   startReceiving,
   todayKey,
 } from '../../lib/receiving'
