@@ -97,13 +97,29 @@
       </section>
 
       <!-- SCHEDULED by the owner: mark them when the goods come -->
-      <section class="mb-8" aria-label="Scheduled deliveries">
-        <div class="mb-3 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+      <section ref="deliveriesTop" class="mb-8 scroll-mt-4" aria-label="Scheduled deliveries">
+        <div class="mb-3 flex flex-wrap items-center gap-x-3 gap-y-2">
           <h2 class="text-sm font-extrabold uppercase tracking-[0.14em] text-zinc-300">Scheduled deliveries</h2>
           <span v-if="deliveries.length" class="text-xs text-zinc-500">
-            {{ deliveries.length }} {{ deliveries.length === 1 ? 'delivery' : 'deliveries' }} · mark each one when the goods come
+            {{ deliveries.length }} {{ deliveries.length === 1 ? 'delivery' : 'deliveries' }} · soonest first
           </span>
+          <!-- only worth it once the list is long -->
+          <input
+            v-if="deliveries.length > 4"
+            v-model="deliverySearch"
+            type="search"
+            placeholder="Search title or supplier..."
+            aria-label="Search deliveries"
+            class="w-full rounded-full border border-white/10 bg-zinc-900 px-4 py-2 text-sm text-white outline-none placeholder:text-zinc-500 focus:border-red-500 sm:ml-auto sm:w-64"
+          />
         </div>
+
+        <p
+          v-if="deliveries.length > 0 && shownDeliveries.length === 0"
+          class="rounded-[22px] border border-white/10 bg-zinc-900/50 p-5 text-center text-sm text-zinc-400"
+        >
+          No delivery matches "{{ deliverySearch }}".
+        </p>
 
         <div
           v-if="deliveries.length === 0"
@@ -113,9 +129,9 @@
           <p class="mt-1 text-sm text-zinc-500">When the owner schedules one, it shows up here.</p>
         </div>
 
-        <div v-else class="delivery-grid">
+        <div v-else-if="shownDeliveries.length > 0" class="delivery-grid">
           <article
-            v-for="delivery in deliveries"
+            v-for="delivery in visibleDeliveries"
             :key="delivery.id"
             class="flex flex-col gap-4 rounded-[22px] border bg-zinc-900 p-5 shadow-xl"
             :class="isDeliveryOverdue(delivery) ? 'border-red-500/60 bg-red-950/25' : 'border-white/10'"
@@ -174,48 +190,82 @@
             </button>
           </article>
         </div>
+
+        <!-- 8 or 16 cards a page (2 or 4 full rows), or all of them -->
+        <TablePager
+          v-if="shownDeliveries.length > 8"
+          v-model:page="deliveryPage"
+          v-model:page-size="deliveryPageSize"
+          :total="shownDeliveries.length"
+          :sizes="[8, 16, 0]"
+          label="Per page"
+          noun="deliveries"
+          card
+          class="mt-4"
+        />
       </section>
 
       <!-- received: a short record for the staff member (the list keeps
-           them 3 days); the owner has the full details -->
-      <section v-if="receivedReceivings.length > 0" aria-label="Recently received">
-        <div class="mb-3 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-          <h2 class="text-sm font-extrabold uppercase tracking-[0.14em] text-zinc-400">Recently received</h2>
-          <span class="text-xs text-zinc-500">Already in stock · shown for 3 days</span>
-        </div>
+           them 3 days), folded away so it never pushes the work down -->
+      <section v-if="receivedReceivings.length > 0" ref="receivedTop" class="scroll-mt-4" aria-label="Recently received">
+        <button
+          type="button"
+          class="flex w-full items-center gap-3 rounded-[18px] border border-white/10 bg-zinc-900/60 px-5 py-3.5 text-left transition hover:border-white/20 hover:bg-zinc-900"
+          :aria-expanded="showReceived"
+          @click="showReceived = !showReceived"
+        >
+          <span class="text-sm font-extrabold uppercase tracking-[0.14em] text-zinc-300">Recently received</span>
+          <span class="rounded-full bg-emerald-600/15 px-2.5 py-0.5 text-xs font-bold text-emerald-300">
+            {{ receivedReceivings.length }}
+          </span>
+          <span class="hidden text-xs text-zinc-500 sm:inline">Already in stock · shown for 3 days</span>
+          <span class="ml-auto text-sm font-bold text-zinc-400">{{ showReceived ? 'Hide ▴' : 'Show ▾' }}</span>
+        </button>
 
-        <div class="delivery-grid">
-          <article
-            v-for="delivery in receivedReceivings"
-            :key="'rcvd-' + delivery.id"
-            class="flex flex-col gap-4 rounded-[22px] border border-white/10 bg-zinc-900/60 p-5"
-          >
-            <div class="min-w-0 flex-1">
-              <div class="flex items-start justify-between gap-3">
-                <h3 class="min-w-0 truncate text-lg font-bold text-zinc-200" :title="delivery.supplier_name || delivery.file_name">
-                  {{ delivery.supplier_name || delivery.file_name || 'Delivery' }}
-                </h3>
-                <span class="shrink-0 rounded-full bg-emerald-600/15 px-2.5 py-1 text-xs font-bold text-emerald-300">Received</span>
-              </div>
-              <p v-if="delivery.supplier_name && delivery.file_name" class="mt-1 truncate text-sm text-zinc-500" :title="delivery.file_name">
-                Receipt: {{ delivery.file_name }}
-              </p>
+        <div v-if="showReceived" class="card mt-3 overflow-hidden">
+          <div class="overflow-x-auto">
+            <table class="data-table resp-table">
+              <thead>
+                <tr>
+                  <th>Supplier</th>
+                  <th>Received</th>
+                  <th>By</th>
+                  <th>Added to stock</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="delivery in visibleReceived" :key="'rcvd-' + delivery.id">
+                  <td class="cell-main">
+                    <p class="max-w-xs truncate font-bold text-white" :title="delivery.supplier_name || delivery.file_name">
+                      {{ delivery.supplier_name || delivery.file_name || 'Delivery' }}
+                    </p>
+                    <p v-if="delivery.supplier_name && delivery.file_name" class="max-w-xs truncate text-xs text-zinc-500" :title="delivery.file_name">
+                      {{ delivery.file_name }}
+                    </p>
+                  </td>
+                  <td data-label="Received" class="whitespace-nowrap text-sm text-zinc-300">{{ dayAndTime(delivery.received_at) }}</td>
+                  <td data-label="By" class="text-sm text-zinc-300">{{ delivery.received_by_name || 'You' }}</td>
+                  <td data-label="Added to stock" class="text-sm">
+                    <span class="font-bold text-emerald-300">
+                      ✓ {{ count(addedPieces(delivery)) }} of {{ count(piecesOf(delivery)) }} pcs
+                    </span>
+                    <span v-if="shortItems(delivery).length" class="block text-xs font-bold text-amber-300">
+                      {{ count(shortItems(delivery).length) }} {{ shortItems(delivery).length === 1 ? 'product' : 'products' }} came short
+                    </span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
 
-              <dl class="mt-4 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 text-sm">
-                <dt class="text-zinc-500">When</dt>
-                <dd class="font-semibold text-zinc-200">{{ dayAndTime(delivery.received_at) }}</dd>
-                <dt class="text-zinc-500">By</dt>
-                <dd class="font-semibold text-zinc-200">{{ delivery.received_by_name || 'You' }}</dd>
-              </dl>
-              <p v-if="shortItems(delivery).length" class="mt-3 text-sm font-bold text-amber-300">
-                {{ count(shortItems(delivery).length) }} {{ shortItems(delivery).length === 1 ? 'product' : 'products' }} came short
-              </p>
-            </div>
-
-            <p class="rounded-xl bg-emerald-600/10 px-3 py-2.5 text-center text-sm font-bold text-emerald-300">
-              ✓ {{ count(addedPieces(delivery)) }} of {{ count(piecesOf(delivery)) }} pcs added to stock
-            </p>
-          </article>
+          <TablePager
+            v-if="receivedReceivings.length > 5"
+            v-model:page="receivedPage"
+            v-model:page-size="receivedPageSize"
+            :total="receivedReceivings.length"
+            :sizes="[5, 10, 0]"
+            noun="deliveries"
+          />
         </div>
       </section>
     </div>
@@ -523,6 +573,8 @@ import { isDelivered, isOpenDelivery, markArrivedWithoutReceipt, receiptStateOf 
 import ReceiptUploadForm from '../../components/ReceiptUploadForm.vue'
 import { toast } from '../../lib/toast'
 import ReceiveDeliveryModal from '../../components/ReceiveDeliveryModal.vue'
+import TablePager from '../../components/TablePager.vue'
+import { usePagination } from '../../lib/usePagination'
 import { addedPieces, dayText, listMyReceivings, piecesOf, receiveDelivery, shortItems, todayKey } from '../../lib/receiving'
 
 // Inspection / Delivery, kept in the address (?tab=delivery) so the
@@ -1084,6 +1136,35 @@ async function removeSavedInspection(approval) {
     panelBusy.value = false
   }
 }
+
+// ----- Many deliveries: search, soonest first, a page at a time -----
+const deliverySearch = ref('')
+const shownDeliveries = computed(() => {
+  const words = deliverySearch.value.trim().toLowerCase()
+  // arrived ones (need their receipt) first, then by date, late at the top
+  const rank = (d) => (d.receipt_state === 'waiting' ? 0 : d.receipt_state === 'sent' ? 2 : 1)
+  return deliveries.value
+    .filter((d) => !words || `${d.title || ''} ${d.supplier || ''}`.toLowerCase().includes(words))
+    .slice()
+    .sort((a, b) => rank(a) - rank(b) || String(a.delivery_date || '9').localeCompare(String(b.delivery_date || '9')))
+})
+const deliveriesTop = ref(null)
+const {
+  page: deliveryPage,
+  pageSize: deliveryPageSize,
+  visible: visibleDeliveries,
+  reset: resetDeliveryPage,
+} = usePagination(shownDeliveries, { storageKey: 'staffDeliveries', scrollTarget: deliveriesTop, sizes: [8, 16, 0] })
+watch(deliverySearch, resetDeliveryPage)
+
+// received: folded away until opened, then a short table
+const showReceived = ref(false)
+const receivedTop = ref(null)
+const {
+  page: receivedPage,
+  pageSize: receivedPageSize,
+  visible: visibleReceived,
+} = usePagination(receivedReceivings, { storageKey: 'staffReceived', scrollTarget: receivedTop, sizes: [5, 10, 0] })
 
 // the corner chip: how near the delivery is ("Tomorrow", "2 days late")
 function dueChip(delivery) {
