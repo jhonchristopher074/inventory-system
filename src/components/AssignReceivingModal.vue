@@ -15,7 +15,7 @@
       @keydown.esc="!busy && emit('cancel')"
     >
       <form class="w-full max-w-md rounded-[24px] border border-sky-500/30 bg-zinc-900 p-6 shadow-2xl" @submit.prevent="submit">
-        <p class="text-xs font-extrabold uppercase tracking-[0.14em] text-sky-300">{{ reassign ? 'Give to someone else' : 'Not delivered yet' }}</p>
+        <p class="text-xs font-extrabold uppercase tracking-[0.14em] text-sky-300">{{ reassign ? 'Reassign staff' : 'Not delivered yet' }}</p>
         <h2 id="assign-title" class="mt-1 text-xl font-bold text-white">Who will receive it?</h2>
         <p class="mt-1 truncate text-sm text-zinc-400" :title="fileName">
           {{ fileName }} · {{ count(products) }} {{ products === 1 ? 'product' : 'products' }} · {{ count(pieces) }} pcs
@@ -131,7 +131,7 @@ const chosenName = computed(() => {
 const buttonText = computed(() => {
   if (props.busy) return props.reassign ? 'Saving…' : 'Sending…'
   if (props.reassign && staffId.value === props.currentStaffId) return 'Save the date'
-  const to = props.reassign ? 'Give to' : 'Send to'
+  const to = props.reassign ? 'Assign to' : 'Send to'
   return chosenName.value ? `${to} ${chosenName.value}` : `${to} staff`
 })
 

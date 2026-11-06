@@ -112,10 +112,10 @@
               Cancel delivery
             </button>
             <button type="button" class="btn-lg border border-sky-500/40 text-sky-300 hover:bg-sky-500/10 hover:text-white" :disabled="busy" @click="emit('reassign')">
-              Give to someone else
+              Reassign staff
             </button>
             <button type="button" class="btn-lg bg-violet-500 text-white hover:bg-violet-400" :disabled="busy" @click="emit('receive')">
-              Receive it myself
+              Receive delivery
             </button>
           </div>
         </footer>
