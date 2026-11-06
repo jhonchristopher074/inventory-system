@@ -60,12 +60,12 @@
         {{ receiveMessage }}
       </p>
 
-      <section v-if="receivings.length > 0" class="mb-6" aria-label="Supplier deliveries to receive">
+      <section v-if="waitingReceivings.length > 0" class="mb-6" aria-label="Supplier deliveries to receive">
         <h2 class="mb-3 text-sm font-extrabold uppercase tracking-[0.14em] text-violet-300">To receive from suppliers</h2>
 
         <div class="grid grid-cols-1 gap-4 sm:grid-cols-[repeat(auto-fill,minmax(260px,1fr))]">
           <article
-            v-for="delivery in receivings"
+            v-for="delivery in waitingReceivings"
             :key="'rcv-' + delivery.id"
             class="flex flex-col justify-between gap-4 rounded-[22px] border bg-zinc-900 p-5 shadow-xl"
             :class="isReceivingLate(delivery) ? 'border-red-500/60 bg-red-950/20' : 'border-violet-500/30'"
@@ -86,18 +86,44 @@
             </div>
 
             <button
-              v-if="delivery.status === 'waiting'"
               type="button"
               class="w-full rounded-xl bg-violet-500 py-2.5 text-sm font-bold text-white hover:bg-violet-400"
               @click="openReceive(delivery)"
             >
               Receive
             </button>
-            <p v-else class="rounded-xl bg-emerald-600/15 px-3 py-2.5 text-center text-sm font-bold text-emerald-300">
-              Delivered · {{ count(addedPieces(delivery)) }} pcs added to stock
-              <span v-if="delivery.received_by && delivery.received_by !== delivery.assigned_to" class="block text-xs font-semibold text-emerald-300/80">
-                Received by {{ delivery.received_by_name || 'the owner' }}
-              </span>
+          </article>
+        </div>
+      </section>
+
+      <!-- received: a short record for the staff member (the list keeps
+           them 3 days); the owner has the full details -->
+      <section v-if="receivedReceivings.length > 0" class="mb-6" aria-label="Recently received">
+        <div class="mb-3 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+          <h2 class="text-sm font-extrabold uppercase tracking-[0.14em] text-zinc-400">Recently received</h2>
+          <span class="text-xs text-zinc-500">Shown for 3 days · already in stock</span>
+        </div>
+
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-[repeat(auto-fill,minmax(260px,1fr))]">
+          <article
+            v-for="delivery in receivedReceivings"
+            :key="'rcvd-' + delivery.id"
+            class="flex flex-col justify-between gap-3 rounded-[22px] border border-white/10 bg-zinc-900/70 p-5"
+          >
+            <div class="min-w-0">
+              <p class="truncate font-bold text-zinc-200" :title="delivery.file_name">{{ delivery.file_name || 'Delivery' }}</p>
+              <p v-if="delivery.supplier_name" class="text-sm text-zinc-500">From {{ delivery.supplier_name }}</p>
+              <p class="mt-2 text-sm text-zinc-300">
+                Received {{ dayAndTime(delivery.received_at) }}
+                <span class="text-zinc-500">by {{ delivery.received_by_name || 'you' }}</span>
+              </p>
+              <p v-if="shortItems(delivery).length" class="mt-1 text-sm font-bold text-amber-300">
+                {{ count(shortItems(delivery).length) }} {{ shortItems(delivery).length === 1 ? 'product' : 'products' }} came short
+              </p>
+            </div>
+
+            <p class="rounded-xl bg-emerald-600/10 px-3 py-2 text-center text-sm font-bold text-emerald-300">
+              ✓ {{ count(addedPieces(delivery)) }} of {{ count(piecesOf(delivery)) }} pcs added to stock
             </p>
           </article>
         </div>
@@ -405,11 +431,11 @@ import { refreshTasksSoon, taskBadges } from '../../lib/taskCounts'
 import { supabase } from '../../lib/supabase'
 import PageHeader from '../../components/PageHeader.vue'
 import InspectionTable from '../../components/InspectionTable.vue'
-import { count } from '../../lib/format'
+import { count, dayAndTime } from '../../lib/format'
 import { useQueryParam } from '../../lib/useQueryParam'
 import { isDelivered } from '../../lib/deliveries'
 import ReceiveDeliveryModal from '../../components/ReceiveDeliveryModal.vue'
-import { addedPieces, dayText, listMyReceivings, piecesOf, receiveDelivery, todayKey } from '../../lib/receiving'
+import { addedPieces, dayText, listMyReceivings, piecesOf, receiveDelivery, shortItems, todayKey } from '../../lib/receiving'
 
 // Inspection / Delivery, kept in the address (?tab=delivery) so the
 // Dashboard's delivery links open that tab and a refresh keeps it
@@ -610,6 +636,9 @@ async function fetchDeliveries() {
 
 // ----- Supplier deliveries the owner chose you to receive -----
 const receivings = ref([])
+// waiting first (to do), then the ones received in the last 3 days (done)
+const waitingReceivings = computed(() => receivings.value.filter((delivery) => delivery.status === 'waiting'))
+const receivedReceivings = computed(() => receivings.value.filter((delivery) => delivery.status === 'received'))
 
 // work done here (saved, submitted, received): the menu's numbers follow
 watch([inspections, approvals, deliveries, receivings], () => refreshTasksSoon())
