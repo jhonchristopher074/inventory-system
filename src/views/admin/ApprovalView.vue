@@ -485,7 +485,11 @@
       :prices="priceEdits"
       :saving="reviewSaving.has(priceWindow.key)"
       :error="priceError"
+      :qtys="qtyEdits"
+      :notes="priceNotes"
+      :can-edit-qty="qtyReady"
       @price="setPrice"
+      @qty="setQty"
       :can-receive="receivingReady && !arrivedRefs.has(String(priceWindow.key))"
       @confirm="confirmGroup(priceWindow)"
       @keep="dismissGroup(priceWindow)"
@@ -2041,13 +2045,45 @@ async function cancelDelivery() {
 // why Confirm / Keep didn't work, shown inside the window
 const priceError = ref('')
 
-// a new window starts without the last one's message
-watch(openReviewKey, () => {
+// The notes that came with the receipt (the uploader's, the staff's from
+// receiving it), and the quantity boxes. Both need 20261108000001: until it's
+// run, notes stay empty and the quantities can't be changed.
+const priceNotes = ref(null)
+const qtyReady = ref(false)
+const qtyEdits = ref({}) // review item id -> what's in its quantity box
+
+// a new window starts without the last one's message, with its own notes
+watch(openReviewKey, async (key) => {
   priceError.value = ''
+  priceNotes.value = null
+  if (key == null || key === 'other') return
+
+  const { data, error } = await supabase.rpc('admin_receipt_notes', { p_ref: String(key) })
+  if (openReviewKey.value !== key) return // another window opened meanwhile
+  if (error) {
+    qtyReady.value = false
+    console.error(error)
+    return
+  }
+  qtyReady.value = true
+  priceNotes.value = data
 })
 
 function setPrice(id, value) {
   priceEdits.value = { ...priceEdits.value, [id]: value }
+}
+
+function setQty(id, value) {
+  qtyEdits.value = { ...qtyEdits.value, [id]: value }
+}
+
+// what the owner typed, or the receipt's own number
+function qtyOf(item) {
+  return item.id in qtyEdits.value ? qtyEdits.value[item.id] : String(item.qty_added ?? 0)
+}
+
+function isWholeQty(value) {
+  return /^\d+$/.test(String(value).trim()) && Number(value) <= 1000000
 }
 
 function removeGroup(group) {
@@ -2077,19 +2113,46 @@ async function confirmGroup(group) {
     return
   }
 
+  // the owner's quantities (not in stock yet): changed ones are saved first;
+  // a product at 0 isn't added at all
+  const editable = group.waiting && qtyReady.value
+  const changedQty = editable
+    ? group.items.filter((item) => item.id in qtyEdits.value && Number(qtyOf(item)) !== Number(item.qty_added))
+    : []
+  if (changedQty.some((item) => !isWholeQty(qtyOf(item)))) {
+    priceError.value = 'Every quantity must be a whole number, 0 or more.'
+    return
+  }
+  const zeroIds = editable ? group.items.filter((item) => Number(qtyOf(item)) === 0).map((item) => item.id) : []
+  const toAdd = items.filter((item) => !zeroIds.includes(item.id))
+
   reviewSaving.value.add(group.key)
 
-  const { error } = await supabase.rpc('admin_confirm_receipt_review', { p_items: items })
+  let error = null
+  const toSet = changedQty.filter((item) => Number(qtyOf(item)) > 0)
+  if (toSet.length > 0) {
+    ;({ error } = await supabase.rpc('admin_set_review_qty', {
+      p_items: toSet.map((item) => ({ id: item.id, qty: Number(qtyOf(item)) })),
+    }))
+  }
+  if (!error && zeroIds.length > 0) {
+    ;({ error } = await supabase.rpc('admin_dismiss_receipt_review', { p_ids: zeroIds }))
+  }
+  if (!error && toAdd.length > 0) {
+    ;({ error } = await supabase.rpc('admin_confirm_receipt_review', { p_items: toAdd }))
+  }
 
   reviewSaving.value.delete(group.key)
 
   if (error) {
-    priceError.value = `Couldn't save the prices: ${error.message}`
+    priceError.value = `Couldn't save: ${error.message}`
+    // part of it may be saved: show what the database has now
+    fetchReviewItems()
     return
   }
 
   removeGroup(group)
-  const products = `${items.length} product${items.length === 1 ? '' : 's'}`
+  const products = `${toAdd.length} product${toAdd.length === 1 ? '' : 's'}`
   itemsSuccess.value = group.waiting
     ? `Prices saved and ${products} added to stock.`
     : `Prices saved for ${products}.`

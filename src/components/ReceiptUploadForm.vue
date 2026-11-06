@@ -109,16 +109,17 @@
       <label class="field-label" :for="`${uid}-note`">
         3. Note for the owner <span class="font-normal text-zinc-500">(optional)</span>
       </label>
-      <input
+      <!-- the owner reads it in Check prices, where he can lower the quantities -->
+      <textarea
         :id="`${uid}-note`"
         v-model="note"
-        type="text"
+        rows="2"
         maxlength="300"
-        autocomplete="off"
-        placeholder="Anything the owner should know"
-        class="field-input"
+        placeholder="e.g. 3 pcs of the 1/2&quot; pipe are cracked, sent back to the supplier"
+        class="field-input resize-none"
         :disabled="busy"
-      />
+      ></textarea>
+      <p class="mt-1 text-xs text-zinc-500">Faulty or missing items? Write them here: the owner sees it before adding the stock.</p>
     </div>
 
     <div v-else>

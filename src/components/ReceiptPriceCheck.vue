@@ -32,9 +32,15 @@ const props = defineProps({
   error: { type: String, default: '' },
   // "Not delivered yet" is offered (the receiving SQL is run)
   canReceive: { type: Boolean, default: false },
+  // what's in each quantity box: { [item id]: '12' } (only while not in stock)
+  qtys: { type: Object, default: () => ({}) },
+  // the quantity boxes are offered (20261108000001 is run)
+  canEditQty: { type: Boolean, default: false },
+  // { upload: { note, by, role, at }, receiving: { note, by, at, items } } or null
+  notes: { type: Object, default: null },
 })
 
-const emit = defineEmits(['price', 'confirm', 'keep', 'close', 'receive'])
+const emit = defineEmits(['price', 'qty', 'confirm', 'keep', 'close', 'receive'])
 
 const items = computed(() => props.group.items || [])
 
@@ -47,7 +53,7 @@ const title = computed(() =>
 
 const newCount = computed(() => items.value.filter((item) => item.is_new).length)
 const restockCount = computed(() => items.value.length - newCount.value)
-const piecesAdded = computed(() => items.value.reduce((sum, item) => sum + Number(item.qty_added || 0), 0))
+const piecesAdded = computed(() => items.value.reduce((sum, item) => sum + (Number(qtyOf(item)) || 0), 0))
 
 const chosenPercent = computed(() => {
   const percent = Number(props.group.percent)
@@ -69,6 +75,44 @@ function isValid(item) {
 }
 
 const waiting = computed(() => Boolean(props.group.waiting))
+
+/* ------------------------------------------------------------------
+   Quantities: while nothing is in stock, the owner can lower one (faulty
+   goods sent back) or set it to 0 (that product isn't added)
+------------------------------------------------------------------ */
+const qtyEditable = computed(() => waiting.value && props.canEditQty)
+
+function qtyOf(item) {
+  return item.id in props.qtys ? props.qtys[item.id] : String(item.qty_added ?? 0)
+}
+
+function isQtyValid(item) {
+  const value = String(qtyOf(item)).trim()
+  return /^\d+$/.test(value) && Number(value) <= 1000000
+}
+
+function isQtyChanged(item) {
+  return isQtyValid(item) && Number(qtyOf(item)) !== Number(item.qty_added)
+}
+
+const qtyChangedCount = computed(() => (qtyEditable.value ? items.value.filter(isQtyChanged).length : 0))
+const skippedCount = computed(() =>
+  qtyEditable.value ? items.value.filter((item) => isQtyValid(item) && Number(qtyOf(item)) === 0).length : 0
+)
+const allQtyValid = computed(() => !qtyEditable.value || items.value.every(isQtyValid))
+
+/* ------------------------------------------------------------------
+   Notes that came with the receipt (open / close)
+------------------------------------------------------------------ */
+const uploadNote = computed(() => props.notes?.upload?.note || '')
+const receiving = computed(() => props.notes?.receiving || null)
+const receivingItems = computed(() => receiving.value?.items || [])
+const noteCount = computed(
+  () => (uploadNote.value ? 1 : 0) + (receiving.value?.note ? 1 : 0) + receivingItems.value.length
+)
+const notesOpen = ref(true)
+
+const ROLE_NAMES = { staff: 'staff', admin: 'you', supplier: 'supplier' }
 
 // Reject on a waiting receipt asks once, in the footer, before anything is sent
 const askingReject = ref(false)
@@ -95,7 +139,7 @@ function canReset(item) {
 }
 
 const changedCount = computed(() => items.value.filter(isChanged).length)
-const allValid = computed(() => items.value.every(isValid))
+const allValid = computed(() => items.value.every(isValid) && allQtyValid.value)
 
 function profitOf(item) {
   return profitPercent(item.cost, priceOf(item))
@@ -315,6 +359,44 @@ onBeforeUnmount(() => {
           </p>
         </header>
 
+        <!-- NOTES from whoever sent / received it (faulty goods, returns...) -->
+        <section v-if="noteCount > 0" class="border-b border-white/5 bg-sky-500/[0.05] px-4 sm:px-6">
+          <button
+            type="button"
+            class="flex w-full items-center gap-2 py-2.5 text-left text-sm"
+            :aria-expanded="notesOpen"
+            @click="notesOpen = !notesOpen"
+          >
+            <NavIcon name="alert" class="h-4 w-4 shrink-0 text-sky-300" />
+            <span class="font-bold text-sky-200">Notes</span>
+            <span class="rounded-full bg-sky-500/20 px-2 py-0.5 text-xs font-extrabold text-sky-200">{{ noteCount }}</span>
+            <span class="ml-auto text-xs font-bold text-zinc-400">{{ notesOpen ? 'Hide ▴' : 'Show ▾' }}</span>
+          </button>
+
+          <div v-if="notesOpen" class="max-h-40 space-y-2 overflow-y-auto pb-3 text-sm">
+            <div v-if="uploadNote" class="rounded-xl bg-white/5 p-3">
+              <p class="text-xs font-bold text-zinc-400">
+                With the upload · {{ notes.upload.by || 'someone' }} ({{ ROLE_NAMES[notes.upload.role] || notes.upload.role }})
+              </p>
+              <p class="mt-1 whitespace-pre-line text-zinc-100">{{ uploadNote }}</p>
+            </div>
+
+            <div v-if="receiving && (receiving.note || receivingItems.length)" class="rounded-xl bg-white/5 p-3">
+              <p class="text-xs font-bold text-zinc-400">When received · {{ receiving.by || 'staff' }}</p>
+              <p v-if="receiving.note" class="mt-1 whitespace-pre-line text-zinc-100">{{ receiving.note }}</p>
+              <ul v-if="receivingItems.length" class="mt-1.5 space-y-1">
+                <li v-for="(line, i) in receivingItems" :key="i" class="text-zinc-200">
+                  <b class="text-white">{{ line.product_name }}</b>
+                  <span v-if="(line.received_qty ?? 0) < line.expected_qty" class="text-amber-300">
+                    · {{ count(line.received_qty ?? 0) }} of {{ count(line.expected_qty) }} came
+                  </span>
+                  <span v-if="line.note" class="text-zinc-400"> · “{{ line.note }}”</span>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </section>
+
         <!-- products with no category yet: one category for all of them -->
         <div
           v-if="categories && uncategorized.length >= 2"
@@ -359,8 +441,35 @@ onBeforeUnmount(() => {
                       <span class="badge" :class="item.is_new ? 'bg-sky-500/20 text-sky-300' : 'bg-amber-500/20 text-amber-300'">
                         {{ item.is_new ? 'New' : 'Restock' }}
                       </span>
-                      +{{ count(item.qty_added) }} pcs<template v-if="waiting"> on confirm</template>
+                      <template v-if="!qtyEditable">
+                        +{{ count(item.qty_added) }} pcs<template v-if="waiting"> on confirm</template>
+                      </template>
                     </p>
+                    <!-- not in stock yet: how many really go in -->
+                    <div v-if="qtyEditable" class="mt-2 flex flex-wrap items-center gap-2 text-xs">
+                      <label class="text-zinc-400" :for="'qty-' + item.id">Pcs to add</label>
+                      <input
+                        :id="'qty-' + item.id"
+                        class="qty-box"
+                        :class="{ 'is-changed': isQtyChanged(item), 'is-invalid': !isQtyValid(item) }"
+                        type="number"
+                        inputmode="numeric"
+                        min="0"
+                        step="1"
+                        :value="qtyOf(item)"
+                        @input="emit('qty', item.id, $event.target.value)"
+                      />
+                      <span v-if="isQtyChanged(item)" class="text-zinc-500">receipt: {{ count(item.qty_added) }}</span>
+                      <span v-if="isQtyValid(item) && Number(qtyOf(item)) === 0" class="font-bold text-amber-300">not added</span>
+                      <button
+                        v-if="isQtyChanged(item) || !isQtyValid(item)"
+                        type="button"
+                        class="reset-link"
+                        @click="emit('qty', item.id, String(item.qty_added ?? 0))"
+                      >
+                        Reset
+                      </button>
+                    </div>
                   </div>
                 </td>
 
@@ -463,10 +572,14 @@ onBeforeUnmount(() => {
             <p v-else-if="freeNew.length > 0" class="font-bold text-red-400">
               Give every new product a selling price above ₱0.
             </p>
+            <p v-else-if="!allQtyValid" class="font-bold text-red-400">Every quantity must be a whole number, 0 or more.</p>
             <p v-else-if="!allValid" class="font-bold text-red-400">Every price must be a number, 0 or more.</p>
             <p v-else-if="waiting" class="text-zinc-400">
               Nothing is in stock yet. Confirm adds <b class="text-white">{{ count(piecesAdded) }} pcs</b>
-              at these prices. Categories save as you pick them.
+              at these prices<template v-if="qtyChangedCount > 0">
+                ({{ count(qtyChangedCount) }} quantit{{ qtyChangedCount === 1 ? 'y' : 'ies' }} changed<template v-if="skippedCount > 0">,
+                {{ count(skippedCount) }} not added</template>)</template>.
+              Categories save as you pick them.
             </p>
             <p v-else class="text-zinc-400">
               <b class="text-white">{{ count(changedCount) }}</b> of {{ count(items.length) }}
@@ -667,6 +780,32 @@ onBeforeUnmount(() => {
 .price-box input::-webkit-inner-spin-button {
   margin: 0;
   -webkit-appearance: none;
+}
+
+/* "Pcs to add": amber when changed from the receipt, red when not a number */
+.qty-box {
+  width: 5.5rem;
+  border-radius: 0.6rem;
+  border: 1px solid var(--hairline);
+  background: var(--surface-sunken);
+  padding: 0.3rem 0.5rem;
+  text-align: right;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: #fff;
+  outline: none;
+}
+
+.qty-box:focus {
+  border-color: rgba(224, 27, 50, 0.55);
+}
+
+.qty-box.is-changed {
+  border-color: rgba(251, 191, 36, 0.65);
+}
+
+.qty-box.is-invalid {
+  border-color: rgba(239, 68, 68, 0.85);
 }
 
 .reset-link {

@@ -86,7 +86,7 @@
     <!-- ============================================================
          UPLOAD: drop a receipt, or click (Enter / Space) to choose one
     ============================================================ -->
-    <section v-if="activeTab === 'upload'" class="mx-auto max-w-2xl" aria-label="Upload a receipt">
+    <section v-if="activeTab === 'upload'" class="mx-auto max-w-3xl" aria-label="Upload a receipt">
       <div class="card p-4 sm:p-6">
         <div
           class="drop-zone"
@@ -113,20 +113,23 @@
           </div>
 
           <!-- a file is chosen: see it, then send it or take it off -->
-          <div v-else class="w-full text-center">
+          <!-- side by side on computers: the page fits one screen -->
+          <div v-else class="flex w-full flex-col items-center gap-4 text-center sm:flex-row sm:gap-6 sm:text-left">
             <img
               v-if="previewUrl"
               :src="previewUrl"
               :alt="selectedFile.name"
-              class="mx-auto max-h-56 max-w-full rounded-xl object-contain shadow-lg"
+              class="max-h-44 max-w-full shrink-0 rounded-xl object-contain shadow-lg sm:max-h-48 sm:max-w-[45%]"
             />
-            <span v-else class="drop-icon is-ready"><NavIcon name="check" class="h-7 w-7" /></span>
-            <p class="mx-auto mt-4 max-w-md truncate text-lg font-extrabold text-white" :title="selectedFile.name">
+            <span v-else class="drop-icon is-ready sm:!mx-0 shrink-0"><NavIcon name="check" class="h-7 w-7" /></span>
+
+            <div class="min-w-0 flex-1">
+            <p class="truncate text-lg font-extrabold text-white" :title="selectedFile.name">
               {{ selectedFile.name }}
             </p>
             <p class="mt-1 text-sm text-zinc-400">{{ formatFileSize(selectedFile.size) }}</p>
 
-            <div class="mt-5 flex flex-wrap justify-center gap-2">
+            <div class="mt-4 flex flex-wrap justify-center gap-2 sm:justify-start">
               <button
                 type="button"
                 class="rounded-xl bg-zinc-800 px-5 py-2.5 text-sm font-bold text-white hover:bg-zinc-700 disabled:opacity-50"
@@ -143,6 +146,7 @@
               >
                 {{ uploading ? 'Uploading…' : 'Upload receipt' }}
               </button>
+            </div>
             </div>
           </div>
         </div>
@@ -1070,7 +1074,7 @@ onUnmounted(() => {
 /* the drop zone: dashed until a file is chosen, red while one is dragged over it */
 .drop-zone {
   display: flex;
-  min-height: 280px;
+  min-height: 240px;
   align-items: center;
   justify-content: center;
   border-radius: var(--radius-lg);
