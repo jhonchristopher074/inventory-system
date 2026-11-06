@@ -152,3 +152,84 @@
   background: rgba(5, 150, 105, 0.15);
   color: var(--color-emerald-400);
 }
+
+/* The data tables of the Approval page: a header row, one row per item.
+   On phones (resp-table in style.css) each row is a small card. */
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 0.875rem;
+}
+
+.data-table thead {
+  background: rgba(0, 0, 0, 0.35);
+}
+
+.data-table th {
+  padding: 0.65rem 1rem;
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--color-zinc-500);
+}
+
+.data-table td {
+  padding: 0.7rem 1rem;
+  border-top: 1px solid var(--hairline-soft);
+  vertical-align: middle;
+  color: var(--color-zinc-300);
+}
+
+.data-table tbody tr {
+  transition: background 0.15s;
+}
+
+.data-table tbody tr:hover {
+  background: rgba(255, 255, 255, 0.025);
+}
+
+/* the name cell: one line, cut with … when long */
+.cell-text {
+  min-width: 0;
+  max-width: 22rem;
+}
+
+.data-table .cell-actions {
+  width: 1%;
+  white-space: nowrap;
+}
+
+.row-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.4rem;
+}
+
+@media (max-width: 760px) {
+  .data-table td {
+    border-top: 0;
+  }
+
+  .data-table tbody tr + tr {
+    border-top: 1px solid var(--hairline-soft);
+  }
+
+  .data-table .cell-actions {
+    width: 100%;
+  }
+
+  .row-actions {
+    justify-content: flex-start;
+  }
+
+  .row-actions > .btn-sm {
+    flex: 1;
+  }
+
+  .cell-text {
+    max-width: 100%;
+  }
+}
