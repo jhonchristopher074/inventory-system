@@ -63,7 +63,7 @@
       <section v-if="waitingReceivings.length > 0" class="mb-6" aria-label="Supplier deliveries to receive">
         <h2 class="mb-3 text-sm font-extrabold uppercase tracking-[0.14em] text-violet-300">To receive from suppliers</h2>
 
-        <div class="grid grid-cols-1 gap-4 sm:grid-cols-[repeat(auto-fill,minmax(260px,1fr))]">
+        <div class="delivery-grid">
           <article
             v-for="delivery in waitingReceivings"
             :key="'rcv-' + delivery.id"
@@ -96,96 +96,128 @@
         </div>
       </section>
 
-      <!-- received: a short record for the staff member (the list keeps
-           them 3 days); the owner has the full details -->
-      <section v-if="receivedReceivings.length > 0" class="mb-6" aria-label="Recently received">
+      <!-- SCHEDULED by the owner: mark them when the goods come -->
+      <section class="mb-8" aria-label="Scheduled deliveries">
         <div class="mb-3 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-          <h2 class="text-sm font-extrabold uppercase tracking-[0.14em] text-zinc-400">Recently received</h2>
-          <span class="text-xs text-zinc-500">Shown for 3 days · already in stock</span>
+          <h2 class="text-sm font-extrabold uppercase tracking-[0.14em] text-zinc-300">Scheduled deliveries</h2>
+          <span v-if="deliveries.length" class="text-xs text-zinc-500">
+            {{ deliveries.length }} {{ deliveries.length === 1 ? 'delivery' : 'deliveries' }} · mark each one when the goods come
+          </span>
         </div>
 
-        <div class="grid grid-cols-1 gap-4 sm:grid-cols-[repeat(auto-fill,minmax(260px,1fr))]">
+        <div
+          v-if="deliveries.length === 0"
+          class="rounded-[22px] border border-dashed border-white/15 bg-zinc-900/50 p-6 text-center"
+        >
+          <p class="font-bold text-zinc-300">No deliveries scheduled</p>
+          <p class="mt-1 text-sm text-zinc-500">When the owner schedules one, it shows up here.</p>
+        </div>
+
+        <div v-else class="delivery-grid">
+          <article
+            v-for="delivery in deliveries"
+            :key="delivery.id"
+            class="flex flex-col gap-4 rounded-[22px] border bg-zinc-900 p-5 shadow-xl"
+            :class="isDeliveryOverdue(delivery) ? 'border-red-500/60 bg-red-950/25' : 'border-white/10'"
+          >
+            <div class="min-w-0 flex-1">
+              <div class="flex items-start justify-between gap-3">
+                <h3 class="min-w-0 truncate text-lg font-bold text-white" :title="delivery.title">{{ delivery.title }}</h3>
+                <span
+                  class="shrink-0 rounded-full px-2.5 py-1 text-xs font-bold"
+                  :class="dueChip(delivery).tone"
+                >
+                  {{ dueChip(delivery).text }}
+                </span>
+              </div>
+              <p class="mt-1 truncate text-sm text-zinc-400">
+                From <span class="text-zinc-200">{{ delivery.supplier || 'no supplier set' }}</span>
+              </p>
+
+              <dl class="mt-4 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 text-sm">
+                <dt class="text-zinc-500">Date</dt>
+                <dd class="font-semibold text-zinc-200">{{ formatDate(delivery.delivery_date) }}</dd>
+                <dt class="text-zinc-500">Status</dt>
+                <dd>
+                  <span
+                    v-if="receiptStateOf(delivery)"
+                    class="rounded-full px-2.5 py-0.5 text-xs font-bold"
+                    :class="receiptStateOf(delivery).tone"
+                  >
+                    {{ receiptStateOf(delivery).text }}
+                  </span>
+                  <span v-else class="font-semibold text-emerald-400">{{ delivery.status || 'Scheduled' }}</span>
+                </dd>
+              </dl>
+
+              <p v-if="delivery.receipt_state === 'sent'" class="mt-3 text-xs text-zinc-500">
+                The owner is checking its receipt; its stock is added after that.
+              </p>
+            </div>
+
+            <!-- arrived, no receipt yet: upload it when it comes -->
+            <button
+              v-if="delivery.receipt_state === 'waiting'"
+              type="button"
+              class="w-full rounded-xl bg-amber-500 py-2.5 text-sm font-bold text-black transition hover:bg-amber-400"
+              @click="openArrival(delivery, 'upload')"
+            >
+              Upload its receipt
+            </button>
+            <button
+              v-else-if="!isDelivered(delivery)"
+              type="button"
+              class="w-full rounded-xl bg-emerald-600 py-2.5 text-sm font-bold text-white transition hover:bg-emerald-700"
+              @click="openArrival(delivery, 'ask')"
+            >
+              ✓ Mark as delivered
+            </button>
+          </article>
+        </div>
+      </section>
+
+      <!-- received: a short record for the staff member (the list keeps
+           them 3 days); the owner has the full details -->
+      <section v-if="receivedReceivings.length > 0" aria-label="Recently received">
+        <div class="mb-3 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+          <h2 class="text-sm font-extrabold uppercase tracking-[0.14em] text-zinc-400">Recently received</h2>
+          <span class="text-xs text-zinc-500">Already in stock · shown for 3 days</span>
+        </div>
+
+        <div class="delivery-grid">
           <article
             v-for="delivery in receivedReceivings"
             :key="'rcvd-' + delivery.id"
-            class="flex flex-col justify-between gap-3 rounded-[22px] border border-white/10 bg-zinc-900/70 p-5"
+            class="flex flex-col gap-4 rounded-[22px] border border-white/10 bg-zinc-900/60 p-5"
           >
-            <div class="min-w-0">
-              <p class="truncate font-bold text-zinc-200" :title="delivery.file_name">{{ delivery.file_name || 'Delivery' }}</p>
-              <p v-if="delivery.supplier_name" class="text-sm text-zinc-500">From {{ delivery.supplier_name }}</p>
-              <p class="mt-2 text-sm text-zinc-300">
-                Received {{ dayAndTime(delivery.received_at) }}
-                <span class="text-zinc-500">by {{ delivery.received_by_name || 'you' }}</span>
+            <div class="min-w-0 flex-1">
+              <div class="flex items-start justify-between gap-3">
+                <h3 class="min-w-0 truncate text-lg font-bold text-zinc-200" :title="delivery.supplier_name || delivery.file_name">
+                  {{ delivery.supplier_name || delivery.file_name || 'Delivery' }}
+                </h3>
+                <span class="shrink-0 rounded-full bg-emerald-600/15 px-2.5 py-1 text-xs font-bold text-emerald-300">Received</span>
+              </div>
+              <p v-if="delivery.supplier_name && delivery.file_name" class="mt-1 truncate text-sm text-zinc-500" :title="delivery.file_name">
+                Receipt: {{ delivery.file_name }}
               </p>
-              <p v-if="shortItems(delivery).length" class="mt-1 text-sm font-bold text-amber-300">
+
+              <dl class="mt-4 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 text-sm">
+                <dt class="text-zinc-500">When</dt>
+                <dd class="font-semibold text-zinc-200">{{ dayAndTime(delivery.received_at) }}</dd>
+                <dt class="text-zinc-500">By</dt>
+                <dd class="font-semibold text-zinc-200">{{ delivery.received_by_name || 'You' }}</dd>
+              </dl>
+              <p v-if="shortItems(delivery).length" class="mt-3 text-sm font-bold text-amber-300">
                 {{ count(shortItems(delivery).length) }} {{ shortItems(delivery).length === 1 ? 'product' : 'products' }} came short
               </p>
             </div>
 
-            <p class="rounded-xl bg-emerald-600/10 px-3 py-2 text-center text-sm font-bold text-emerald-300">
+            <p class="rounded-xl bg-emerald-600/10 px-3 py-2.5 text-center text-sm font-bold text-emerald-300">
               ✓ {{ count(addedPieces(delivery)) }} of {{ count(piecesOf(delivery)) }} pcs added to stock
             </p>
           </article>
         </div>
       </section>
-
-      <div
-        v-if="deliveries.length === 0 && receivings.length === 0"
-        class="rounded-[24px] border border-white/10 bg-zinc-900 p-5 text-zinc-400"
-      >
-        No delivery schedules.
-      </div>
-
-      <div v-else class="grid grid-cols-1 gap-5 sm:grid-cols-[repeat(auto-fill,260px)]">
-        <div
-          v-for="delivery in deliveries"
-          :key="delivery.id"
-          class="flex flex-col justify-between rounded-[22px] border border-white/10 bg-zinc-900 p-5 shadow-xl"
-          :class="isDeliveryOverdue(delivery) ? 'border-red-500/70 bg-red-950/30 shadow-red-500/20' : ''"
-        >
-          <div>
-            <h2 class="text-xl font-bold text-white">{{ delivery.title }}</h2>
-            <p class="mt-3 text-sm text-zinc-400">Supplier: {{ delivery.supplier || 'No supplier' }}</p>
-            <p class="mt-2 text-sm font-bold text-red-400">{{ formatDate(delivery.delivery_date) }}</p>
-
-            <div class="mt-2 flex flex-wrap items-center gap-2">
-              <span
-                v-if="receiptStateOf(delivery)"
-                class="rounded-full px-3 py-1 text-xs font-bold"
-                :class="receiptStateOf(delivery).tone"
-              >
-                {{ receiptStateOf(delivery).text }}
-              </span>
-              <span v-else class="text-sm text-emerald-400">{{ delivery.status || 'Scheduled' }}</span>
-              <span
-                v-if="isDeliveryOverdue(delivery)"
-                class="rounded-full bg-red-600/20 px-3 py-1 text-xs font-bold text-red-400"
-              >
-                Overdue
-              </span>
-            </div>
-            <p v-if="delivery.receipt_state === 'sent'" class="mt-2 text-xs text-zinc-500">
-              The owner is checking its receipt; its stock is added after that.
-            </p>
-          </div>
-
-          <!-- arrived, no receipt yet: upload it when it comes -->
-          <button
-            v-if="delivery.receipt_state === 'waiting'"
-            class="mt-4 w-full rounded-xl bg-amber-500 py-2 text-sm font-bold text-black transition hover:bg-amber-400"
-            @click="openArrival(delivery, 'upload')"
-          >
-            Upload its receipt
-          </button>
-          <button
-            v-else-if="!isDelivered(delivery)"
-            class="mt-4 w-full rounded-xl bg-emerald-600 py-2 text-sm font-bold text-white transition hover:bg-emerald-700"
-            @click="openArrival(delivery, 'ask')"
-          >
-            ✓ Mark as Delivered
-          </button>
-        </div>
-      </div>
     </div>
 
     <!-- RECEIVE A SUPPLIER DELIVERY -->
@@ -1053,6 +1085,23 @@ async function removeSavedInspection(approval) {
   }
 }
 
+// the corner chip: how near the delivery is ("Tomorrow", "2 days late")
+function dueChip(delivery) {
+  if (delivery.receipt_state === 'waiting' || delivery.receipt_state === 'sent') {
+    return { text: 'Arrived', tone: 'bg-sky-500/15 text-sky-300' }
+  }
+  if (!delivery.delivery_date) return { text: 'No date', tone: 'bg-white/5 text-zinc-400' }
+  const [y, m, d] = String(delivery.delivery_date).slice(0, 10).split('-').map(Number)
+  const [ty, tm, td] = getToday().split('-').map(Number)
+  const days = Math.round((Date.UTC(y, m - 1, d) - Date.UTC(ty, tm - 1, td)) / 86400000)
+  if (days < 0) {
+    return { text: `${-days} ${days === -1 ? 'day' : 'days'} late`, tone: 'bg-red-600/20 text-red-300' }
+  }
+  if (days === 0) return { text: 'Today', tone: 'bg-amber-500/20 text-amber-300' }
+  if (days === 1) return { text: 'Tomorrow', tone: 'bg-violet-500/20 text-violet-200' }
+  return { text: `In ${days} days`, tone: 'bg-white/5 text-zinc-300' }
+}
+
 function formatDate(date) {
   if (!date) return 'No date'
   // Read "2026-10-13" as a local date, not UTC midnight (can show the day before).
@@ -1066,6 +1115,13 @@ function formatDate(date) {
 </script>
 
 <style scoped>
+/* every delivery card the same width, on every row and section */
+.delivery-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr));
+}
+
 .tab-btn {
   border-radius: 1rem;
   padding: 0.75rem 1.25rem;
