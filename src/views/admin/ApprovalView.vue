@@ -266,17 +266,16 @@
 
       <!-- ============================================================
            DELIVERIES ON THE WAY: receipts whose goods hadn't arrived ("Not
-           delivered yet" in Check prices). Shown only while one waits: the
-           owner may receive it himself, give it to someone else or cancel
-           it. Once received, its stock is added and the details come in the
+           delivered yet" in Check prices). The owner may receive one himself,
+           reassign it or cancel it. Once received, its stock is added and the details come in the
            bell, so it leaves this page.
       ============================================================ -->
       <p v-if="receivingError" class="msg msg-error" role="alert">{{ receivingError }}</p>
 
-      <div v-if="waitingDeliveries.length > 0" class="list-card border-sky-500/25">
+      <div v-if="receivingReady" ref="deliveriesTop" class="list-card scroll-mt-4 border-sky-500/25">
         <div class="list-head">
           <h2 class="list-title">Deliveries on the way</h2>
-          <span class="list-count bg-sky-500/15 text-sky-300">{{ count(waitingDeliveries.length) }}</span>
+          <span v-if="waitingDeliveries.length > 0" class="list-count bg-sky-500/15 text-sky-300">{{ count(waitingDeliveries.length) }}</span>
           <span class="list-hint" title="Receipts whose goods haven't arrived yet. When the staff member marks one delivered, what arrived goes into stock at your prices and you get the details.">
             Added to stock when received
           </span>
@@ -293,7 +292,10 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="delivery in waitingDeliveries" :key="delivery.id">
+            <tr v-if="waitingDeliveries.length === 0" class="empty-row">
+              <td colspan="5">Nothing on the way. A receipt you mark "Not delivered yet" shows here until it's received.</td>
+            </tr>
+            <tr v-for="delivery in deliveriesVisible" :key="delivery.id">
               <td class="cell-main">
                 <div class="flex min-w-0 items-center gap-3">
                   <span class="thumb bg-sky-500/15 text-sky-300">
@@ -323,6 +325,13 @@
             </tr>
           </tbody>
         </table>
+        <TablePager
+          v-if="waitingDeliveries.length > 0"
+          v-model:page="deliveriesPageNo"
+          v-model:page-size="deliveriesPageSize"
+          :total="waitingDeliveries.length"
+          noun="deliveries"
+        />
       </div>
 
       <!-- Approved, but copying to the Approved Receipt bucket failed,
@@ -1561,6 +1570,12 @@ const reviewItems = ref([])
 // the last 14 days. A receipt waiting for its delivery isn't in "Prices to check".
 const receivings = ref([])
 const waitingDeliveries = computed(() => receivings.value.filter((delivery) => delivery.status === 'waiting'))
+const deliveriesTop = ref(null)
+const {
+  page: deliveriesPageNo,
+  pageSize: deliveriesPageSize,
+  visible: deliveriesVisible,
+} = usePagination(waitingDeliveries, { storageKey: 'approvalDeliveries', scrollTarget: deliveriesTop })
 const openReceivingRefs = computed(() => new Set(waitingDeliveries.value.map((delivery) => String(delivery.receipt_ref))))
 const priceEdits = ref({}) // item id -> what is typed in the price box
 const reviewSaving = ref(new Set()) // group keys being saved
