@@ -191,6 +191,17 @@
   background: rgba(255, 255, 255, 0.025);
 }
 
+/* an empty table: one row with the message, under the headers */
+.data-table .empty-row td {
+  padding: 1.6rem 1rem;
+  text-align: center;
+  color: var(--color-zinc-500);
+}
+
+.data-table .empty-row:hover {
+  background: transparent;
+}
+
 /* the name cell: one line, cut with … when long */
 .cell-text {
   min-width: 0;
@@ -231,5 +242,15 @@
 
   .cell-text {
     max-width: 100%;
+  }
+
+  /* phones: the message alone, no label */
+  .data-table .empty-row td {
+    justify-content: center;
+    text-align: center;
+  }
+
+  .data-table .empty-row td::before {
+    display: none;
   }
 }

@@ -59,11 +59,8 @@
           </button>
         </div>
 
-        <p v-if="supplierLoading && supplierUploads.length === 0" class="list-empty">Loading…</p>
-        <p v-else-if="supplierUploads.length === 0" class="list-empty">Nothing to approve.</p>
-
-        <template v-else>
-          <table class="data-table resp-table">
+        <!-- the table stays, headers and all, when it's empty -->
+        <table class="data-table resp-table">
             <thead>
               <tr>
                 <th>Receipt</th>
@@ -74,6 +71,9 @@
               </tr>
             </thead>
             <tbody>
+              <tr v-if="supplierUploads.length === 0" class="empty-row">
+                <td colspan="5">{{ supplierLoading ? 'Loading…' : 'Nothing to approve. New receipts from suppliers and staff show here.' }}</td>
+              </tr>
               <tr v-for="upload in receiptsVisible" :key="upload.id">
                 <td class="cell-main">
                   <div class="flex min-w-0 items-center gap-3">
@@ -156,12 +156,12 @@
             </tbody>
           </table>
           <TablePager
+            v-if="supplierUploads.length > 0"
             v-model:page="receiptsPageNo"
             v-model:page-size="receiptsPageSize"
             :total="supplierUploads.length"
             noun="receipts"
           />
-        </template>
       </div>
 
       <!-- Approved receipts waiting their turn to be sent to n8n.
@@ -414,11 +414,8 @@
           <span v-if="approvals.length > 0" class="list-count bg-red-600/20 text-red-400">{{ count(approvals.length) }}</span>
         </div>
 
-        <p v-if="loading && approvals.length === 0" class="list-empty">Loading…</p>
-        <p v-else-if="approvals.length === 0" class="list-empty">Nothing to approve.</p>
-
-        <template v-else>
-          <table class="data-table resp-table">
+        <!-- the table stays, headers and all, when it's empty -->
+        <table class="data-table resp-table">
             <thead>
               <tr>
                 <th>Product</th>
@@ -430,6 +427,9 @@
               </tr>
             </thead>
             <tbody>
+              <tr v-if="approvals.length === 0" class="empty-row">
+                <td colspan="6">{{ loading ? 'Loading…' : 'Nothing to approve. Inspections the staff submit show here.' }}</td>
+              </tr>
               <tr v-for="approval in inspectionsVisible" :key="approval.id">
                 <td class="cell-main">
                   <div class="flex min-w-0 items-center gap-3">
@@ -472,12 +472,12 @@
             </tbody>
           </table>
           <TablePager
+            v-if="approvals.length > 0"
             v-model:page="inspectionsPageNo"
             v-model:page-size="inspectionsPageSize"
             :total="approvals.length"
             noun="inspections"
           />
-        </template>
       </div>
     </section>
 
