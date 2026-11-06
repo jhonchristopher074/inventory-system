@@ -119,7 +119,10 @@
                       >
                         File missing · reject to clear it
                       </p>
-                      <p v-else-if="upload.note" class="row-sub text-zinc-400" :title="upload.note">“{{ upload.note }}”</p>
+                      <p v-else-if="upload.delivery_title" class="row-sub font-semibold text-sky-300">
+                        For the delivery “{{ upload.delivery_title }}”
+                      </p>
+                      <p v-if="upload.note && !fileMissing(upload)" class="row-sub text-zinc-400" :title="upload.note">“{{ upload.note }}”</p>
                     </div>
                   </div>
                 </td>
@@ -483,7 +486,7 @@
       :saving="reviewSaving.has(priceWindow.key)"
       :error="priceError"
       @price="setPrice"
-      :can-receive="receivingReady"
+      :can-receive="receivingReady && !arrivedRefs.has(String(priceWindow.key))"
       @confirm="confirmGroup(priceWindow)"
       @keep="dismissGroup(priceWindow)"
       @receive="askReceive(priceWindow)"
@@ -561,7 +564,16 @@
           <h2 id="own-upload-title" class="mt-1 text-xl font-bold text-white sm:text-2xl">A receipt handed to you</h2>
           <p class="mt-1 text-sm text-zinc-400">No approval needed: it goes straight to the receipt scanner.</p>
 
-          <ReceiptUploadForm class="mt-5" mode="owner" @done="ownReceiptUploaded" @cancel="ownUploadOpen = false" />
+          <ReceiptUploadForm
+            class="mt-5"
+            mode="owner"
+            :delivery-id="ownUploadFor?.id || null"
+            :delivery-title="ownUploadFor?.title || ''"
+            :preset-supplier="ownUploadFor?.supplier || ''"
+            :deliveries="ownUploadFor ? [] : waitingForReceipt"
+            @done="ownReceiptUploaded"
+            @cancel="closeOwnUpload"
+          />
         </div>
       </div>
     </Teleport>
@@ -630,6 +642,25 @@
                 Open the PDF in a new tab
               </a>
             </div>
+          </div>
+
+          <!-- the arrived delivery it's for (its stock comes from this receipt) -->
+          <p
+            v-if="review.mode === 'approve' && review.upload.delivery_title"
+            class="mt-4 rounded-xl bg-sky-500/10 p-3 text-sm text-sky-200"
+          >
+            For the delivery <b class="text-white">{{ review.upload.delivery_title }}</b>: its goods are here.
+          </p>
+          <div v-else-if="review.mode === 'approve' && waitingForReceipt.length > 0" class="mt-4">
+            <label class="mb-2 block text-sm font-bold text-zinc-300" for="review-delivery">
+              Is this the receipt of an arrived delivery?
+            </label>
+            <select id="review-delivery" v-model="reviewDeliveryId" class="input w-full">
+              <option value="">No</option>
+              <option v-for="delivery in waitingForReceipt" :key="delivery.id" :value="String(delivery.id)">
+                Yes: {{ delivery.title }}{{ delivery.supplier ? ` · ${delivery.supplier}` : '' }}
+              </option>
+            </select>
           </div>
 
           <!-- profit percentage -->
@@ -874,7 +905,8 @@
 
 <script setup>
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
-import { onBeforeRouteLeave } from 'vue-router'
+import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
+import { linkDeliveryReceipt } from '../../lib/deliveries'
 import { supabase, uniqueChannelName } from '../../lib/supabase'
 import { useQueryParam } from '../../lib/useQueryParam'
 import { setLeaveQuestion } from '../../lib/leaveGuard'
@@ -1085,6 +1117,7 @@ let uploadsChannel = null
    products n8n creates. n8n only sees the receipt itself.
 ------------------------------------------------------------------ */
 const review = ref(null) // { upload, mode: 'approve' | 'send' }
+const reviewDeliveryId = ref('') // the arrived delivery this receipt is for ('' none)
 const profitInput = ref('')
 const reviewError = ref('')
 const zoomOpen = ref(false)
@@ -1092,6 +1125,13 @@ const zoom = ref(1)
 
 function openReview(upload, mode) {
   review.value = { upload, mode }
+  // an arrived delivery from the same supplier: probably this one
+  const sameSupplier = waitingForReceipt.value.filter(
+    (delivery) =>
+      delivery.supplier &&
+      String(delivery.supplier).trim().toLowerCase() === String(upload.supplier_name || '').trim().toLowerCase()
+  )
+  reviewDeliveryId.value = !upload.delivery_id && sameSupplier.length === 1 ? String(sameSupplier[0].id) : ''
   profitInput.value = ''
   reviewError.value = ''
   zoomOpen.value = false
@@ -1132,13 +1172,14 @@ function confirmReview() {
   // keep at most 2 decimals (25.456 -> 25.46)
   const clean = Math.round(percent * 100) / 100
   const { upload, mode } = review.value
+  const deliveryId = mode === 'approve' && !upload.delivery_id ? reviewDeliveryId.value : ''
 
   closeReview()
 
   if (mode === 'send') {
     resendSupplierUpload(upload, clean)
   } else {
-    approveSupplierUpload(upload, clean)
+    approveSupplierUpload(upload, clean, deliveryId)
   }
 }
 
@@ -1214,7 +1255,7 @@ async function fetchReceipt(upload) {
   return data
 }
 
-async function approveSupplierUpload(upload, profitPercent) {
+async function approveSupplierUpload(upload, profitPercent, deliveryId = '') {
   supplierError.value = ''
   supplierSuccess.value = ''
   busyIds.value.add(upload.id)
@@ -1227,6 +1268,9 @@ async function approveSupplierUpload(upload, profitPercent) {
     //    supplierReceipt bucket until its copy is in the Approved Receipt
     //    bucket and recorded (forwardReceipt), and that copy is kept.
     const blob = await fetchReceipt(upload)
+
+    // the arrived delivery it's for: linked first (its goods are here)
+    if (deliveryId) await linkDeliveryReceipt(upload.id, Number(deliveryId))
 
     // 2. mark approved
     const { data: approved, error } = await supabase.rpc('admin_approve_supplier_upload', {
@@ -1492,9 +1536,16 @@ async function fetchUnsentUploads() {
 // The owner uploaded a receipt himself (ReceiptUploadForm): it's approved
 // already, so it goes in line for the scanner like an approved one.
 const ownUploadOpen = ref(false)
+const ownUploadFor = ref(null) // the arrived delivery (Calendar > Add receipt)
+
+function closeOwnUpload() {
+  ownUploadOpen.value = false
+  ownUploadFor.value = null
+}
 
 function ownReceiptUploaded({ row, file, percent }) {
-  ownUploadOpen.value = false
+  closeOwnUpload()
+  fetchCalendarDeliveries()
   supplierError.value = ''
   busyIds.value.add(row.id)
   enqueueSend({ upload: row, blob: file, percent, mode: 'approve' })
@@ -1785,6 +1836,47 @@ async function fetchReceivings() {
   } catch (err) {
     console.error(err)
   }
+  fetchCalendarDeliveries()
+}
+
+// Calendar deliveries (lib/deliveries.js): the ones that arrived without
+// their receipt, and the receipts already linked to one
+const calendarDeliveries = ref([])
+const waitingForReceipt = computed(() =>
+  calendarDeliveries.value.filter((delivery) => delivery.receipt_state === 'waiting')
+)
+// receipts of goods that are already here: no "Not delivered yet" for them
+const arrivedRefs = computed(
+  () => new Set(calendarDeliveries.value.filter((d) => d.upload_id).map((d) => String(d.upload_id)))
+)
+
+async function fetchCalendarDeliveries() {
+  const { data, error } = await supabase.rpc('list_deliveries')
+  if (error) {
+    console.error(error)
+    return
+  }
+  calendarDeliveries.value = data || []
+  openReceiptFor()
+}
+
+// Calendar > Add receipt: /approval?receiptFor=<delivery>
+const route = useRoute()
+const router = useRouter()
+
+function openReceiptFor() {
+  const id = route.query.receiptFor
+  if (!id) return
+  const delivery = waitingForReceipt.value.find((item) => String(item.id) === String(id))
+  const query = { ...route.query }
+  delete query.receiptFor
+  router.replace({ query })
+  if (!delivery) {
+    supplierError.value = 'That delivery already has its receipt.'
+    return
+  }
+  ownUploadFor.value = delivery
+  ownUploadOpen.value = true
 }
 
 // "Not delivered yet" -> choose who receives it

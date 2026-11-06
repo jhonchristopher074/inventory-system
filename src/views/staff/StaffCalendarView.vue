@@ -149,7 +149,14 @@
             <p class="mt-2 text-sm font-bold text-red-400">{{ formatDate(delivery.delivery_date) }}</p>
 
             <div class="mt-2 flex flex-wrap items-center gap-2">
-              <span class="text-sm text-emerald-400">{{ delivery.status || 'Scheduled' }}</span>
+              <span
+                v-if="receiptStateOf(delivery)"
+                class="rounded-full px-3 py-1 text-xs font-bold"
+                :class="receiptStateOf(delivery).tone"
+              >
+                {{ receiptStateOf(delivery).text }}
+              </span>
+              <span v-else class="text-sm text-emerald-400">{{ delivery.status || 'Scheduled' }}</span>
               <span
                 v-if="isDeliveryOverdue(delivery)"
                 class="rounded-full bg-red-600/20 px-3 py-1 text-xs font-bold text-red-400"
@@ -157,11 +164,23 @@
                 Overdue
               </span>
             </div>
+            <p v-if="delivery.receipt_state === 'sent'" class="mt-2 text-xs text-zinc-500">
+              The owner is checking its receipt; its stock is added after that.
+            </p>
           </div>
 
+          <!-- arrived, no receipt yet: upload it when it comes -->
           <button
+            v-if="delivery.receipt_state === 'waiting'"
+            class="mt-4 w-full rounded-xl bg-amber-500 py-2 text-sm font-bold text-black transition hover:bg-amber-400"
+            @click="openArrival(delivery, 'upload')"
+          >
+            Upload its receipt
+          </button>
+          <button
+            v-else-if="!isDelivered(delivery)"
             class="mt-4 w-full rounded-xl bg-emerald-600 py-2 text-sm font-bold text-white transition hover:bg-emerald-700"
-            @click="openDeliveryDone(delivery)"
+            @click="openArrival(delivery, 'ask')"
           >
             ✓ Mark as Delivered
           </button>
@@ -179,44 +198,79 @@
       @close="receiveTarget = null"
     />
 
-    <!-- CONFIRM DELIVERY DONE -->
+    <!-- THE GOODS ARRIVED: the receipt is what puts them in stock, so ask
+         for it (lib/deliveries.js). Upload it now, or say it's coming. -->
     <div
-      v-if="deliveryToFinish"
-      class="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4"
-      @click.self="closeDeliveryDone"
+      v-if="arrival"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-3 sm:p-4"
     >
-      <div class="max-h-[92vh] w-full max-w-sm overflow-y-auto rounded-2xl border border-white/10 bg-zinc-900 p-5 shadow-2xl">
-        <h2 class="mb-3 text-xl font-bold text-white">Mark as Delivered</h2>
-
-        <p class="text-sm text-zinc-300"><b>Delivery:</b> {{ deliveryToFinish.title }}</p>
-        <p class="text-sm text-zinc-300"><b>Supplier:</b> {{ deliveryToFinish.supplier || 'No supplier' }}</p>
-        <p class="mb-4 text-sm text-zinc-300"><b>Date:</b> {{ formatDate(deliveryToFinish.delivery_date) }}</p>
-
-        <p class="mb-4 text-sm text-zinc-400">
-          Confirm this delivery has arrived? It will be removed from the calendar.
+      <div
+        class="max-h-[94vh] w-full max-w-md overflow-y-auto rounded-2xl border border-white/10 bg-zinc-900 p-5 shadow-2xl"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="arrival-title"
+      >
+        <p class="text-xs font-extrabold uppercase tracking-[0.14em] text-emerald-400">
+          {{ arrival.step === 'upload' && arrival.delivery.receipt_state === 'waiting' ? 'Its receipt came' : 'Mark as delivered' }}
+        </p>
+        <h2 id="arrival-title" class="mt-1 text-xl font-bold text-white">{{ arrival.delivery.title }}</h2>
+        <p class="text-sm text-zinc-400">
+          {{ arrival.delivery.supplier || 'No supplier' }} · {{ formatDate(arrival.delivery.delivery_date) }}
         </p>
 
-        <p v-if="deliveryError" class="mb-3 rounded-lg bg-red-600/20 p-2 text-xs text-red-400">
-          {{ deliveryError }}
-        </p>
+        <!-- 1. the question -->
+        <template v-if="arrival.step === 'ask'">
+          <p class="mt-5 font-bold text-white">Did the receipt come with the goods?</p>
+          <p class="mt-1 text-sm text-zinc-400">The stock is added from the receipt, after the owner checks it.</p>
 
-        <div class="flex flex-col gap-2">
-          <button
-            class="w-full rounded-lg bg-emerald-600 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
-            :disabled="deliverySaving"
-            @click="confirmDeliveryDone"
-          >
-            {{ deliverySaving ? 'Saving...' : 'Yes, Delivered' }}
-          </button>
+          <p v-if="arrivalError" class="mt-3 rounded-lg bg-red-600/20 p-2 text-sm text-red-400" role="alert">{{ arrivalError }}</p>
 
+          <div class="mt-4 flex flex-col gap-2">
+            <button
+              type="button"
+              class="w-full rounded-xl bg-emerald-600 py-3 font-bold text-white hover:bg-emerald-700 disabled:opacity-50"
+              :disabled="arrivalSaving"
+              @click="arrival.step = 'upload'"
+            >
+              Yes, upload it now
+            </button>
+            <button
+              type="button"
+              class="w-full rounded-xl border border-amber-500/40 py-3 font-bold text-amber-300 hover:bg-amber-500/10 disabled:opacity-50"
+              :disabled="arrivalSaving"
+              @click="arrivedWithoutReceipt"
+            >
+              {{ arrivalSaving ? 'Saving…' : 'No, the supplier will send it' }}
+            </button>
+            <button
+              type="button"
+              class="w-full rounded-xl bg-zinc-800 py-2.5 text-sm font-bold text-white hover:bg-zinc-700"
+              :disabled="arrivalSaving"
+              @click="arrival = null"
+            >
+              Cancel
+            </button>
+          </div>
+        </template>
+
+        <!-- 2. the receipt, linked to this delivery -->
+        <template v-else>
+          <ReceiptUploadForm
+            class="mt-5"
+            mode="staff"
+            :delivery-id="arrival.delivery.id"
+            :delivery-title="arrival.delivery.title"
+            :preset-supplier="arrival.delivery.supplier || ''"
+            @done="receiptUploaded"
+          />
           <button
-            class="w-full rounded-lg bg-zinc-800 py-2 text-sm font-semibold text-white hover:bg-zinc-700"
-            :disabled="deliverySaving"
-            @click="closeDeliveryDone"
+            type="button"
+            class="mt-2 w-full rounded-xl bg-zinc-800 py-2.5 text-sm font-bold text-white hover:bg-zinc-700"
+            @click="arrival = null"
           >
             Cancel
           </button>
-        </div>
+        </template>
       </div>
     </div>
 
@@ -433,7 +487,9 @@ import PageHeader from '../../components/PageHeader.vue'
 import InspectionTable from '../../components/InspectionTable.vue'
 import { count, dayAndTime } from '../../lib/format'
 import { useQueryParam } from '../../lib/useQueryParam'
-import { isDelivered } from '../../lib/deliveries'
+import { isDelivered, isOpenDelivery, markArrivedWithoutReceipt, receiptStateOf } from '../../lib/deliveries'
+import ReceiptUploadForm from '../../components/ReceiptUploadForm.vue'
+import { toast } from '../../lib/toast'
 import ReceiveDeliveryModal from '../../components/ReceiveDeliveryModal.vue'
 import { addedPieces, dayText, listMyReceivings, piecesOf, receiveDelivery, shortItems, todayKey } from '../../lib/receiving'
 
@@ -629,8 +685,8 @@ async function fetchDeliveries() {
   const { data, error } = await supabase.rpc('list_deliveries')
 
   if (!error) {
-    // Finished deliveries disappear from the calendar
-    deliveries.value = (data || []).filter(delivery => !isDelivered(delivery))
+    // done ones leave; arrived ones stay until their receipt is through
+    deliveries.value = (data || []).filter(isOpenDelivery)
   }
 }
 
@@ -684,50 +740,42 @@ async function confirmReceive({ items, note }) {
   }
 }
 
-// ----- Delivery done -----
-const deliveryToFinish = ref(null)
-const deliveryError = ref('')
-const deliverySaving = ref(false)
+// ----- The goods arrived: the receipt with them, or coming later -----
+const arrival = ref(null) // { delivery, step: 'ask' | 'upload' }
+const arrivalError = ref('')
+const arrivalSaving = ref(false)
 
+// late: its date passed and the goods haven't come
 function isDeliveryOverdue(delivery) {
-  if (!delivery.delivery_date) return false
+  if (!delivery.delivery_date || isDelivered(delivery)) return false
   return String(delivery.delivery_date).slice(0, 10) < getToday()
 }
 
-function openDeliveryDone(delivery) {
-  deliveryToFinish.value = delivery
-  deliveryError.value = ''
+function openArrival(delivery, step) {
+  arrivalError.value = ''
+  arrival.value = { delivery, step }
 }
 
-function closeDeliveryDone() {
-  if (deliverySaving.value) return
-  deliveryToFinish.value = null
-  deliveryError.value = ''
-}
-
-async function confirmDeliveryDone() {
-  if (!deliveryToFinish.value) return
-
-  deliverySaving.value = true
-  deliveryError.value = ''
-
-  const { error } = await supabase.rpc('mark_delivery_done', {
-    p_delivery_id: deliveryToFinish.value.id,
-    p_done_by: currentStaffName,
-  })
-
-  deliverySaving.value = false
-
-  if (error) {
-    deliveryError.value = error.message
-    return
+async function arrivedWithoutReceipt() {
+  const delivery = arrival.value?.delivery
+  if (!delivery || arrivalSaving.value) return
+  arrivalSaving.value = true
+  arrivalError.value = ''
+  try {
+    await markArrivedWithoutReceipt(delivery.id)
+    arrival.value = null
+    toast(`"${delivery.title}" arrived. The owner was told its receipt is still to come.`)
+    await fetchDeliveries()
+  } catch (err) {
+    arrivalError.value = err.message
+  } finally {
+    arrivalSaving.value = false
   }
+}
 
-  // Remove it right away, then refresh from the database
-  const doneId = deliveryToFinish.value.id
-  deliveries.value = deliveries.value.filter(delivery => delivery.id !== doneId)
-  deliveryToFinish.value = null
-
+// uploaded (the form says so): the delivery now waits on the owner
+async function receiptUploaded() {
+  arrival.value = null
   await fetchDeliveries()
 }
 

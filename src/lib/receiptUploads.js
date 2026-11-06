@@ -61,7 +61,7 @@ async function fileFingerprint(file) {
  * for staff, 'approved' for the owner). Throws an Error with a message for
  * the screen; on a refusal nothing is kept (the file is deleted again).
  */
-export async function submitReceipt({ file, supplierName, note }) {
+export async function submitReceipt({ file, supplierName, note, deliveryId = null }) {
   const problem = checkReceiptFile(file)
   if (problem) throw new Error(problem)
 
@@ -83,18 +83,25 @@ export async function submitReceipt({ file, supplierName, note }) {
     throw new Error(`Upload failed: ${uploadError.message}`)
   }
 
-  const { data, error } = await supabase.rpc('submit_receipt_upload', {
+  const params = {
     p_file_name: file.name,
     p_file_path: path,
     p_file_hash: fingerprint,
     p_supplier_name: supplierName,
     p_note: note || null,
-  })
+  }
+  // the Calendar delivery it's for (20261107000001_delivery_receipts.sql)
+  if (deliveryId) params.p_delivery_id = deliveryId
+
+  const { data, error } = await supabase.rpc('submit_receipt_upload', params)
 
   if (error) {
     // refused (or not set up): nothing was saved, so the file goes too
     if (isMissingSql(error) || /^[0-9A-Z]{5}$/.test(error.code || '')) {
       await supabase.storage.from(RECEIPT_BUCKET).remove([path]).catch(() => {})
+      if (isMissingSql(error) && deliveryId) {
+        throw new Error('This needs an update: run supabase/migrations/20261107000001_delivery_receipts.sql in Supabase first.')
+      }
       throw new Error(isMissingSql(error) ? NOT_SET_UP : error.message)
     }
     // no answer (e.g. the connection dropped): it may well be saved

@@ -82,7 +82,14 @@
           </p>
 
           <div class="mt-2 flex flex-wrap items-center gap-2">
-            <span class="text-sm text-emerald-400">{{ delivery.status || 'Scheduled' }}</span>
+            <span
+              v-if="receiptStateOf(delivery)"
+              class="rounded-full px-3 py-1 text-xs font-bold"
+              :class="receiptStateOf(delivery).tone"
+            >
+              {{ receiptStateOf(delivery).text }}
+            </span>
+            <span v-else class="text-sm text-emerald-400">{{ delivery.status || 'Scheduled' }}</span>
             <span
               v-if="isDeliveryOverdue(delivery)"
               class="rounded-full bg-red-600/20 px-3 py-1 text-xs font-bold text-red-400"
@@ -90,6 +97,22 @@
               Overdue
             </span>
           </div>
+
+          <!-- arrived without its receipt: no stock until it's in -->
+          <template v-if="delivery.receipt_state === 'waiting'">
+            <p class="mt-3 text-xs text-amber-200/80">
+              No stock is added until its receipt is in. When the supplier sends it, link it in Approval, or upload it here.
+            </p>
+            <RouterLink
+              :to="{ path: '/approval', query: { receiptFor: delivery.id } }"
+              class="mt-3 block w-full rounded-xl bg-amber-500 py-2 text-center text-sm font-bold text-black hover:bg-amber-400"
+            >
+              Add receipt
+            </RouterLink>
+          </template>
+          <p v-else-if="delivery.receipt_state === 'sent'" class="mt-3 text-xs text-zinc-500">
+            Its receipt <b class="text-zinc-300">{{ delivery.receipt_file }}</b> is in Approval.
+          </p>
         </div>
       </div>
     </div>
@@ -344,7 +367,8 @@ import { supabase } from '../../lib/supabase'
 import PageHeader from '../../components/PageHeader.vue'
 import InspectionTable from '../../components/InspectionTable.vue'
 import { count } from '../../lib/format'
-import { isDelivered } from '../../lib/deliveries'
+import { isDelivered, isOpenDelivery, receiptStateOf } from '../../lib/deliveries'
+import { RouterLink } from 'vue-router'
 import { useQueryParam } from '../../lib/useQueryParam'
 
 // in the address (?tab=delivery), like the Staff calendar, so the Dashboard
@@ -549,8 +573,9 @@ function shouldShowInCalendar(product, today) {
 }
 
 // ----- Deliveries -----
+// late: its date passed and the goods haven't come
 function isDeliveryOverdue(delivery) {
-  if (!delivery.delivery_date) return false
+  if (!delivery.delivery_date || isDelivered(delivery)) return false
   return String(delivery.delivery_date).slice(0, 10) < getToday()
 }
 
@@ -597,7 +622,8 @@ async function fetchDeliveries() {
 
   if (!error) {
     // Finished deliveries disappear from the calendar
-    deliveries.value = (data || []).filter(delivery => !isDelivered(delivery))
+    // done ones leave; arrived ones stay until their receipt is through
+    deliveries.value = (data || []).filter(isOpenDelivery)
   }
 }
 

@@ -4,7 +4,8 @@
 //
 //   owner   Approval     receipts to approve, prices to check, receipts not
 //                        sent, inspections to approve
-//           Calendar     overdue inspections and deliveries
+//           Calendar     overdue inspections and deliveries, deliveries
+//                        that arrived without their receipt
 //           Inventory    products running low (alert orange)
 //           Sales History refund requests left from before
 //   staff   Inspection Calendar  inspections due (today or overdue) and
@@ -111,13 +112,19 @@ async function forOwner(last) {
   if (ok(products) && ok(approvals) && ok(deliveries)) {
     const lateInspections = inspectionRows(products.value, approvals.value, today).filter((r) => r.overdue).length
     const lateDeliveries = deliveryDates(deliveries.value).filter((date) => date && date < today).length
+    // arrived without their receipt: no stock until it's in
+    const noReceipt = deliveries.value.filter((d) => d.receipt_state === 'waiting').length
     byPath['/calendar'] = {
-      n: lateInspections + lateDeliveries,
+      n: lateInspections + lateDeliveries + noReceipt,
       tone: 'task',
-      hint: hintOf([[lateInspections, 'inspection overdue', 'inspections overdue'], [lateDeliveries, 'delivery overdue', 'deliveries overdue']]),
+      hint: hintOf([
+        [lateInspections, 'inspection overdue', 'inspections overdue'],
+        [lateDeliveries, 'delivery overdue', 'deliveries overdue'],
+        [noReceipt, 'delivery without its receipt', 'deliveries without their receipt'],
+      ]),
     }
     taskBadges.tabs['admin:inspection'] = lateInspections
-    taskBadges.tabs['admin:delivery'] = lateDeliveries
+    taskBadges.tabs['admin:delivery'] = lateDeliveries + noReceipt
   } else if (last['/calendar']) {
     byPath['/calendar'] = last['/calendar']
   }

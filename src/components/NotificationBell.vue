@@ -422,6 +422,8 @@ const ROUTES = {
     disabled: '/inventory',
     // a staff member received a supplier delivery (in stock): its details
     received: '/approval',
+    // goods arrived without their receipt: Calendar > Delivery
+    delivery_receipt: '/calendar?tab=delivery',
     // a cashier refunded a sale: Sales History > Refunds
     refund: '/admin/sales?view=refunds',
     inspection: '/calendar',
@@ -485,6 +487,7 @@ const BADGES = {
   received: 'bg-emerald-500/20 text-emerald-400',
   refund: 'bg-amber-500/20 text-amber-300',
   receipt: 'bg-sky-500/20 text-sky-300',
+  delivery_receipt: 'bg-amber-500/20 text-amber-300',
 }
 
 function badgeClass(type) {

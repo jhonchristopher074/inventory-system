@@ -72,6 +72,23 @@
       <input ref="cameraInput" type="file" class="hidden" accept="image/*" capture="environment" @change="onPicked" />
     </div>
 
+    <!-- the Calendar delivery it's for: fixed (Mark as delivered / Add
+         receipt), or picked from the ones waiting for their receipt -->
+    <p v-if="deliveryId" class="rounded-xl bg-sky-500/10 px-3 py-2 text-sm text-sky-200">
+      For the delivery <b class="text-white">{{ deliveryTitle || 'on the calendar' }}</b>
+    </p>
+    <div v-else-if="deliveries.length > 0">
+      <label class="field-label" :for="`${uid}-delivery`">
+        For an arrived delivery? <span class="font-normal text-zinc-500">(optional)</span>
+      </label>
+      <select :id="`${uid}-delivery`" v-model="chosenDelivery" class="field-input" :disabled="busy" @change="fillSupplier">
+        <option value="">No, not for one of these</option>
+        <option v-for="delivery in deliveries" :key="delivery.id" :value="String(delivery.id)">
+          {{ delivery.title }}{{ delivery.supplier ? ` · ${delivery.supplier}` : '' }}
+        </option>
+      </select>
+    </div>
+
     <!-- 2. where it came from -->
     <div>
       <label class="field-label" :for="`${uid}-supplier`">2. Supplier name</label>
@@ -164,6 +181,13 @@ import { toast } from '../lib/toast'
 const props = defineProps({
   // 'staff' (waits for the owner) or 'owner' (straight to the scanner)
   mode: { type: String, default: 'staff' },
+  // the Calendar delivery this receipt is for (its goods are here)
+  deliveryId: { type: [Number, String], default: null },
+  deliveryTitle: { type: String, default: '' },
+  // the supplier's name to start with (the delivery's)
+  presetSupplier: { type: String, default: '' },
+  // owner: deliveries waiting for their receipt, to pick one (optional)
+  deliveries: { type: Array, default: () => [] },
 })
 
 const emit = defineEmits(['done', 'cancel'])
@@ -173,7 +197,14 @@ const fileInput = ref(null)
 const cameraInput = ref(null)
 const file = ref(null)
 const dragging = ref(false)
-const supplierName = ref('')
+const supplierName = ref(props.presetSupplier || '')
+const chosenDelivery = ref('')
+
+// picking a delivery fills in its supplier when nothing is written yet
+function fillSupplier() {
+  const delivery = props.deliveries.find((item) => String(item.id) === chosenDelivery.value)
+  if (delivery?.supplier && !supplierName.value.trim()) supplierName.value = delivery.supplier
+}
 const note = ref('')
 const percent = ref('')
 const busy = ref(false)
@@ -262,6 +293,7 @@ async function submit() {
       file: sent,
       supplierName: supplier,
       note: props.mode === 'staff' ? note.value.trim() : '',
+      deliveryId: props.deliveryId || chosenDelivery.value || null,
     })
 
     if (props.mode === 'staff') {
