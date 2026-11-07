@@ -42,7 +42,7 @@
     </div>
 
     <!-- every card is the same size: fixed picture, title of 2 lines and
-         description of 3 lines at most, button at the bottom.
+         description of 3 lines at most. The whole card is the button.
          Columns follow the width of the page area (not the whole window, which
          also holds the sidebar): 2 (phones, smaller cards), 3, then 4 per
          row on wide screens. -->
@@ -51,7 +51,13 @@
         <div
           v-for="document in visibleDocuments"
           :key="document.id"
-          class="flex min-w-0 flex-col rounded-2xl border border-white/10 bg-zinc-900 p-2.5 shadow-xl @min-[600px]:rounded-[24px] @min-[600px]:p-5"
+          role="button"
+          tabindex="0"
+          :aria-label="'View details of ' + (document.title || document.type || 'document')"
+          class="group flex min-w-0 cursor-pointer flex-col rounded-2xl border border-white/10 bg-zinc-900 p-2.5 shadow-xl transition duration-200 hover:-translate-y-1 hover:border-red-500/60 hover:bg-zinc-800/80 hover:shadow-2xl hover:shadow-red-900/30 focus:outline-none focus-visible:border-red-500 focus-visible:ring-2 focus-visible:ring-red-500 active:translate-y-0 active:scale-[0.99] @min-[600px]:rounded-[24px] @min-[600px]:p-5"
+          @click="openDocument(document)"
+          @keydown.enter.prevent="openDocument(document)"
+          @keydown.space.prevent="openDocument(document)"
         >
           <div
             class="mb-2 flex h-24 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-black @min-[600px]:mb-4 @min-[600px]:h-40 @min-[600px]:rounded-2xl"
@@ -60,7 +66,7 @@
               v-if="documentImage(document)"
               :src="documentImage(document)"
               loading="lazy"
-              class="h-full w-full object-cover"
+              class="h-full w-full object-cover transition duration-300 group-hover:scale-105"
             />
 
             <span v-else class="text-sm text-zinc-500">
@@ -88,15 +94,6 @@
           <p class="mt-1 line-clamp-2 min-h-[2.5rem] text-xs leading-5 text-zinc-400 @min-[600px]:mt-2 @min-[600px]:line-clamp-3 @min-[600px]:min-h-[4.5rem] @min-[600px]:text-sm @min-[600px]:leading-6">
             {{ document.description || 'No description provided.' }}
           </p>
-
-          <div class="mt-auto pt-2 @min-[600px]:pt-5">
-            <button
-              class="w-full rounded-xl bg-red-600 py-2 text-sm font-bold text-white transition hover:bg-red-700 @min-[600px]:rounded-2xl @min-[600px]:py-3 @min-[600px]:text-base"
-              @click="openDocument(document)"
-            >
-              View Details
-            </button>
-          </div>
         </div>
       </div>
     </div>
