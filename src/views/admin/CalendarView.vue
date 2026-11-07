@@ -30,6 +30,7 @@
 
       <div class="ml-auto flex w-full items-center gap-2 sm:w-auto">
         <input
+          maxlength="80"
           v-model="search"
           type="search"
           placeholder="Search..."
@@ -290,6 +291,7 @@
                     <span class="text-xl text-red-400">⌕</span>
 
                     <input
+                      maxlength="80"
                       v-model="productSearch"
                       type="text"
                       placeholder="Search product..."
@@ -331,6 +333,7 @@
             <div>
               <label class="label">Delivery Title</label>
               <input
+                maxlength="100"
                 v-model="newSchedule.title"
                 type="text"
                 placeholder="What's being delivered, e.g. 50 bags of cement"
@@ -341,6 +344,7 @@
             <div>
               <label class="label">Supplier</label>
               <input
+                maxlength="100"
                 v-model="newSchedule.supplier"
                 type="text"
                 placeholder="Who delivers it, e.g. JM Supply"
@@ -482,7 +486,7 @@
 
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { refreshTasksSoon, taskBadges } from '../../lib/taskCounts'
+import { refreshTasksSoon } from '../../lib/taskCounts'
 import { supabase } from '../../lib/supabase'
 import PageHeader from '../../components/PageHeader.vue'
 import { count } from '../../lib/format'
