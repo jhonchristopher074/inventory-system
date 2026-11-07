@@ -5,7 +5,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { supabase } from '../../lib/supabase'
-import { PASSWORD_RULES } from '../../lib/passwordStatus'
+import { PASSWORD_MAX, PASSWORD_RULES } from '../../lib/passwordStatus'
 import { isPasswordRecovery, endPasswordRecovery } from '../../lib/passwordRecovery'
 // a pasted password loses the invisible characters it brought along
 import { vClean } from '../../lib/cleanText'
@@ -22,14 +22,10 @@ const show = ref(false)
 const loading = ref(false)
 const error = ref('')
 
-// the usual rules, with a length range: 8 to 24 characters
-const MAX_LENGTH = 24
-const RESET_RULES = [
-  { label: `8 to ${MAX_LENGTH} characters`, test: (p) => p.length >= 8 && p.length <= MAX_LENGTH },
-  ...PASSWORD_RULES.filter((rule) => !/at least 8/i.test(rule.label)),
-]
+// the usual rules (8 to 24 characters, ...)
+const MAX_LENGTH = PASSWORD_MAX
 const rules = computed(() =>
-  RESET_RULES.map((r) => ({ label: r.label, ok: r.test(newPassword.value) }))
+  PASSWORD_RULES.map((r) => ({ label: r.label, ok: r.test(newPassword.value) }))
 )
 const mismatch = computed(() => confirmPassword.value && newPassword.value !== confirmPassword.value)
 

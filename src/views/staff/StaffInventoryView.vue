@@ -72,12 +72,10 @@
             <tr v-for="product in visibleProducts" :key="product.id">
               <td class="cell-main">
                 <div class="flex min-w-0 items-center gap-3">
-                  <img
+                  <ZoomThumb
                     v-if="product.image_url"
                     :src="product.image_url"
-                    :alt="product.name"
-                    class="list-thumb"
-                    loading="lazy"
+                    :alt="product.nickname || product.name"
                   />
                   <span
                     v-else
@@ -224,6 +222,7 @@ import { heldProductIds, withoutHeld } from '../../lib/heldProducts'
 import { usePagination } from '../../lib/usePagination'
 import { useQueryParam } from '../../lib/useQueryParam'
 import PageHeader from '../../components/PageHeader.vue'
+import ZoomThumb from '../../components/ZoomThumb.vue'
 import TablePager from '../../components/TablePager.vue'
 import NavIcon from '../../components/NavIcon.vue'
 import StockLevel from '../../components/StockLevel.vue'

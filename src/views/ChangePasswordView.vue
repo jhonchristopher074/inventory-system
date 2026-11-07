@@ -138,7 +138,7 @@ async function logout() {
 
       <label class="cp-label" for="cp-new">New password</label>
       <div class="cp-field">
-        <input maxlength="72" id="cp-new" v-model="newPassword" v-clean:password :type="$passwordType(showNew)" v-no-save="showNew"
+        <input maxlength="24" id="cp-new" v-model="newPassword" v-clean:password :type="$passwordType(showNew)" v-no-save="showNew"
                autocomplete="off" required />
         <button type="button" class="cp-toggle" @click="showNew = !showNew"
                 :aria-label="showNew ? 'Hide password' : 'Show password'">
@@ -158,7 +158,7 @@ async function logout() {
 
       <label class="cp-label" for="cp-confirm">Confirm new password</label>
       <div class="cp-field">
-        <input maxlength="72" id="cp-confirm" v-model="confirmPassword" v-clean:password :type="$passwordType(showConfirm)" v-no-save="showConfirm"
+        <input maxlength="24" id="cp-confirm" v-model="confirmPassword" v-clean:password :type="$passwordType(showConfirm)" v-no-save="showConfirm"
                autocomplete="off" required />
         <button type="button" class="cp-toggle" @click="showConfirm = !showConfirm"
                 :aria-label="showConfirm ? 'Hide password' : 'Show password'">

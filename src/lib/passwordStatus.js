@@ -25,8 +25,9 @@ export async function afterLogin(supabase, user) {
 }
 
 // Same rules as the server (supabase/functions/_shared/auth.ts).
+export const PASSWORD_MAX = 24
 export const PASSWORD_RULES = [
-  { label: 'At least 8 characters', test: (p) => p.length >= 8 },
+  { label: '8 to 24 characters', test: (p) => p.length >= 8 && p.length <= PASSWORD_MAX },
   { label: 'An uppercase letter (A–Z)', test: (p) => /[A-Z]/.test(p) },
   { label: 'A lowercase letter (a–z)', test: (p) => /[a-z]/.test(p) },
   { label: 'A number (0–9)', test: (p) => /[0-9]/.test(p) },

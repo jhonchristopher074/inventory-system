@@ -135,9 +135,11 @@ export function bestSellers(sales, products, now, { days = 30, limit = 5 } = {})
         name: item.product_name || 'Unknown product',
         quantity: 0,
         total: 0,
+        sales: new Set(), // the receipts it was on
         image: imageById.get(String(item.product_id)) || imageByName.get(item.product_name) || '',
       }
 
+      row.sales.add(sale.id)
       row.quantity += Number(item.quantity || 0)
       row.total += Number(item.subtotal ?? Number(item.price || 0) * Number(item.quantity || 0))
       rows.set(key, row)
@@ -147,5 +149,9 @@ export function bestSellers(sales, products, now, { days = 30, limit = 5 } = {})
   const list = [...rows.values()].sort((a, b) => b.total - a.total).slice(0, limit)
   const top = list[0]?.total || 0
 
-  return list.map((row) => ({ ...row, share: top ? Math.max((row.total / top) * 100, 2) : 0 }))
+  return list.map(({ sales: onSales, ...row }) => ({
+    ...row,
+    receipts: onSales.size,
+    share: top ? Math.max((row.total / top) * 100, 2) : 0,
+  }))
 }

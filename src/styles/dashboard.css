@@ -17,8 +17,10 @@
   container-type: inline-size;
   border-radius: var(--radius-md);
   border: 1px solid var(--hairline);
-  /* plain card: the colour is only its top edge and icon */
-  background: var(--surface);
+  /* a soft fill of the tile's colour over the card */
+  background:
+    linear-gradient(160deg, color-mix(in srgb, var(--tone, var(--brand)) 12%, transparent), transparent 70%),
+    var(--surface);
   box-shadow: var(--shadow-card);
   padding: 1rem 1.1rem;
   transition:
@@ -62,9 +64,9 @@ a.kpi:focus-visible {
   display: grid;
   flex: none;
   place-items: center;
-  width: 1.9rem;
-  height: 1.9rem;
-  border-radius: 999px;
+  width: 2.4rem;
+  height: 2.4rem;
+  border-radius: 0.75rem;
   background: var(--alert);
   color: #1a1000;
 }
@@ -86,11 +88,13 @@ a.kpi:focus-visible {
   display: grid;
   flex: none;
   place-items: center;
-  width: 1.9rem;
-  height: 1.9rem;
-  border-radius: 0.6rem;
-  background: color-mix(in srgb, var(--tone, var(--brand-bright)) 15%, transparent);
-  color: var(--tone, var(--brand-bright));
+  width: 2.4rem;
+  height: 2.4rem;
+  border-radius: 0.75rem;
+  /* a solid square of the tile's colour, like AdminLTE's info boxes */
+  background: var(--tone, var(--brand-bright));
+  color: #fff;
+  box-shadow: 0 4px 12px -4px color-mix(in srgb, var(--tone, var(--brand)) 60%, transparent);
 }
 
 /* the one big number of the page */

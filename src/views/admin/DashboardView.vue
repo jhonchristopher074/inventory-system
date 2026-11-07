@@ -222,32 +222,21 @@
           </div>
 
           <ol v-if="bestSellers.length > 0" class="space-y-3">
-            <li v-for="(item, i) in bestSellers" :key="item.key" class="flex items-center gap-3">
-              <img
-                v-if="item.image"
-                :src="item.image"
-                alt=""
-                loading="lazy"
-                class="h-10 w-10 shrink-0 rounded-[10px] object-cover"
-              />
-              <span v-else class="grid h-10 w-10 shrink-0 place-items-center rounded-[10px] bg-white/5 text-zinc-500">
-                <NavIcon name="inventory" class="h-5 w-5" />
-              </span>
+            <li v-for="item in bestSellers" :key="item.key">
+              <div class="flex items-baseline justify-between gap-2">
+                <p class="min-w-0 truncate text-sm font-bold text-white" :title="item.name">{{ item.name }}</p>
+                <p class="shrink-0 text-sm font-bold text-white">{{ peso(item.total) }}</p>
+              </div>
 
-              <div class="min-w-0 flex-1">
-                <div class="flex items-baseline justify-between gap-2">
-                  <p class="min-w-0 truncate text-sm font-bold text-white">
-                    <span class="mr-1 text-zinc-500">{{ i + 1 }}.</span>{{ item.name }}
-                  </p>
-                  <p class="shrink-0 text-sm font-bold text-white">{{ peso(item.total) }}</p>
+              <div class="mt-1.5 flex items-center gap-3">
+                <div class="h-1.5 flex-1 overflow-hidden rounded-full bg-white/5">
+                  <div class="h-full rounded-full bg-emerald-500" :style="{ width: item.share + '%' }"></div>
                 </div>
-
-                <div class="mt-1.5 flex items-center gap-2">
-                  <div class="h-1.5 flex-1 overflow-hidden rounded-full bg-white/5">
-                    <div class="h-full rounded-full bg-emerald-500" :style="{ width: item.share + '%' }"></div>
-                  </div>
-                  <span class="w-16 shrink-0 text-right text-xs text-zinc-500">{{ count(item.quantity) }} pcs</span>
-                </div>
+                <!-- how many receipts it was on (and the pieces) -->
+                <span class="shrink-0 text-right text-xs text-zinc-400">
+                  <b class="text-zinc-200">{{ count(item.receipts) }}</b> {{ item.receipts === 1 ? 'receipt' : 'receipts' }}
+                  <span class="text-zinc-500">· {{ count(item.quantity) }} pcs</span>
+                </span>
               </div>
             </li>
           </ol>
