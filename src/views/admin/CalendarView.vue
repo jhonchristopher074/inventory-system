@@ -2,9 +2,10 @@
   <div>
     <PageHeader title="To-Do List" subtitle="Products scheduled for inspection and delivery." />
 
-    <!-- tabs like the Approval page's; the add button on the same line -->
+    <!-- List: the Inspection / Delivery tabs. Month: both on a calendar,
+         each shown or hidden with its toggle. The add button on the right. -->
     <div class="mb-4 flex flex-wrap items-center gap-3">
-      <div class="inline-flex max-w-full gap-1 overflow-x-auto rounded-2xl border border-white/5 bg-zinc-900 p-1">
+      <div v-if="view === 'list'" class="inline-flex max-w-full gap-1 overflow-x-auto rounded-2xl border border-white/5 bg-zinc-900 p-1">
         <button
           type="button"
           class="flex shrink-0 items-center gap-2 whitespace-nowrap rounded-xl px-3.5 py-2 text-sm font-bold transition"
@@ -37,23 +38,69 @@
         </button>
       </div>
 
-      <button
-        type="button"
-        class="ml-auto inline-flex items-center gap-1.5 rounded-xl bg-red-600 px-4 py-2 text-sm font-bold text-white shadow-lg shadow-red-900/40 transition hover:bg-red-700"
-        :title="activeTab === 'delivery' ? 'Schedule a delivery' : 'Schedule an inspection'"
-        @click="openAddModal"
-      >
-        <span class="text-base leading-none">+</span>
-        Add {{ activeTab === 'delivery' ? 'delivery' : 'inspection' }}
-      </button>
+      <div v-else class="flex flex-wrap items-center gap-2" role="group" aria-label="Show on the calendar">
+        <button
+          v-for="kind in KINDS"
+          :key="kind.key"
+          type="button"
+          class="kind-toggle"
+          :class="[`kind-${kind.key}`, { 'is-off': !showKinds[kind.key] }]"
+          :aria-pressed="showKinds[kind.key]"
+          @click="showKinds[kind.key] = !showKinds[kind.key]"
+        >
+          <span class="kind-dot" aria-hidden="true"></span>
+          {{ kind.label }}
+          <span class="text-xs opacity-70">{{ kindCounts[kind.key] }}</span>
+        </button>
+        <span class="flex items-center gap-1.5 text-xs text-zinc-400">
+          <span class="h-2 w-2 rounded-full bg-[#ff9500]" aria-hidden="true"></span> Overdue
+        </span>
+      </div>
+
+      <div class="ml-auto flex items-center gap-2">
+        <!-- List / Month, remembered in the address (?view=month) -->
+        <div class="inline-flex gap-1 rounded-2xl border border-white/5 bg-zinc-900 p-1" role="group" aria-label="View">
+          <button
+            v-for="option in VIEWS"
+            :key="option.key"
+            type="button"
+            class="flex items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-bold transition"
+            :class="view === option.key ? 'bg-white/10 text-white' : 'text-zinc-400 hover:text-white'"
+            :aria-pressed="view === option.key"
+            @click="view = option.key"
+          >
+            <NavIcon :name="option.icon" class="h-4 w-4" />
+            {{ option.label }}
+          </button>
+        </div>
+
+        <button
+          type="button"
+          class="inline-flex items-center gap-1.5 rounded-xl bg-red-600 px-4 py-2 text-sm font-bold text-white shadow-lg shadow-red-900/40 transition hover:bg-red-700"
+          :title="activeTab === 'delivery' ? 'Schedule a delivery' : 'Schedule an inspection'"
+          @click="openAddModal()"
+        >
+          <span class="text-base leading-none">+</span>
+          {{ view === 'month' ? 'Add schedule' : `Add ${activeTab === 'delivery' ? 'delivery' : 'inspection'}` }}
+        </button>
+      </div>
     </div>
 
-    <p v-if="loading && activeTab === 'delivery'" class="text-sm text-zinc-400">Loading...</p>
+    <!-- MONTH: inspections and deliveries on a wall calendar -->
+    <MonthCalendar
+      v-if="view === 'month'"
+      v-model:month="calMonth"
+      :events="monthEvents"
+      :today="getToday()"
+      @pick="openDay"
+    />
+
+    <p v-if="loading && view === 'list' && activeTab === 'delivery'" class="text-sm text-zinc-400">Loading...</p>
     <p v-if="errorMessage" class="mb-4 rounded-xl bg-red-600/20 p-4 text-red-400">{{ errorMessage }}</p>
 
     <!-- INSPECTION: one table row per product; Details opens the small window below -->
     <InspectionTable
-      v-if="activeTab === 'inspection'"
+      v-if="view === 'list' && activeTab === 'inspection'"
       :rows="inspectionRows"
       :loading="loading"
       action-label="Details"
@@ -62,7 +109,7 @@
     />
 
     <!-- DELIVERY -->
-    <div v-if="activeTab === 'delivery'">
+    <div v-if="view === 'list' && activeTab === 'delivery'">
       <!-- nothing yet: the way to add one, right here -->
       <div
         v-if="deliveries.length === 0"
@@ -75,7 +122,7 @@
         <button
           type="button"
           class="mt-1 rounded-2xl bg-red-600 px-5 py-2.5 font-bold text-white hover:bg-red-700"
-          @click="openAddModal"
+          @click="openAddModal()"
         >
           + Add delivery
         </button>
@@ -170,6 +217,133 @@
       </div>
     </div>
 
+    <!-- ONE DAY (Month view): what's on it, with the same actions as the list -->
+    <div
+      v-if="pickedDay"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-3 sm:p-4"
+      @click.self="pickedDay = null"
+      @keydown.esc="pickedDay = null"
+    >
+      <div
+        class="flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-white/10 bg-zinc-900 shadow-2xl"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="day-title"
+      >
+        <header class="flex items-start justify-between gap-3 border-b border-white/5 px-5 py-4">
+          <div>
+            <p class="text-xs font-bold uppercase tracking-[0.14em]" :class="pickedDay === getToday() ? 'text-red-400' : 'text-zinc-500'">
+              {{ pickedDay === getToday() ? 'Today' : pickedDay < getToday() ? 'Past day' : 'Coming up' }}
+            </p>
+            <h2 id="day-title" class="text-xl font-extrabold text-white">{{ longDate(pickedDay) }}</h2>
+          </div>
+          <button
+            type="button"
+            class="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white/10 text-white hover:bg-white/20"
+            aria-label="Close"
+            @click="pickedDay = null"
+          >
+            ✕
+          </button>
+        </header>
+
+        <div class="min-h-0 flex-1 space-y-2.5 overflow-y-auto px-5 py-4">
+          <p v-if="dayItems.length === 0" class="rounded-xl border border-dashed border-white/10 p-5 text-center text-sm text-zinc-400">
+            Nothing scheduled on this day.
+          </p>
+
+          <article
+            v-for="event in dayItems"
+            :key="event.key"
+            class="rounded-xl border p-3.5"
+            :class="event.state === 'overdue' ? 'border-[#ff9500]/45 bg-[#ff9500]/[0.06]' : 'border-white/10 bg-white/[0.03]'"
+          >
+            <div class="flex items-start justify-between gap-3">
+              <div class="min-w-0">
+                <p class="flex items-center gap-1.5 text-[0.68rem] font-bold uppercase tracking-wider" :class="event.kind === 'inspection' ? 'text-violet-300' : 'text-sky-300'">
+                  <NavIcon :name="event.kind === 'inspection' ? 'approval' : 'inventory'" class="h-3.5 w-3.5" />
+                  {{ event.kind === 'inspection' ? 'Inspection' : 'Delivery' }}
+                </p>
+                <p class="mt-0.5 truncate font-bold text-white" :title="event.title">{{ event.title }}</p>
+                <p class="text-xs text-zinc-400">{{ event.sub }}</p>
+              </div>
+              <span
+                class="shrink-0 rounded-full px-2.5 py-1 text-xs font-bold"
+                :class="event.state === 'overdue' ? 'bg-[#ff9500]/20 text-[#ffb547]' : event.state === 'arrived' ? 'bg-amber-500/15 text-amber-300' : 'bg-white/5 text-zinc-300'"
+              >
+                {{ event.badge }}
+              </span>
+            </div>
+
+            <!-- inspection: how far it is, and its details -->
+            <template v-if="event.kind === 'inspection'">
+              <div class="mt-2.5 h-1.5 overflow-hidden rounded-full bg-white/5">
+                <div class="h-full rounded-full bg-violet-400" :style="{ width: totalProgressPercent(event.item) + '%' }"></div>
+              </div>
+              <div class="mt-3 flex justify-end">
+                <button
+                  type="button"
+                  class="rounded-lg bg-red-600 px-3.5 py-1.5 text-xs font-bold text-white hover:bg-red-700"
+                  @click="pickedDay = null; openPanel(event.item)"
+                >
+                  Details
+                </button>
+              </div>
+            </template>
+
+            <!-- delivery: its receipt, and delete -->
+            <template v-else>
+              <div v-if="deletingId === event.item.id" class="mt-3 rounded-lg border border-red-500/40 bg-red-600/10 p-3">
+                <p class="text-sm font-bold text-red-200">Delete this delivery?</p>
+                <p v-if="deleteError" class="mt-1 text-xs text-red-300" role="alert">{{ deleteError }}</p>
+                <div class="mt-2 flex gap-2">
+                  <button type="button" class="flex-1 rounded-lg bg-zinc-800 py-1.5 text-sm font-bold text-white hover:bg-zinc-700" :disabled="deleteBusy" @click="deletingId = null">Keep</button>
+                  <button type="button" class="flex-1 rounded-lg bg-red-600 py-1.5 text-sm font-bold text-white hover:bg-red-700 disabled:opacity-50" :disabled="deleteBusy" @click="deleteDelivery(event.item)">
+                    {{ deleteBusy ? 'Deleting…' : 'Yes, delete' }}
+                  </button>
+                </div>
+              </div>
+              <div v-else class="mt-3 flex flex-wrap justify-end gap-2">
+                <RouterLink
+                  v-if="event.item.receipt_state === 'waiting'"
+                  :to="{ path: '/approval', query: { receiptFor: event.item.id } }"
+                  class="rounded-lg bg-amber-500 px-3.5 py-1.5 text-xs font-bold text-black hover:bg-amber-400"
+                >
+                  Add receipt
+                </RouterLink>
+                <button
+                  v-if="!event.item.upload_id"
+                  type="button"
+                  class="inline-flex items-center gap-1.5 rounded-lg bg-red-600/15 px-3 py-1.5 text-xs font-bold text-red-300 hover:bg-red-600/30 hover:text-white"
+                  @click="askDelete(event.item)"
+                >
+                  <NavIcon name="trash" class="h-3.5 w-3.5" /> Delete
+                </button>
+              </div>
+            </template>
+          </article>
+        </div>
+
+        <!-- a day to come: schedule something on it -->
+        <footer v-if="pickedDay >= getToday()" class="flex flex-wrap justify-end gap-2 border-t border-white/5 px-5 py-3">
+          <button
+            type="button"
+            class="rounded-xl bg-zinc-800 px-4 py-2 text-sm font-bold text-white hover:bg-zinc-700"
+            @click="openAddModal({ date: pickedDay, type: 'delivery' })"
+          >
+            + Delivery on this day
+          </button>
+          <button
+            type="button"
+            class="rounded-xl bg-red-600 px-4 py-2 text-sm font-bold text-white hover:bg-red-700"
+            @click="openAddModal({ date: pickedDay, type: 'inspection' })"
+          >
+            + Inspection on this day
+          </button>
+        </footer>
+      </div>
+    </div>
+
     <!-- ADD SCHEDULE MODAL -->
     <div
       v-if="showAddModal"
@@ -226,6 +400,7 @@
                     <input
                       v-model="productSearch"
                       type="text"
+                      maxlength="80"
                       placeholder="Search product..."
                       class="search-input"
                     />
@@ -267,6 +442,7 @@
               <input
                 v-model="newSchedule.title"
                 type="text"
+                maxlength="100"
                 placeholder="What's being delivered, e.g. 50 bags of cement"
                 class="input"
               />
@@ -277,6 +453,7 @@
               <input
                 v-model="newSchedule.supplier"
                 type="text"
+                maxlength="100"
                 placeholder="Who delivers it, e.g. JM Supply"
                 class="input"
               />
@@ -425,10 +602,27 @@ import { isDelivered, isOpenDelivery, receiptStateOf } from '../../lib/deliverie
 import { RouterLink } from 'vue-router'
 import { useQueryParam } from '../../lib/useQueryParam'
 import { toast } from '../../lib/toast'
+import MonthCalendar from '../../components/MonthCalendar.vue'
+import NavIcon from '../../components/NavIcon.vue'
 
 // in the address (?tab=delivery), like the Staff calendar, so the Dashboard
 // can open the Delivery tab
 const activeTab = useQueryParam('tab', 'inspection', ['inspection', 'delivery'])
+
+// ----- List / Month -----
+// remembered in the address (?view=month), so a refresh keeps it
+const view = useQueryParam('view', 'list', ['list', 'month'])
+const VIEWS = [
+  { key: 'list', label: 'List', icon: 'docs' },
+  { key: 'month', label: 'Month', icon: 'calendar' },
+]
+const KINDS = [
+  { key: 'inspection', label: 'Inspections' },
+  { key: 'delivery', label: 'Deliveries' },
+]
+const showKinds = ref({ inspection: true, delivery: true })
+const calMonth = ref(getToday().slice(0, 7)) // 'YYYY-MM' shown in Month
+const pickedDay = ref(null) // 'YYYY-MM-DD' open in the day window
 
 const products = ref([])
 const allProducts = ref([])
@@ -714,14 +908,72 @@ async function deleteDelivery(delivery) {
   fetchDeliveries()
 }
 
-function openAddModal() {
+// every inspection and delivery as a calendar item
+const allEvents = computed(() => [
+  ...products.value.map((item) => {
+    const overdue = isOverdue(item)
+    const pct = totalProgressPercent(item)
+    return {
+      key: `i${item.id}`,
+      kind: 'inspection',
+      date: String(item.inspection_date || '').slice(0, 10),
+      title: item.name,
+      sub: `Batch of ${count(inspectionQty(item))} · ${pct}% done`,
+      state: overdue ? 'overdue' : '',
+      badge: overdue ? 'Overdue' : pct > 0 ? 'In progress' : 'To do',
+      item,
+    }
+  }),
+  ...deliveries.value.map((item) => {
+    const overdue = isDeliveryOverdue(item)
+    const arrived = item.receipt_state === 'waiting' || item.receipt_state === 'sent'
+    return {
+      key: `d${item.id}`,
+      kind: 'delivery',
+      date: String(item.delivery_date || '').slice(0, 10),
+      title: item.title,
+      sub: item.supplier ? `From ${item.supplier}` : 'No supplier set',
+      state: overdue ? 'overdue' : arrived ? 'arrived' : '',
+      badge: overdue ? 'Overdue' : arrived ? (receiptStateOf(item)?.text || 'Arrived') : 'Scheduled',
+      item,
+    }
+  }),
+])
+
+const kindCounts = computed(() => ({
+  inspection: allEvents.value.filter((e) => e.kind === 'inspection').length,
+  delivery: allEvents.value.filter((e) => e.kind === 'delivery').length,
+}))
+
+const monthEvents = computed(() => allEvents.value.filter((e) => showKinds.value[e.kind]))
+
+const dayItems = computed(() => monthEvents.value.filter((e) => e.date === pickedDay.value))
+
+function openDay(date) {
+  deletingId.value = null
+  pickedDay.value = date
+}
+
+function longDate(date) {
+  if (!date) return ''
+  return new Date(`${date}T00:00:00`).toLocaleDateString(undefined, {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+  })
+}
+
+// options: { date, type } from a day of the Month view
+function openAddModal(options = {}) {
+  pickedDay.value = null
   newSchedule.value = {
-    type: activeTab.value,
+    type: options.type || activeTab.value,
     product_id: '',
     title: '',
     supplier: '',
-    // starts at today
-    date: getToday(),
+    // starts at today (or the day picked)
+    date: options.date || getToday(),
   }
 
   pickedProductName.value = ''
@@ -968,5 +1220,38 @@ onBeforeUnmount(() => {
 .calendar-date-input::-webkit-calendar-picker-indicator {
   filter: invert(1);
   cursor: pointer;
+}
+
+/* Month view: show / hide inspections or deliveries */
+.kind-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  border-radius: 999px;
+  border: 1px solid var(--hairline);
+  background: var(--surface);
+  padding: 0.4rem 0.8rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #fff;
+  transition: opacity 0.15s;
+}
+
+.kind-toggle.is-off {
+  opacity: 0.45;
+}
+
+.kind-dot {
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 999px;
+}
+
+.kind-inspection .kind-dot {
+  background: #a78bfa;
+}
+
+.kind-delivery .kind-dot {
+  background: #38bdf8;
 }
 </style>
