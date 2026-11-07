@@ -125,6 +125,42 @@
           <p v-else-if="delivery.receipt_state === 'sent'" class="mt-3 text-xs text-zinc-500">
             Its receipt <b class="text-zinc-300">{{ delivery.receipt_file }}</b> is in Approval.
           </p>
+
+          <!-- delete (not once a receipt is linked to it): asks first, here -->
+          <template v-if="!delivery.upload_id">
+            <div v-if="deletingId === delivery.id" class="mt-4 rounded-xl border border-red-500/40 bg-red-600/10 p-3">
+              <p class="text-sm font-bold text-red-200">Delete this delivery?</p>
+              <p class="mt-0.5 text-xs text-zinc-400">It leaves the calendar and the staff are told.</p>
+              <p v-if="deleteError" class="mt-2 text-xs text-red-300" role="alert">{{ deleteError }}</p>
+              <div class="mt-3 flex gap-2">
+                <button
+                  type="button"
+                  class="flex-1 rounded-lg bg-zinc-800 py-2 text-sm font-bold text-white hover:bg-zinc-700"
+                  :disabled="deleteBusy"
+                  @click="deletingId = null"
+                >
+                  Keep
+                </button>
+                <button
+                  type="button"
+                  class="flex-1 rounded-lg bg-red-600 py-2 text-sm font-bold text-white hover:bg-red-700 disabled:opacity-50"
+                  :disabled="deleteBusy"
+                  @click="deleteDelivery(delivery)"
+                >
+                  {{ deleteBusy ? 'Deleting…' : 'Yes, delete' }}
+                </button>
+              </div>
+            </div>
+            <button
+              v-else
+              type="button"
+              class="mt-4 flex w-full items-center justify-center gap-1.5 rounded-xl border border-white/10 py-2 text-sm font-bold text-zinc-300 transition hover:border-red-500/50 hover:bg-red-600/10 hover:text-red-300"
+              :title="'Delete ' + delivery.title"
+              @click="askDelete(delivery)"
+            >
+              Delete
+            </button>
+          </template>
         </div>
       </div>
     </div>
@@ -383,6 +419,7 @@ import { count } from '../../lib/format'
 import { isDelivered, isOpenDelivery, receiptStateOf } from '../../lib/deliveries'
 import { RouterLink } from 'vue-router'
 import { useQueryParam } from '../../lib/useQueryParam'
+import { toast } from '../../lib/toast'
 
 // in the address (?tab=delivery), like the Staff calendar, so the Dashboard
 // can open the Delivery tab
@@ -638,6 +675,38 @@ async function fetchDeliveries() {
     // done ones leave; arrived ones stay until their receipt is through
     deliveries.value = (data || []).filter(isOpenDelivery)
   }
+}
+
+// ----- Delete a delivery (asks first, on its card) -----
+const deletingId = ref(null)
+const deleteBusy = ref(false)
+const deleteError = ref('')
+
+function askDelete(delivery) {
+  deleteError.value = ''
+  deletingId.value = delivery.id
+}
+
+async function deleteDelivery(delivery) {
+  if (deleteBusy.value) return
+  deleteBusy.value = true
+  deleteError.value = ''
+
+  const { error } = await supabase.rpc('admin_delete_delivery', { p_delivery_id: delivery.id })
+
+  deleteBusy.value = false
+  if (error) {
+    deleteError.value = /admin_delete_delivery|schema cache/i.test(error.message)
+      ? 'Deleting isn\'t set up yet: run 20261110000001_delete_delivery.sql in Supabase.'
+      : error.message
+    return
+  }
+
+  deletingId.value = null
+  deliveries.value = deliveries.value.filter((item) => item.id !== delivery.id)
+  toast(`Deleted "${delivery.title}".`)
+  refreshTasksSoon()
+  fetchDeliveries()
 }
 
 function openAddModal() {
