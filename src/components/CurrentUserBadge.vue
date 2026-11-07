@@ -50,8 +50,8 @@ const initials = computed(() => {
 </script>
 
 <style scoped>
-/* calm on purpose: a plain card, the role's colour only in small, soft
-   touches (no glow, no tinted background) so it's easy on the eyes */
+/* the role's colour in measured touches: a deep solid avatar, a thin
+   border and the role chip; the card itself stays calm (no glow) */
 .user-badge {
   display: inline-flex;
   min-width: 0;
@@ -59,8 +59,10 @@ const initials = computed(() => {
   align-items: center;
   gap: 0.65rem;
   border-radius: 999px;
-  border: 1px solid var(--hairline);
-  background: var(--surface);
+  border: 1px solid color-mix(in srgb, var(--tone) 30%, transparent);
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--tone) 8%, transparent), transparent 60%),
+    var(--surface);
   padding: 0.3rem 0.75rem 0.3rem 0.3rem;
   transition: border-color 0.15s var(--ease), background-color 0.15s var(--ease);
 }
@@ -68,8 +70,7 @@ const initials = computed(() => {
 .user-badge:hover,
 .user-badge:focus-visible {
   outline: none;
-  border-color: rgba(255, 255, 255, 0.2);
-  background: var(--surface-raised);
+  border-color: color-mix(in srgb, var(--tone) 55%, transparent);
 }
 
 .user-avatar {
@@ -80,12 +81,13 @@ const initials = computed(() => {
   width: 2.25rem;
   height: 2.25rem;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--tone) 18%, var(--surface));
-  border: 1px solid color-mix(in srgb, var(--tone) 35%, transparent);
-  font-size: 0.78rem;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  color: color-mix(in srgb, var(--tone) 70%, #fff);
+  /* the role's colour, a shade deeper so it doesn't glare */
+  background: linear-gradient(145deg, color-mix(in srgb, var(--tone) 85%, #fff), color-mix(in srgb, var(--tone) 65%, #000));
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  color: #fff;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.25);
 }
 
 .user-online {
@@ -101,8 +103,10 @@ const initials = computed(() => {
 
 .user-caption {
   display: block;
-  font-size: 0.68rem;
-  font-weight: 500;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
   color: var(--color-zinc-500);
 }
 
@@ -112,20 +116,22 @@ const initials = computed(() => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 0.9rem;
-  font-weight: 700;
+  font-size: 0.92rem;
+  font-weight: 800;
   line-height: 1.25;
-  color: var(--color-zinc-200);
+  color: #fff;
 }
 
 .user-role {
   flex: none;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.06);
-  padding: 0.15rem 0.55rem;
-  font-size: 0.68rem;
-  font-weight: 700;
-  color: var(--color-zinc-300);
+  background: color-mix(in srgb, var(--tone) 14%, transparent);
+  padding: 0.15rem 0.6rem;
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--tone) 75%, #fff);
 }
 
 /* small phones: "Logged in as" goes, the name and role stay */
