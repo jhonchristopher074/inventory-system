@@ -119,12 +119,39 @@ const initials = computed(() => {
   color: color-mix(in srgb, var(--tone) 70%, #fff);
 }
 
-/* green with a soft halo: logged in now */
+/* green, with a ring pulsing out of it: logged in now */
 .user-dot {
+  position: relative;
   width: 0.55rem;
   height: 0.55rem;
   border-radius: 999px;
   background: var(--color-emerald-400);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-emerald-400) 22%, transparent);
+}
+
+.user-dot::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--color-emerald-400);
+  animation: online-pulse 1.8s ease-out infinite;
+}
+
+@keyframes online-pulse {
+  from {
+    transform: scale(1);
+    opacity: 0.7;
+  }
+  to {
+    transform: scale(2.6);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .user-dot::after {
+    animation: none;
+    opacity: 0;
+  }
 }
 </style>

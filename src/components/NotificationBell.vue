@@ -1,16 +1,17 @@
 <template>
   <div ref="root" class="relative">
     <button
-      class="relative flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-zinc-900 text-white transition hover:bg-zinc-800"
+      class="relative flex h-[3.8rem] w-[3.8rem] items-center justify-center rounded-2xl border border-white/10 bg-zinc-900 text-white transition hover:bg-zinc-800"
       :class="unreadCount > 0 ? 'text-white' : 'text-zinc-300'"
       :aria-label="unreadCount > 0 ? `Notifications, ${unreadCount} unread` : 'Notifications'"
       @click="toggleList"
     >
-      <NavIcon name="bell" class="h-5 w-5" />
+      <NavIcon name="bell" class="h-6 w-6" />
 
+      <!-- unread: the count, with a red ring pulsing out of it -->
       <span
         v-if="unreadCount > 0"
-        class="absolute -right-1 -top-1 rounded-full bg-red-600 px-[6px] py-[1px] text-[9px] font-bold text-white"
+        class="unread-count absolute -right-1.5 -top-1.5 min-w-[1.35rem] rounded-full bg-red-600 px-1.5 py-[2px] text-center text-[11px] font-bold leading-none text-white"
       >
         {{ unreadCount > 99 ? '99+' : unreadCount }}
       </span>
@@ -115,6 +116,35 @@
 </template>
 
 <style scoped>
+/* the unread count: a red ring keeps pulsing out of it */
+.unread-count::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  border: 2px solid #e01b32;
+  animation: unread-pulse 1.6s ease-out infinite;
+  pointer-events: none;
+}
+
+@keyframes unread-pulse {
+  from {
+    transform: scale(1);
+    opacity: 0.9;
+  }
+  to {
+    transform: scale(1.8);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .unread-count::after {
+    animation: none;
+    opacity: 0;
+  }
+}
+
 .notice-pop-enter-active,
 .notice-pop-leave-active {
   transition: opacity 0.25s ease, transform 0.25s ease;
