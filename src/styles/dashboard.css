@@ -17,10 +17,8 @@
   container-type: inline-size;
   border-radius: var(--radius-md);
   border: 1px solid var(--hairline);
-  /* a faint wash of the tile's colour in the top-right corner */
-  background:
-    radial-gradient(130% 90% at 100% 0%, color-mix(in srgb, var(--tone, var(--brand)) 10%, transparent), transparent 60%),
-    linear-gradient(180deg, var(--surface-raised), var(--surface));
+  /* plain card: the colour is only its top edge and icon */
+  background: var(--surface);
   box-shadow: var(--shadow-card);
   padding: 1rem 1.1rem;
   transition:
@@ -34,8 +32,8 @@
   content: '';
   position: absolute;
   inset: 0 0 auto 0;
-  height: 2px;
-  background: linear-gradient(90deg, var(--tone, var(--brand)), transparent);
+  height: 3px;
+  background: var(--tone, var(--brand));
 }
 
 /* only a tile that opens a page lifts under the mouse */
@@ -44,18 +42,13 @@ a.kpi:focus-visible {
   outline: none;
   border-color: color-mix(in srgb, var(--tone, var(--brand)) 40%, transparent);
   transform: translateY(-2px);
-  box-shadow:
-    0 1px 2px rgba(0, 0, 0, 0.5),
-    0 14px 32px -16px color-mix(in srgb, var(--tone, var(--brand)) 45%, transparent);
+  box-shadow: 0 6px 18px -8px rgba(0, 0, 0, 0.5);
 }
 
-/* a tile showing a problem (e.g. something out of stock): border, glow
-   and number in its colour, so it stands out from the others */
+/* a tile showing a problem (e.g. something out of stock): its border and
+   number in its colour (no glow: calm, but clearly different) */
 .kpi-alert {
-  border-color: color-mix(in srgb, var(--tone, var(--brand)) 55%, transparent);
-  box-shadow:
-    0 0 0 1px color-mix(in srgb, var(--tone, var(--brand)) 22%, transparent),
-    0 12px 30px -14px color-mix(in srgb, var(--tone, var(--brand)) 70%, transparent);
+  border-color: color-mix(in srgb, var(--tone, var(--brand)) 45%, transparent);
 }
 
 .kpi-alert .kpi-value {
@@ -73,37 +66,7 @@ a.kpi:focus-visible {
   height: 1.9rem;
   border-radius: 999px;
   background: var(--alert);
-  box-shadow: 0 0 14px color-mix(in srgb, var(--alert) 55%, transparent);
   color: #1a1000;
-}
-
-.kpi-caution::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  border: 2px solid var(--alert);
-  animation: caution-pulse 1.8s ease-out infinite;
-}
-
-@keyframes caution-pulse {
-  from {
-    transform: scale(1);
-    opacity: 0.8;
-  }
-  to {
-    transform: scale(1.9);
-    opacity: 0;
-  }
-}
-
-/* no movement wanted: a still ring instead */
-@media (prefers-reduced-motion: reduce) {
-  .kpi-caution::after {
-    animation: none;
-    transform: scale(1.35);
-    opacity: 0.35;
-  }
 }
 
 .kpi-top {

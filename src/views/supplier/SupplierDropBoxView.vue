@@ -206,6 +206,7 @@
         </div>
 
         <input
+          maxlength="80"
           v-model="search"
           type="search"
           placeholder="Search file name..."

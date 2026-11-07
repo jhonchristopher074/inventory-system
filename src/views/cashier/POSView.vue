@@ -8,6 +8,7 @@
       <div ref="productsTop" class="min-w-0 scroll-mt-4">
         <div class="mb-5 flex gap-2">
           <input
+            maxlength="80"
             v-model="searchQuery"
             type="text"
             placeholder="Search product..."

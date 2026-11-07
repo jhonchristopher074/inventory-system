@@ -87,7 +87,7 @@ function submit() {
 
       <label class="ap-label" for="ap-password">Your password</label>
       <div class="ap-field">
-        <input id="ap-password" ref="input" v-model="password" v-clean:password
+        <input maxlength="72" id="ap-password" ref="input" v-model="password" v-clean:password
                :type="$passwordType(show)" v-no-save="show" autocomplete="off" />
         <button type="button" class="ap-toggle" @click="show = !show"
                 :aria-label="show ? 'Hide password' : 'Show password'">

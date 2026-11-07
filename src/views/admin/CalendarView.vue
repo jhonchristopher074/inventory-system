@@ -224,6 +224,7 @@
                     <span class="text-xl text-red-400">⌕</span>
 
                     <input
+                      maxlength="80"
                       v-model="productSearch"
                       type="text"
                       placeholder="Search product..."
@@ -265,6 +266,7 @@
             <div>
               <label class="label">Delivery Title</label>
               <input
+                maxlength="100"
                 v-model="newSchedule.title"
                 type="text"
                 placeholder="What's being delivered, e.g. 50 bags of cement"
@@ -275,6 +277,7 @@
             <div>
               <label class="label">Supplier</label>
               <input
+                maxlength="100"
                 v-model="newSchedule.supplier"
                 type="text"
                 placeholder="Who delivers it, e.g. JM Supply"

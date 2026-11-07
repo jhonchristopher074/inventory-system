@@ -142,6 +142,23 @@
       <path d="M20 3.5v5h-5" />
     </template>
 
+    <!-- pencil (edit) -->
+    <template v-else-if="name === 'edit'">
+      <path d="M4 20h4L19 9a2.83 2.83 0 00-4-4L4 16v4z" />
+      <path d="M13.5 6.5l4 4" />
+    </template>
+
+    <!-- clock (history) -->
+    <template v-else-if="name === 'history'">
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v5l3 2" />
+    </template>
+
+    <!-- dots (more) -->
+    <template v-else-if="name === 'more'">
+      <path d="M5 12h.01M12 12h.01M19 12h.01" stroke-width="3" />
+    </template>
+
     <!-- fallback dot -->
     <circle v-else cx="12" cy="12" r="3" />
   </svg>

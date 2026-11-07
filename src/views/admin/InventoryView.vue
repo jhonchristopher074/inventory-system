@@ -8,6 +8,7 @@
       <input
         v-model="searchQuery"
         type="text"
+        maxlength="80"
         placeholder="Search product or category..."
         class="min-w-0 basis-full rounded-2xl border border-white/10 bg-zinc-900 px-4 py-3 text-sm text-white outline-none placeholder:text-zinc-500 focus:border-red-500 sm:basis-0 sm:flex-1"
       />
@@ -157,12 +158,13 @@
                 <!-- the owner sorts products right here; saved at once -->
                 <select
                   v-if="categoryList"
-                  :value="product.category || NO_CATEGORY"
+                  :value="pendingCategory[product.id] ?? (product.category || NO_CATEGORY)"
                   class="category-select"
+                  :class="{ 'is-pending': product.id in pendingCategory }"
                   :disabled="savingCategoryId === product.id"
                   :aria-label="`Category of ${product.name}`"
                   title="Change the category"
-                  @change="changeCategory(product, $event.target.value)"
+                  @change="pickCategory(product, $event.target.value)"
                 >
                   <option :value="NO_CATEGORY">{{ NO_CATEGORY }}</option>
                   <option v-for="category in categoryList" :key="category.id" :value="category.name">
@@ -177,9 +179,29 @@
                   </option>
                 </select>
                 <template v-else>{{ product.category || NO_CATEGORY }}</template>
+
+                <!-- picked: nothing changes until Save -->
+                <div v-if="product.id in pendingCategory" class="mt-1.5 flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    class="rounded-md bg-emerald-600 px-2.5 py-1 text-xs font-bold text-white hover:bg-emerald-500 disabled:opacity-50"
+                    :disabled="savingCategoryId === product.id"
+                    @click="changeCategory(product, pendingCategory[product.id])"
+                  >
+                    {{ savingCategoryId === product.id ? 'Saving…' : 'Save' }}
+                  </button>
+                  <button
+                    type="button"
+                    class="rounded-md bg-zinc-800 px-2.5 py-1 text-xs font-bold text-zinc-200 hover:bg-zinc-700"
+                    :disabled="savingCategoryId === product.id"
+                    @click="cancelCategory(product)"
+                  >
+                    Cancel
+                  </button>
+                </div>
               </td>
 
-              <td data-label="Price" class="num text-sm font-bold text-red-400">
+              <td data-label="Price" class="num text-sm font-bold text-white">
                 {{ peso(product.price || 0) }}
               </td>
 
@@ -199,53 +221,46 @@
                     {{ enablingId === product.id ? 'Enabling…' : 'Enable' }}
                   </button>
 
-                  <button
-                    class="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-red-700"
-                    @click="openStockModal(product)"
-                  >
-                    Add Stock
-                  </button>
-
                   <!-- phones: in the "More" menu instead -->
                   <button
-                    class="desktop-only rounded-lg bg-zinc-800 px-2.5 py-1.5 text-xs font-bold text-zinc-200 hover:bg-zinc-700"
+                    class="desktop-only act-btn inline-flex bg-zinc-800 text-zinc-200 hover:bg-zinc-700"
                     title="Edit name, price, quantity and picture"
                     @click="openEditModal(product)"
                   >
-                    ✎ Edit
+                    <NavIcon name="edit" class="h-3.5 w-3.5" /> Edit
                   </button>
 
                   <!-- a narrower table (small laptop, phone): in the "More" menu instead -->
                   <button
-                    class="desktop-only rounded-lg bg-zinc-800 px-2.5 py-1.5 text-xs font-bold text-zinc-200 hover:bg-zinc-700 @max-5xl:hidden"
+                    class="desktop-only act-btn inline-flex bg-zinc-800 text-zinc-200 hover:bg-zinc-700 @max-5xl:hidden"
                     title="Set the inspection date or report the product"
                     @click="openModal(product)"
                   >
-                    📅 Inspection
+                    <NavIcon name="calendar" class="h-3.5 w-3.5" /> Inspection
                   </button>
 
                   <button
-                    class="desktop-only rounded-lg bg-zinc-800 px-2.5 py-1.5 text-xs font-bold text-zinc-200 hover:bg-zinc-700 @max-5xl:hidden"
+                    class="desktop-only act-btn inline-flex bg-zinc-800 text-zinc-200 hover:bg-zinc-700 @max-5xl:hidden"
                     title="Every stock change for this product"
                     @click="openHistory(product)"
                   >
-                    History
+                    <NavIcon name="history" class="h-3.5 w-3.5" /> History
                   </button>
 
                   <button
-                    class="desktop-only rounded-lg bg-red-600/15 px-2.5 py-1.5 text-xs font-bold text-red-300 hover:bg-red-600/30 hover:text-white @max-5xl:hidden"
+                    class="desktop-only act-btn inline-flex bg-red-600/15 text-red-300 hover:bg-red-600/30 hover:text-white @max-5xl:hidden"
                     title="Move this product to Archived"
                     @click="openArchiveModal(product)"
                   >
-                    Archive
+                    <NavIcon name="archive" class="h-3.5 w-3.5" /> Archive
                   </button>
 
                   <button
-                    class="rounded-lg bg-zinc-800 px-3 py-1.5 text-xs font-bold text-white hover:bg-zinc-700 @5xl:hidden"
+                    class="act-btn inline-flex bg-zinc-800 text-white hover:bg-zinc-700 @5xl:hidden"
                     title="Inspection, history, archive and more"
                     @click="manageProduct = product"
                   >
-                    More
+                    <NavIcon name="more" class="h-3.5 w-3.5" /> More
                   </button>
                 </div>
               </td>
@@ -458,7 +473,7 @@
       class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
       @click.self="closeAddModal"
     >
-      <div class="max-h-[92vh] overflow-y-auto w-full max-w-4xl rounded-[28px] border border-white/10 bg-[#18181b] p-6 shadow-2xl">
+      <div class="max-h-[92vh] overflow-y-auto w-full max-w-3xl rounded-[28px] border border-white/10 bg-zinc-900 p-6 shadow-2xl">
         <div class="mb-6 flex items-center justify-between">
           <div>
             <h2 class="text-3xl font-extrabold text-white">Add Product</h2>
@@ -473,18 +488,18 @@
           </button>
         </div>
 
-        <div class="grid gap-6 md:grid-cols-[1fr_360px]">
-          <div class="space-y-4 rounded-3xl bg-black/40 p-5">
-            <h3 class="text-lg font-bold text-white">Product Details</h3>
-
+        <div class="grid gap-6 md:grid-cols-[1fr_300px]">
+          <div class="space-y-4 rounded-3xl border border-white/5 bg-zinc-950/60 p-5">
             <div>
-              <label class="label">Product Name</label>
+              <label class="label">Product name</label>
               <input
                 v-model="newProduct.name"
                 type="text"
+                :maxlength="NAME_MAX"
                 placeholder="e.g. Vinyl Electrical Tape"
                 class="input"
               />
+              <p class="mt-1 text-right text-xs text-zinc-500">{{ newProduct.name.length }} / {{ NAME_MAX }}</p>
             </div>
 
             <div>
@@ -501,6 +516,7 @@
                 v-else
                 v-model="newProduct.category"
                 type="text"
+                maxlength="60"
                 placeholder="e.g. Electrical Tape"
                 class="input"
               />
@@ -514,75 +530,68 @@
               </button>
             </div>
 
+            <!-- the same order as Edit: Price, then Quantity -->
             <div class="grid grid-cols-2 gap-4">
-              <div>
-                <label class="label">Quantity</label>
-                <input
-                  v-model.number="newProduct.quantity"
-                  type="number"
-                  min="0"
-                  placeholder="Enter quantity"
-                  class="input"
-                />
-              </div>
-
               <div>
                 <label class="label">Price</label>
                 <input
                   v-model.number="newProduct.price"
                   type="number"
                   min="0"
+                  max="9999999"
                   step="0.01"
-                  placeholder="Enter price"
+                  placeholder="e.g. 250.00"
+                  class="input"
+                />
+              </div>
+
+              <div>
+                <label class="label">Quantity</label>
+                <input
+                  v-model.number="newProduct.quantity"
+                  type="number"
+                  min="0"
+                  max="1000000"
+                  step="1"
+                  placeholder="e.g. 50"
                   class="input"
                 />
               </div>
             </div>
           </div>
 
-          <div class="space-y-4 rounded-3xl bg-black/40 p-5">
-            <h3 class="text-lg font-bold text-white">Product Image</h3>
-
-            <label class="flex h-36 cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-red-500/70 bg-red-500/10 text-center hover:bg-red-500/20">
-              <span class="text-3xl">📷</span>
-              <span class="mt-2 font-bold text-white">
-                {{ uploading ? 'Uploading...' : 'Upload Image' }}
-              </span>
-              <span class="text-xs text-zinc-400">PNG, JPG, JPEG</span>
-
-              <input
-                type="file"
-                accept="image/*"
-                @change="handleImageUpload"
-                class="hidden"
-              />
-            </label>
-
-            <div class="text-center text-xs uppercase tracking-widest text-zinc-500">
-              OR paste image URL
-            </div>
-
-            <input
-              v-model="newProduct.image_url"
-              type="text"
-              placeholder="https://image-link..."
-              class="input"
-            />
+          <!-- the same picture panel as Edit -->
+          <div class="space-y-3 rounded-3xl border border-white/5 bg-zinc-950/60 p-5">
+            <h3 class="text-lg font-bold text-white">Picture</h3>
 
             <div class="overflow-hidden rounded-2xl border border-white/10 bg-zinc-900">
               <img
                 v-if="newProduct.image_url"
                 :src="newProduct.image_url"
-                class="h-44 w-full object-cover"
+                class="h-40 w-full object-cover"
               />
-
-              <div
-                v-else
-                class="flex h-44 items-center justify-center text-sm text-zinc-500"
-              >
-                Image preview will appear here
+              <div v-else class="flex h-40 items-center justify-center text-sm text-zinc-500">
+                No picture
               </div>
             </div>
+
+            <label class="flex cursor-pointer items-center justify-center rounded-xl border-2 border-dashed border-red-500/70 bg-red-500/10 py-3 text-sm font-bold text-white hover:bg-red-500/20">
+              {{ uploading ? 'Uploading...' : 'Upload picture' }}
+              <input
+                type="file"
+                accept="image/*"
+                class="hidden"
+                @change="handleImageUpload"
+              />
+            </label>
+
+            <input
+              v-model="newProduct.image_url"
+              type="text"
+              maxlength="500"
+              placeholder="or paste image URL"
+              class="input"
+            />
           </div>
         </div>
 
@@ -618,7 +627,7 @@
       class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
       @click.self="closeEditModal"
     >
-      <div class="max-h-[92vh] overflow-y-auto w-full max-w-3xl rounded-[28px] border border-white/10 bg-[#18181b] p-6 shadow-2xl">
+      <div class="max-h-[92vh] overflow-y-auto w-full max-w-3xl rounded-[28px] border border-white/10 bg-zinc-900 p-6 shadow-2xl">
         <div class="mb-6 flex items-center justify-between">
           <div>
             <h2 class="text-3xl font-extrabold text-white">Edit Product</h2>
@@ -634,7 +643,7 @@
         </div>
 
         <div class="grid gap-6 md:grid-cols-[1fr_300px]">
-          <div class="space-y-4 rounded-3xl bg-black/40 p-5">
+          <div class="space-y-4 rounded-3xl border border-white/5 bg-zinc-950/60 p-5">
             <div>
               <label class="label">Real product name</label>
               <p class="rounded-2xl border border-white/5 bg-zinc-900 px-4 py-3 text-sm text-zinc-400">
@@ -673,6 +682,7 @@
                   type="text"
                   inputmode="decimal"
                   autocomplete="off"
+                  maxlength="12"
                   placeholder="e.g. 250.00"
                   class="input"
                 />
@@ -684,8 +694,9 @@
                   v-model.number="editForm.quantity"
                   type="number"
                   min="0"
+                  max="1000000"
                   step="1"
-                  placeholder="Enter quantity"
+                  placeholder="e.g. 50"
                   class="input"
                 />
               </div>
@@ -699,11 +710,11 @@
             </p>
 
             <p class="text-xs text-zinc-500">
-              Category is not changed here. Quantity here sets the exact stock count; use Add Stock to add new deliveries.
+              Quantity sets the exact stock count: to add a delivery, type the new total.
             </p>
           </div>
 
-          <div class="space-y-3 rounded-3xl bg-black/40 p-5">
+          <div class="space-y-3 rounded-3xl border border-white/5 bg-zinc-950/60 p-5">
             <h3 class="text-lg font-bold text-white">Picture</h3>
 
             <div class="overflow-hidden rounded-2xl border border-white/10 bg-zinc-900">
@@ -718,7 +729,7 @@
             </div>
 
             <label class="flex cursor-pointer items-center justify-center rounded-xl border-2 border-dashed border-red-500/70 bg-red-500/10 py-3 text-sm font-bold text-white hover:bg-red-500/20">
-              {{ editUploading ? 'Uploading...' : '📷 Upload new picture' }}
+              {{ editUploading ? 'Uploading...' : 'Upload picture' }}
               <input
                 type="file"
                 accept="image/*"
@@ -730,6 +741,7 @@
             <input
               v-model="editForm.image_url"
               type="text"
+              maxlength="500"
               placeholder="or paste image URL"
               class="input"
             />
@@ -762,55 +774,6 @@
       </div>
     </div>
 
-    <!-- ADD STOCK MODAL -->
-    <div
-      v-if="showStockModal"
-      class="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4"
-      @click.self="closeStockModal"
-    >
-      <div class="max-h-[92vh] overflow-y-auto w-full max-w-sm rounded-2xl border border-white/10 bg-zinc-900 p-5 shadow-2xl">
-        <h2 class="mb-2 text-2xl font-bold text-white">Add Stock</h2>
-
-        <p class="mb-1 text-sm text-zinc-400">Product</p>
-        <p class="mb-4 font-bold text-white">{{ stockProduct?.name }}</p>
-
-        <p class="mb-2 text-sm text-zinc-400">
-          Current Quantity: {{ count(stockProduct?.quantity) }}
-        </p>
-
-        <input
-          v-model.number="stockAmount"
-          type="number"
-          min="1"
-          placeholder="Enter quantity to add"
-          class="input"
-        />
-
-        <p
-          v-if="stockError"
-          class="mt-3 rounded-lg bg-red-600/20 p-2 text-xs text-red-400"
-        >
-          {{ stockError }}
-        </p>
-
-        <div class="mt-5 flex gap-3">
-          <button
-            class="flex-1 rounded-xl bg-red-600 py-3 font-bold text-white hover:bg-red-700 disabled:opacity-50"
-            :disabled="stockSaving"
-            @click="addStock"
-          >
-            {{ stockSaving ? 'Saving...' : 'Confirm' }}
-          </button>
-
-          <button
-            class="flex-1 rounded-xl bg-zinc-800 py-3 font-bold text-white hover:bg-zinc-700"
-            @click="closeStockModal"
-          >
-            Cancel
-          </button>
-        </div>
-      </div>
-    </div>
   </div>
 </template>
 
@@ -832,6 +795,7 @@ import { uploadImage } from '../../lib/uploadImage'
 import { count, peso } from '../../lib/format'
 import { LOW_STOCK, byStockLevel, isLowStock } from '../../lib/stock'
 import { useDisabledProducts } from '../../lib/disabledProducts'
+import { toast } from '../../lib/toast'
 
 const products = ref([])
 const selectedCategory = ref('All')
@@ -853,19 +817,14 @@ const actionModal = ref(false)
 const modalError = ref('')
 
 const showAddModal = ref(false)
-const showStockModal = ref(false)
+const NAME_MAX = 120 // product names: long enough for receipt names, short enough for the table
 
 const addError = ref('')
-const stockError = ref('')
-
-const stockProduct = ref(null)
-const stockAmount = ref(0)
 
 const uploading = ref(false)
 
 // true while saving: the button is disabled, so a double click can't save
-// twice (Add Stock used to add the stock twice, Add Product made two products)
-const stockSaving = ref(false)
+// twice (Add Product used to make two products)
 const addSaving = ref(false)
 const archiveSaving = ref(false)
 
@@ -912,7 +871,23 @@ async function onCategoriesChanged() {
   await Promise.all([loadCategories(), fetchProducts()])
 }
 
-// the Category menu in the table: shown at once, saved right away
+// the Category menu in the table: picking shows Save / Cancel on the row;
+// nothing is saved until Save
+const pendingCategory = ref({}) // product id -> the category picked
+
+function pickCategory(product, value) {
+  const next = { ...pendingCategory.value }
+  if (value === (product.category || NO_CATEGORY)) delete next[product.id]
+  else next[product.id] = value
+  pendingCategory.value = next
+}
+
+function cancelCategory(product) {
+  const next = { ...pendingCategory.value }
+  delete next[product.id]
+  pendingCategory.value = next
+}
+
 async function changeCategory(product, value) {
   const before = product.category
   product.category = value
@@ -927,12 +902,15 @@ async function changeCategory(product, value) {
 
   if (error) {
     product.category = before
+    cancelCategory(product)
     errorMessage.value = `Couldn't change the category of ${product.name}: ${error.message}`
     return
   }
 
   product.category = saved || value
+  cancelCategory(product)
   errorMessage.value = ''
+  toast(`${product.nickname || product.name} moved to ${product.category || NO_CATEGORY}.`)
   loadCategories() // the product counts
 }
 
@@ -997,8 +975,8 @@ watch([searchQuery, selectedCategory, stockFilter], resetList)
 const manageProduct = ref(null)
 
 const manageActions = [
-  { key: 'edit', label: '✎ Edit product', hint: 'Nickname, price, quantity and picture' },
-  { key: 'inspection', label: '📅 Inspection date / report' },
+  { key: 'edit', label: 'Edit product', hint: 'Nickname, price, quantity and picture' },
+  { key: 'inspection', label: 'Inspection date / report' },
   { key: 'history', label: 'Stock history' },
   { key: 'archive', label: 'Move to Archived', tone: 'danger' },
 ]
@@ -1117,46 +1095,6 @@ async function confirmArchive() {
   await fetchProducts()
 }
 
-function openStockModal(product) {
-  stockProduct.value = product
-  stockAmount.value = 0
-  stockError.value = ''
-  showStockModal.value = true
-}
-
-function closeStockModal() {
-  showStockModal.value = false
-  stockProduct.value = null
-  stockAmount.value = 0
-  stockError.value = ''
-}
-
-async function addStock() {
-  if (!stockProduct.value || stockSaving.value) return
-
-  if (!stockAmount.value || Number(stockAmount.value) <= 0) {
-    stockError.value = 'Please enter a valid quantity.'
-    return
-  }
-
-  stockSaving.value = true
-
-  const { error } = await supabase.rpc('add_stock', {
-    p_product_id: stockProduct.value.id,
-    p_amount: Number(stockAmount.value),
-  })
-
-  stockSaving.value = false
-
-  if (error) {
-    stockError.value = error.message
-    return
-  }
-
-  closeStockModal()
-  await fetchProducts()
-}
-
 function closeAddModal() {
   showAddModal.value = false
   addError.value = ''
@@ -1169,6 +1107,14 @@ async function addProduct() {
 
   if (!newProduct.value.name.trim()) {
     addError.value = 'Product name is required.'
+    return
+  }
+  if (newProduct.value.name.trim().length > NAME_MAX) {
+    addError.value = `The product name is too long (${NAME_MAX} characters at most).`
+    return
+  }
+  if (Number(newProduct.value.price) < 0 || Number(newProduct.value.quantity) < 0) {
+    addError.value = 'Price and quantity can\'t be below 0.'
     return
   }
 
@@ -1461,5 +1407,24 @@ onMounted(() => {
 .category-select option {
   background: var(--surface);
   color: #fff;
+}
+
+/* picked but not saved yet */
+.category-select.is-pending {
+  border-color: rgba(251, 191, 36, 0.6);
+  background: var(--surface-sunken);
+  color: #fff;
+}
+
+/* the row's buttons: an icon and a word, one size (display comes from
+   the classes, so @5xl:hidden can still hide them) */
+.act-btn {
+  align-items: center;
+  gap: 0.35rem;
+  border-radius: 0.5rem;
+  padding: 0.375rem 0.65rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  white-space: nowrap;
 }
 </style>

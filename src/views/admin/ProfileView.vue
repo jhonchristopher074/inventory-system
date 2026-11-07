@@ -66,6 +66,7 @@
         <!-- SEARCH -->
         <div class="mb-3">
           <input
+            maxlength="80"
             v-model="userSearch"
             type="text"
             placeholder="Search by account number, name, or email..."

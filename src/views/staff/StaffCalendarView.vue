@@ -109,6 +109,7 @@
           </span>
           <!-- only worth it once the list is long -->
           <input
+            maxlength="80"
             v-if="deliveries.length > 4"
             v-model="deliverySearch"
             type="search"

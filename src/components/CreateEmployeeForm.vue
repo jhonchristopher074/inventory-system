@@ -51,10 +51,10 @@ function closeReveal() {
     <h2>Add employee</h2>
 
     <label for="ce-name">Full name</label>
-    <input id="ce-name" v-model="fullName" v-clean type="text" required autocomplete="off" />
+    <input maxlength="80" id="ce-name" v-model="fullName" v-clean type="text" required autocomplete="off" />
 
     <label for="ce-email">Email</label>
-    <input id="ce-email" v-model="email" v-clean:email type="email" required autocomplete="off"
+    <input maxlength="254" id="ce-email" v-model="email" v-clean:email type="email" required autocomplete="off"
            autocapitalize="off" spellcheck="false" />
 
     <label for="ce-role">Role</label>

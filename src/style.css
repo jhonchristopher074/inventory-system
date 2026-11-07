@@ -10,13 +10,14 @@
    ============================================================ */
 
 @theme {
-  /* --- carbon: layered darks instead of flat black --- */
-  --color-black: #0a0a0c;
-  --color-zinc-950: #0d0d10;
-  --color-zinc-900: #151519;   /* cards / panels          */
-  --color-zinc-800: #1e1e24;   /* inputs / secondary fill */
-  --color-zinc-700: #2a2a32;   /* borders / dividers      */
-  --color-zinc-600: #3d3d47;
+  /* --- slate: a soft dark page, and cards a clear step lighter, so
+         every panel stands out from the background --- */
+  --color-black: #1a1d21;      /* the page                */
+  --color-zinc-950: #16181c;   /* sunken: inputs, wells   */
+  --color-zinc-900: #24282e;   /* cards / panels          */
+  --color-zinc-800: #30353c;   /* secondary buttons, fill */
+  --color-zinc-700: #3e454d;   /* borders / dividers      */
+  --color-zinc-600: #525a64;
   --color-zinc-500: #8b8b97;   /* faint label text        */
   --color-zinc-400: #a5a5b2;   /* muted body text         */
   --color-zinc-300: #d2d2db;
@@ -47,11 +48,11 @@
 :root {
   font-size: 90%;
 
-  --surface:       #151519;
-  --surface-raised:#1b1b21;
-  --surface-sunken: #0d0d10;
-  --hairline:      rgba(255, 255, 255, 0.07);
-  --hairline-soft: rgba(255, 255, 255, 0.04);
+  --surface:       #24282e;
+  --surface-raised:#2b3037;
+  --surface-sunken: #181a1e;
+  --hairline:      rgba(255, 255, 255, 0.10);
+  --hairline-soft: rgba(255, 255, 255, 0.06);
 
   --brand:         #e01b32;
   --brand-bright:  #f4344c;
@@ -70,8 +71,8 @@
   --radius-md: 16px;
   --radius-sm: 11px;
 
-  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.5),
-                 0 8px 24px -12px rgba(0, 0, 0, 0.8);
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.25),
+                 0 4px 14px -6px rgba(0, 0, 0, 0.45);
   --shadow-glow: 0 6px 20px -6px rgba(224, 27, 50, 0.5);
 
   --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
@@ -105,11 +106,7 @@ body {
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
-  /* a faint crimson bloom in the top-left so the page isn't dead flat */
-  background-image:
-    radial-gradient(900px 500px at 8% -8%, rgba(224, 27, 50, 0.10), transparent 60%),
-    radial-gradient(700px 400px at 100% 0%, rgba(224, 27, 50, 0.05), transparent 55%);
-  background-attachment: fixed;
+  /* a plain, calm page: the cards carry the colour */
 }
 
 * {
@@ -121,7 +118,7 @@ body {
    ------------------------------------------------------------ */
 * {
   scrollbar-width: thin;
-  scrollbar-color: #35353f transparent;
+  scrollbar-color: #4a515a transparent;
 }
 
 *::-webkit-scrollbar {
@@ -137,7 +134,7 @@ body {
   border: 3px solid transparent;
   border-radius: 999px;
   background-clip: content-box;
-  background-color: #35353f;
+  background-color: #4a515a;
 }
 
 *::-webkit-scrollbar-thumb:hover {
@@ -231,8 +228,8 @@ button:not(:disabled):active {
   content: '';
   grid-column: 1;
   grid-row: 1;
-  border-right: 1px solid rgba(255, 255, 255, 0.05);
-  background: rgba(13, 13, 16, 0.75);
+  border-right: 1px solid rgba(255, 255, 255, 0.07);
+  background: #15171b;
 }
 
 /* Layers: page content (POS cart bar: 40) < sidebar (45)
@@ -839,7 +836,7 @@ tbody tr:hover {
   .app-shell:not(.collapsed) .app-side {
     width: 250px;
     box-shadow: 12px 0 30px -10px rgba(0, 0, 0, 0.8);
-    background: #0d0d10;
+    background: #15171b;
   }
 
   /* the page behind the open menu: dimmed, and a tap here closes it */

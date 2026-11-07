@@ -8,6 +8,7 @@
     <div class="mb-5 card p-5">
       <div class="grid gap-4 md:grid-cols-[1fr_220px]">
         <input
+          maxlength="80"
           v-model="search"
           type="text"
           placeholder="Search product..."
@@ -218,6 +219,7 @@
           <div>
             <label class="label">Description</label>
             <textarea
+              maxlength="500"
               v-model="reportDescription"
               rows="4"
               placeholder="Explain the issue..."

@@ -36,6 +36,7 @@
         <div v-else-if="!chosen" class="flex min-h-0 flex-1 flex-col">
           <div class="px-5 pt-4">
             <input
+              maxlength="80"
               v-model="search"
               type="text"
               autocomplete="off"

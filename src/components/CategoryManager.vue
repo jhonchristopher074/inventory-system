@@ -553,6 +553,7 @@ onBeforeUnmount(() => {
         >
           <div class="p-3">
             <input
+              maxlength="60"
               ref="searchBox"
               v-model="search"
               type="search"
@@ -797,6 +798,7 @@ onBeforeUnmount(() => {
                   id="add-products"
                   ref="addBox"
                   v-model="addText"
+                  maxlength="120"
                   single
                   auto-highlight
                   :options="addOptions"
@@ -825,6 +827,7 @@ onBeforeUnmount(() => {
                   <span v-else class="field-label">Products</span>
 
                   <input
+                    maxlength="80"
                     v-if="productsHere.length > 8"
                     v-model="productFilter"
                     type="search"

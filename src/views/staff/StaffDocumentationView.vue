@@ -109,6 +109,7 @@
           <div>
             <label class="mb-1 block text-sm font-bold text-white">Title</label>
             <input
+              maxlength="100"
               v-model="newDoc.title"
               type="text"
               placeholder="Enter title"
@@ -146,6 +147,7 @@
                 class="absolute z-50 mt-2 max-h-64 w-full overflow-y-auto rounded-xl border border-white/10 bg-zinc-900 p-2 shadow-2xl"
               >
                 <input
+                  maxlength="80"
                   v-model="productSearch"
                   type="text"
                   placeholder="Search product..."
@@ -179,6 +181,7 @@
           <div>
             <label class="mb-1 block text-sm font-bold text-white">Description</label>
             <textarea
+              maxlength="1000"
               v-model="newDoc.description"
               rows="4"
               placeholder="Enter description"

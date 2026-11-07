@@ -90,6 +90,7 @@
                   <rect x="3" y="5" width="18" height="14" rx="2" /><path d="m3 7 9 6 9-6" />
                 </svg>
                 <input
+                  maxlength="254"
                   id="reset-email"
                   ref="resetEmailInput"
                   v-model="resetEmail"
@@ -131,6 +132,7 @@
                 <!-- autocomplete off: the browser isn't asked to fill in or keep
                      the account (some browsers may still offer it) -->
                 <input
+                  maxlength="254"
                   id="login-email"
                   v-model="email"
                   v-clean:email
@@ -151,6 +153,7 @@
                   <rect x="4" y="11" width="16" height="10" rx="2" /><path d="M8 11V7a4 4 0 0 1 8 0v4" />
                 </svg>
                 <input
+                  maxlength="72"
                   id="login-password"
                   v-model="password"
                   v-clean:password

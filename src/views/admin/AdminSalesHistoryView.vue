@@ -78,6 +78,7 @@
     <SalesPeriodFilter v-model="range">
       <template v-if="!selectedCashier" #end>
         <input
+          maxlength="80"
           v-model="cashierSearch"
           type="search"
           placeholder="Search cashier..."
