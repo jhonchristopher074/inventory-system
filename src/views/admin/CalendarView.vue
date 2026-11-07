@@ -2,43 +2,48 @@
   <div>
     <PageHeader title="Calendar" subtitle="Products scheduled for inspection and delivery." />
 
-    <div class="mb-5 flex flex-wrap gap-3 rounded-[20px] border border-white/10 bg-zinc-900 p-2">
-      <button
-        class="rounded-2xl px-4 py-3 font-bold transition sm:px-5"
-        :class="activeTab === 'inspection' ? 'bg-red-600 text-white' : 'text-zinc-400 hover:bg-zinc-800 hover:text-white'"
-        @click="activeTab = 'inspection'"
-      >
-        Inspection
-        <span
-          v-if="taskBadges.tabs['admin:inspection']"
-          class="ml-2 inline-grid h-5 min-w-5 place-items-center rounded-full px-1.5 align-middle text-[0.7rem] font-extrabold"
-          :class="activeTab === 'inspection' ? 'bg-white text-red-600' : 'bg-red-600 text-white'"
-          :title="'Inspections overdue'"
-        >{{ taskBadges.tabs['admin:inspection'] }}</span>
-      </button>
+    <!-- tabs like the Approval page's; the add button on the same line -->
+    <div class="mb-4 flex flex-wrap items-center gap-3">
+      <div class="inline-flex max-w-full gap-1 overflow-x-auto rounded-2xl border border-white/5 bg-zinc-900 p-1">
+        <button
+          type="button"
+          class="flex shrink-0 items-center gap-2 whitespace-nowrap rounded-xl px-3.5 py-2 text-sm font-bold transition"
+          :class="activeTab === 'inspection' ? 'bg-red-600 text-white' : 'text-zinc-400 hover:bg-white/5 hover:text-white'"
+          :aria-pressed="activeTab === 'inspection'"
+          @click="activeTab = 'inspection'"
+        >
+          Inspection
+          <span
+            v-if="taskBadges.tabs['admin:inspection']"
+            class="grid h-5 min-w-5 place-items-center rounded-full px-1.5 text-[0.7rem] font-extrabold"
+            :class="activeTab === 'inspection' ? 'bg-white text-red-600' : 'bg-red-600 text-white'"
+            :title="'Inspections overdue'"
+          >{{ taskBadges.tabs['admin:inspection'] }}</span>
+        </button>
+        <button
+          type="button"
+          class="flex shrink-0 items-center gap-2 whitespace-nowrap rounded-xl px-3.5 py-2 text-sm font-bold transition"
+          :class="activeTab === 'delivery' ? 'bg-red-600 text-white' : 'text-zinc-400 hover:bg-white/5 hover:text-white'"
+          :aria-pressed="activeTab === 'delivery'"
+          @click="activeTab = 'delivery'"
+        >
+          Delivery
+          <span
+            v-if="taskBadges.tabs['admin:delivery']"
+            class="grid h-5 min-w-5 place-items-center rounded-full px-1.5 text-[0.7rem] font-extrabold"
+            :class="activeTab === 'delivery' ? 'bg-white text-red-600' : 'bg-red-600 text-white'"
+            :title="'Deliveries overdue'"
+          >{{ taskBadges.tabs['admin:delivery'] }}</span>
+        </button>
+      </div>
 
       <button
-        class="rounded-2xl px-4 py-3 font-bold transition sm:px-5"
-        :class="activeTab === 'delivery' ? 'bg-red-600 text-white' : 'text-zinc-400 hover:bg-zinc-800 hover:text-white'"
-        @click="activeTab = 'delivery'"
-      >
-        Delivery
-        <span
-          v-if="taskBadges.tabs['admin:delivery']"
-          class="ml-2 inline-grid h-5 min-w-5 place-items-center rounded-full px-1.5 align-middle text-[0.7rem] font-extrabold"
-          :class="activeTab === 'delivery' ? 'bg-white text-red-600' : 'bg-red-600 text-white'"
-          :title="'Deliveries overdue'"
-        >{{ taskBadges.tabs['admin:delivery'] }}</span>
-      </button>
-
-      <!-- here, not floating over the page: a floating button covered
-           the buttons of the table rows under it -->
-      <button
-        class="ml-auto inline-flex items-center gap-1.5 rounded-2xl bg-red-600 px-4 py-3 font-bold text-white shadow-lg shadow-red-900/40 transition hover:bg-red-700"
+        type="button"
+        class="ml-auto inline-flex items-center gap-1.5 rounded-xl bg-red-600 px-4 py-2 text-sm font-bold text-white shadow-lg shadow-red-900/40 transition hover:bg-red-700"
         :title="activeTab === 'delivery' ? 'Schedule a delivery' : 'Schedule an inspection'"
         @click="openAddModal"
       >
-        <span class="text-lg leading-none">+</span>
+        <span class="text-base leading-none">+</span>
         Add {{ activeTab === 'delivery' ? 'delivery' : 'inspection' }}
       </button>
     </div>

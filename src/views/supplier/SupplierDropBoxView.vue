@@ -59,15 +59,15 @@
 
     <!-- TABS, like the other pages. The open one is in the address
          (?tab=uploads), so a refresh keeps it. -->
-    <div class="-mx-1 mb-5 flex gap-2 overflow-x-auto px-1 pb-1 sm:gap-3">
+    <div class="mb-4 inline-flex max-w-full gap-1 overflow-x-auto rounded-2xl border border-white/5 bg-zinc-900 p-1">
       <button
         v-for="tab in tabs"
         :key="tab.key"
         type="button"
-        class="flex shrink-0 items-center gap-2 whitespace-nowrap rounded-2xl px-4 py-2.5 text-sm font-bold transition sm:px-5 sm:py-3 sm:text-base"
+        class="flex shrink-0 items-center gap-2 whitespace-nowrap rounded-xl px-3.5 py-2 text-sm font-bold transition"
         :class="activeTab === tab.key
           ? 'bg-red-600 text-white'
-          : 'bg-zinc-900 text-zinc-300 hover:bg-zinc-800 hover:text-white'"
+          : 'text-zinc-400 hover:bg-white/5 hover:text-white'"
         :aria-pressed="activeTab === tab.key"
         @click="activeTab = tab.key"
       >
@@ -75,7 +75,7 @@
         {{ tab.label }}
         <span
           v-if="tab.count > 0"
-          class="grid h-6 min-w-6 place-items-center rounded-full px-1.5 text-xs font-extrabold"
+          class="grid h-5 min-w-5 place-items-center rounded-full px-1.5 text-[0.7rem] font-extrabold"
           :class="activeTab === tab.key ? 'bg-white text-red-600' : 'bg-red-600 text-white'"
         >
           {{ count(tab.count) }}

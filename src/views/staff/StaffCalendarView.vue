@@ -5,30 +5,34 @@
       subtitle="Inspect products and manage inspection submissions."
     />
 
-    <div class="mb-5 flex gap-3 rounded-[20px] border border-white/10 bg-zinc-900 p-2">
+    <!-- tabs like the Approval page's -->
+    <div class="mb-4 inline-flex max-w-full gap-1 overflow-x-auto rounded-2xl border border-white/5 bg-zinc-900 p-1">
       <button
-        class="tab-btn"
-        :class="activeTab === 'inspection' ? 'tab-active' : 'tab-inactive'"
+        type="button"
+        class="flex shrink-0 items-center gap-2 whitespace-nowrap rounded-xl px-3.5 py-2 text-sm font-bold transition"
+        :class="activeTab === 'inspection' ? 'bg-red-600 text-white' : 'text-zinc-400 hover:bg-white/5 hover:text-white'"
+        :aria-pressed="activeTab === 'inspection'"
         @click="activeTab = 'inspection'"
       >
         Inspection
         <span
           v-if="taskBadges.tabs['staff:inspection']"
-          class="ml-2 inline-grid h-5 min-w-5 place-items-center rounded-full px-1.5 align-middle text-[0.7rem] font-extrabold"
+          class="grid h-5 min-w-5 place-items-center rounded-full px-1.5 text-[0.7rem] font-extrabold"
           :class="activeTab === 'inspection' ? 'bg-white text-red-600' : 'bg-red-600 text-white'"
           :title="'Inspections to do today or overdue'"
         >{{ taskBadges.tabs['staff:inspection'] }}</span>
       </button>
-
       <button
-        class="tab-btn"
-        :class="activeTab === 'delivery' ? 'tab-active' : 'tab-inactive'"
+        type="button"
+        class="flex shrink-0 items-center gap-2 whitespace-nowrap rounded-xl px-3.5 py-2 text-sm font-bold transition"
+        :class="activeTab === 'delivery' ? 'bg-red-600 text-white' : 'text-zinc-400 hover:bg-white/5 hover:text-white'"
+        :aria-pressed="activeTab === 'delivery'"
         @click="activeTab = 'delivery'"
       >
         Delivery
         <span
           v-if="taskBadges.tabs['staff:delivery']"
-          class="ml-2 inline-grid h-5 min-w-5 place-items-center rounded-full px-1.5 align-middle text-[0.7rem] font-extrabold"
+          class="grid h-5 min-w-5 place-items-center rounded-full px-1.5 text-[0.7rem] font-extrabold"
           :class="activeTab === 'delivery' ? 'bg-white text-red-600' : 'bg-red-600 text-white'"
           :title="'Deliveries due, and supplier deliveries to receive'"
         >{{ taskBadges.tabs['staff:delivery'] }}</span>
@@ -1201,27 +1205,6 @@ function formatDate(date) {
   display: grid;
   gap: 1rem;
   grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr));
-}
-
-.tab-btn {
-  border-radius: 1rem;
-  padding: 0.75rem 1.25rem;
-  font-weight: 700;
-  transition: 0.2s;
-}
-
-.tab-active {
-  background: rgb(220 38 38);
-  color: white;
-}
-
-.tab-inactive {
-  color: rgb(161 161 170);
-}
-
-.tab-inactive:hover {
-  background: rgb(39 39 42);
-  color: white;
 }
 
 .inspection-input {
