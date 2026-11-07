@@ -248,8 +248,7 @@
             <li
               v-for="item in inspections.slice(0, 4)"
               :key="item.id"
-              class="rounded-2xl border p-3"
-              :class="isOverdue(item) ? 'border-red-500/30 bg-red-950/20' : 'border-white/5 bg-black/20'"
+              class="rounded-2xl border border-white/5 bg-black/20 p-3"
             >
               <div class="flex items-start justify-between gap-2">
                 <div class="min-w-0">

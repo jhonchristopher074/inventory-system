@@ -319,88 +319,113 @@
       @click.self="selectedProduct = null"
     >
       <div
-        class="max-h-[92vh] overflow-y-auto relative w-full max-w-[520px] card p-6 shadow-2xl"
+        class="relative max-h-[92vh] w-full max-w-[480px] overflow-y-auto rounded-[24px] border border-white/10 bg-zinc-900 shadow-2xl"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="detail-title"
       >
-        <button
-          class="absolute right-5 top-5 rounded-full bg-black px-4 py-2 text-xl text-white hover:bg-red-600"
-          @click="selectedProduct = null"
-        >
-          ×
-        </button>
-
-        <div class="flex flex-col items-center text-center">
-          <img
-            :src="selectedProduct.image_url || 'https://via.placeholder.com/600x400'"
-            class="mb-5 h-[260px] w-full cursor-zoom-in rounded-3xl object-cover shadow-lg"
-            @click="previewImage = selectedProduct.image_url || 'https://via.placeholder.com/600x400'"
-          />
-
-          <h2
-            v-if="selectedProduct.nickname"
-            class="text-3xl font-extrabold text-white"
+        <!-- the product: picture (tap to see it big), name, category -->
+        <header class="flex items-start gap-4 border-b border-white/5 p-5">
+          <button
+            v-if="selectedProduct.image_url"
+            type="button"
+            class="h-20 w-20 shrink-0 cursor-zoom-in overflow-hidden rounded-2xl border border-white/10 bg-white"
+            title="See the picture"
+            @click="previewImage = selectedProduct.image_url"
           >
-            {{ selectedProduct.nickname }}
-          </h2>
+            <img :src="selectedProduct.image_url" :alt="selectedProduct.name" class="h-full w-full object-cover" />
+          </button>
+          <span v-else class="grid h-20 w-20 shrink-0 place-items-center rounded-2xl border border-white/10 bg-zinc-950 text-zinc-600">
+            <NavIcon name="inventory" class="h-8 w-8" />
+          </span>
 
-          <h2
-            :class="selectedProduct.nickname
-              ? 'mt-1 text-lg font-semibold text-zinc-300'
-              : 'text-3xl font-extrabold text-white'"
+          <div class="min-w-0 flex-1 pt-0.5">
+            <p v-if="selectedProduct.nickname" class="text-xs font-bold uppercase tracking-wider text-zinc-500">{{ selectedProduct.name }}</p>
+            <h2 id="detail-title" class="line-clamp-2 text-xl font-extrabold leading-tight text-white">
+              {{ selectedProduct.nickname || selectedProduct.name }}
+            </h2>
+            <span class="mt-2 inline-flex items-center gap-1 rounded-full bg-white/5 px-2.5 py-1 text-xs font-bold text-zinc-300">
+              <NavIcon name="tag" class="h-3.5 w-3.5" />
+              {{ selectedProduct.category || 'Uncategorized' }}
+            </span>
+          </div>
+
+          <button
+            type="button"
+            class="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white/10 text-white hover:bg-white/20"
+            aria-label="Close"
+            @click="selectedProduct = null"
           >
-            {{ selectedProduct.name }}
-          </h2>
+            ✕
+          </button>
+        </header>
 
-          <p class="mt-3 text-zinc-300">
-            <b>Category:</b> {{ selectedProduct.category || 'Uncategorized' }}
-          </p>
+        <!-- at a glance -->
+        <div class="grid grid-cols-3 gap-2 px-5 pt-4">
+          <div class="rounded-xl bg-white/[0.04] p-3">
+            <p class="text-[0.68rem] font-bold uppercase tracking-wider text-zinc-500">Price</p>
+            <p class="mt-1 truncate font-extrabold text-white">{{ peso(selectedProduct.price || 0) }}</p>
+          </div>
+          <div class="rounded-xl bg-white/[0.04] p-3">
+            <p class="text-[0.68rem] font-bold uppercase tracking-wider text-zinc-500">Stock</p>
+            <p class="mt-1 font-extrabold"><StockLevel :product="selectedProduct" /></p>
+          </div>
+          <div class="rounded-xl bg-white/[0.04] p-3">
+            <p class="text-[0.68rem] font-bold uppercase tracking-wider text-zinc-500">Inspection</p>
+            <p class="mt-1 truncate font-extrabold" :class="selectedProduct.inspection_date ? 'text-white' : 'text-zinc-500'">
+              {{ selectedProduct.inspection_date ? shortDate(selectedProduct.inspection_date) : 'None' }}
+            </p>
+          </div>
+        </div>
 
-          <p class="mt-2 text-zinc-300">
-            <b>Quantity:</b> {{ count(selectedProduct.quantity) }}
-          </p>
-
-          <p class="mt-2 text-red-400">
-            <b>Price:</b> {{ peso(selectedProduct.price || 0) }}
-          </p>
-
-          <div class="mt-6 w-full text-left">
-            <label class="label">Inspection Date</label>
-
-            <!-- today or later: a past date would be overdue at once -->
+        <!-- set the inspection date: today or later (a past date would be
+             overdue at once) -->
+        <div class="p-5">
+          <label class="label" for="detail-date">
+            {{ selectedProduct.inspection_date ? 'Change the inspection date' : 'Schedule an inspection' }}
+          </label>
+          <div class="flex gap-2">
             <input
+              id="detail-date"
               v-model="inspectionDate"
               type="date"
               :min="todayYmd()"
-              class="w-full rounded-2xl border border-white/10 bg-zinc-800 px-4 py-4 text-lg text-white outline-none [color-scheme:dark]"
+              class="min-w-0 flex-1 rounded-xl border border-white/10 bg-zinc-950 px-3 py-2.5 text-white outline-none focus:border-red-500 [color-scheme:dark]"
             />
+            <button
+              type="button"
+              class="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-red-600 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-red-700 disabled:opacity-50"
+              :disabled="detailBusy"
+              @click="setInspectionDate"
+            >
+              <NavIcon name="calendar" class="h-4 w-4" />
+              {{ detailBusy ? 'Saving…' : 'Set date' }}
+            </button>
           </div>
 
           <p
             v-if="detailMessage"
-            class="mt-4 w-full rounded-xl p-3 text-left text-sm"
+            class="mt-3 rounded-xl p-3 text-sm"
             :class="detailMessage.type === 'error' ? 'bg-red-600/20 text-red-400' : 'bg-emerald-600/15 text-emerald-300'"
             :role="detailMessage.type === 'error' ? 'alert' : 'status'"
           >
             {{ detailMessage.text }}
           </p>
-
-          <div class="mt-5 flex w-full gap-3">
-            <button
-              class="flex-1 rounded-2xl bg-red-600 py-4 text-lg font-bold text-white transition hover:bg-red-700 disabled:opacity-50"
-              :disabled="detailBusy"
-              @click="setInspectionDate"
-            >
-              Set Inspection Date
-            </button>
-
-            <button
-              class="flex-1 rounded-2xl bg-zinc-800 py-4 text-lg font-bold text-white transition hover:bg-zinc-700 disabled:opacity-50"
-              :disabled="detailBusy"
-              @click="reportProduct"
-            >
-              Report Product
-            </button>
-          </div>
         </div>
+
+        <!-- something wrong with it -->
+        <footer class="flex items-center justify-between gap-3 border-t border-white/5 px-5 py-3">
+          <p class="text-xs text-zinc-500">Damaged, missing or wrong?</p>
+          <button
+            type="button"
+            class="inline-flex items-center gap-1.5 rounded-lg bg-white/5 px-3 py-2 text-sm font-bold text-zinc-200 transition hover:bg-white/10 disabled:opacity-50"
+            :disabled="detailBusy"
+            @click="reportProduct"
+          >
+            <NavIcon name="flag" class="h-4 w-4" />
+            Report product
+          </button>
+        </footer>
       </div>
     </div>
 
@@ -1301,6 +1326,12 @@ async function saveEdit() {
   editSaving.value = false
   showEditModal.value = false
   await fetchProducts()
+}
+
+// "Nov 10, 2026"
+function shortDate(date) {
+  const [y, m, d] = String(date).slice(0, 10).split('-').map(Number)
+  return new Date(y, m - 1, d).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
 // today on this computer's clock, 'YYYY-MM-DD' (what a date box uses)
