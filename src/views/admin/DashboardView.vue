@@ -246,7 +246,7 @@
 
           <ul v-if="inspections.length > 0" class="space-y-2.5">
             <li
-              v-for="item in inspections.slice(0, 4)"
+              v-for="item in inspections.slice(0, 3)"
               :key="item.id"
               class="rounded-2xl border border-white/5 bg-black/20 p-3"
             >
@@ -282,8 +282,8 @@
 
           <p v-else-if="loaded" class="text-sm text-zinc-500">No inspections scheduled.</p>
 
-          <p v-if="inspections.length > 4" class="mt-2 text-xs text-zinc-500">
-            and {{ count(inspections.length - 4) }} more in the Calendar
+          <p v-if="inspections.length > 3" class="mt-2 text-xs text-zinc-500">
+            and {{ count(inspections.length - 3) }} more in the Calendar
           </p>
         </div>
       </section>
