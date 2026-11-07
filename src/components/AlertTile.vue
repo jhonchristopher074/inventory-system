@@ -1,11 +1,13 @@
 <template>
   <!-- A dashboard tile for something that may need action now (Low stock,
-       Overdue). With something in it, it turns alert orange (not the brand
-       red, so it stands out) with a pulsing caution
-       sign; with nothing, it's green with a check. The page it opens has
-       the list. Put a line under the number in the default slot
-       (e.g. "1 out of stock"). -->
-  <RouterLink :to="to" class="kpi" :class="alert ? 'tone-alert kpi-alert' : 'tone-green'">
+       Overdue). With something in it, it turns warning yellow (dark text,
+       a big faint warning sign, "See the list"); with nothing, it's green
+       with a check. The page it opens has the list. Put a line under the
+       number in the default slot (e.g. "1 out of stock"). -->
+  <RouterLink :to="to" class="kpi" :class="alert ? 'kpi-alert' : 'tone-green'">
+    <!-- the big faint sign behind the numbers -->
+    <NavIcon v-if="alert" name="alert" class="kpi-bg-icon" aria-hidden="true" />
+
     <div class="kpi-top">
       <p class="kpi-label">{{ label }}</p>
 
@@ -24,6 +26,10 @@
     <p class="kpi-sub">{{ sub }}</p>
 
     <slot />
+
+    <p v-if="alert" class="kpi-more">
+      See the list <NavIcon name="chevron" class="h-3.5 w-3.5" />
+    </p>
   </RouterLink>
 </template>
 
@@ -38,7 +44,7 @@ defineProps({
   // null while loading (shows —)
   value: { type: Number, default: null },
   sub: { type: String, default: '' },
-  // alert orange with the caution sign
+  // warning yellow with the caution sign
   alert: { type: Boolean, default: false },
 })
 </script>
