@@ -49,23 +49,29 @@
                 class="code-input"
                 inputmode="numeric"
                 autocomplete="one-time-code"
-                maxlength="10"
+                maxlength="6"
                 required
                 placeholder="••••••"
-                @input="resetCode = resetCode.replace(/\D/g, ''); errorMessage = ''"
+                @input="resetCode = resetCode.replace(/\D/g, '').slice(0, 6); errorMessage = ''"
               />
             </div>
 
+            <!-- how long the code still works -->
+            <p class="timer-line" :class="{ 'is-over': codeLeft === 0 }" role="timer" aria-live="off">
+              <template v-if="codeLeft > 0">Code expires in <b>{{ clock(codeLeft) }}</b></template>
+              <template v-else>This code has expired. Send a new one.</template>
+            </p>
+
             <p v-if="errorMessage" class="error" role="alert">{{ errorMessage }}</p>
 
-            <button type="submit" class="submit" :disabled="verifying || resetCode.length < 6">
+            <button type="submit" class="submit" :disabled="verifying || resetCode.length !== 6 || codeLeft === 0">
               {{ verifying ? 'Checking…' : 'Continue' }}
             </button>
 
             <div class="links-row">
               <button type="button" class="text-link" @click="resetSent = false">← Change email</button>
-              <button type="button" class="text-link" :disabled="sendingReset" @click="forgotPassword">
-                {{ sendingReset ? 'Sending…' : 'Send a new code' }}
+              <button type="button" class="text-link" :disabled="sendingReset || resendLeft > 0" @click="forgotPassword">
+                {{ sendingReset ? 'Sending…' : resendLeft > 0 ? `Send a new code in ${resendLeft}s` : 'Send a new code' }}
               </button>
             </div>
           </form>
@@ -100,8 +106,8 @@
 
             <p v-if="errorMessage" class="error" role="alert">{{ errorMessage }}</p>
 
-            <button type="submit" class="submit" :disabled="sendingReset">
-              {{ sendingReset ? 'Sending…' : 'Send code' }}
+            <button type="submit" class="submit" :disabled="sendingReset || resendLeft > 0">
+              {{ sendingReset ? 'Checking…' : resendLeft > 0 ? `Wait ${resendLeft}s to send again` : 'Send code' }}
             </button>
 
             <button type="button" class="text-link back" @click="showLogin">← Back to login</button>
@@ -457,6 +463,23 @@
   letter-spacing: 0.5em;
 }
 
+/* "Code expires in 59:41", under the code box */
+.timer-line {
+  margin: -0.35rem 0 0.9rem;
+  text-align: center;
+  font-size: 0.82rem;
+  color: #9a9aa6;
+  font-variant-numeric: tabular-nums;
+}
+
+.timer-line b {
+  color: #fff;
+}
+
+.timer-line.is-over {
+  color: #f87171;
+}
+
 .eye {
   position: absolute;
   right: 0.45rem;
@@ -593,7 +616,7 @@
 </style>
 
 <script setup>
-import { nextTick, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { supabase } from '../../lib/supabase'
 import { afterLogin } from '../../lib/passwordStatus'
@@ -749,6 +772,38 @@ async function login() {
   loading.value = false
 }
 
+/* ---- Forgot password timers: one second at a time ---- */
+const RESEND_SECONDS = 60 // Supabase lets the same email get a new code after 60 s
+const CODE_SECONDS = 60 * 60 // a reset code works for 1 hour (Supabase > Auth > Email OTP expiry)
+const now = ref(Date.now())
+let ticker = null
+const resendAt = ref(0)
+const codeUntil = ref(0)
+
+const resendLeft = computed(() => Math.max(0, Math.ceil((resendAt.value - now.value) / 1000)))
+const codeLeft = computed(() => Math.max(0, Math.ceil((codeUntil.value - now.value) / 1000)))
+
+function startTicker() {
+  if (ticker) return
+  ticker = setInterval(() => {
+    now.value = Date.now()
+  }, 1000)
+}
+
+onBeforeUnmount(() => clearInterval(ticker))
+
+function clock(seconds) {
+  const m = Math.floor(seconds / 60)
+  const s = String(seconds % 60).padStart(2, '0')
+  return `${m}:${s}`
+}
+
+// "For security purposes, you can only request this after 53 seconds."
+function waitSecondsOf(error) {
+  const match = /after (\d+) seconds?/i.exec(error?.message || '')
+  return match ? Number(match[1]) : 0
+}
+
 async function forgotPassword() {
   errorMessage.value = ''
   infoMessage.value = ''
@@ -759,8 +814,22 @@ async function forgotPassword() {
     errorMessage.value = 'Enter your email.'
     return
   }
+  // any provider (gmail, proton, school emails...): only the shape is checked
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(address)) {
+    errorMessage.value = 'That doesn\'t look like an email address.'
+    return
+  }
 
   sendingReset.value = true
+  startTicker()
+
+  // is it an account? (20261111000001; until that's run, no check)
+  const { data: exists, error: checkError } = await supabase.rpc('reset_email_exists', { p_email: address })
+  if (!checkError && exists === false) {
+    sendingReset.value = false
+    errorMessage.value = 'No account uses this email. Check the spelling, or ask the store owner.'
+    return
+  }
 
   // The email's link opens /reset-password on this same site. That address
   // must be listed under Supabase > Authentication > URL Configuration.
@@ -771,19 +840,28 @@ async function forgotPassword() {
   sendingReset.value = false
 
   if (error) {
-    errorMessage.value = error.message
+    const wait = waitSecondsOf(error)
+    if (wait > 0) {
+      // too soon: count down instead of the long message
+      resendAt.value = Date.now() + wait * 1000
+      now.value = Date.now()
+      errorMessage.value = ''
+      return
+    }
+    errorMessage.value = /rate limit/i.test(error.message)
+      ? 'Too many reset emails were sent. Wait a while and try again.'
+      : error.message
     return
   }
 
   resetSent.value = true
   resetCode.value = ''
+  now.value = Date.now()
+  resendAt.value = now.value + RESEND_SECONDS * 1000
+  codeUntil.value = now.value + CODE_SECONDS * 1000
   nextTick(() => resetCodeInput.value?.focus())
 
-  // Same message whether or not the account exists, so this can't be used
-  // to find out which emails have accounts.
-  infoMessage.value =
-    `If ${address} has an account, a code to reset the password was sent to it. ` +
-    'Check the inbox (and the spam folder).'
+  infoMessage.value = `A code was sent to ${address}. Check the inbox (and the spam folder).`
 }
 
 // The code from the email logs in just for the reset, then the Reset
