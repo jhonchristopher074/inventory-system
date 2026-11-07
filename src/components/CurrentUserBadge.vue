@@ -1,25 +1,24 @@
 <template>
-  <!-- Who is logged in, at the top of every page: their initials in their
-       role's colour, the name, then the role. Top right, before the bell.
-       Opens their profile. -->
+  <!-- Who is logged in, at the top of every page: a user panel like
+       AdminLTE's. A rounded-square avatar in the role's colour, the name,
+       and under it the role with a dot (green = this session is active).
+       Top right, before the bell. Opens their profile. -->
   <RouterLink
     :to="to"
     class="user-badge"
     :class="`tone-${roleTone(role)}`"
     :title="`Logged in as ${displayName} (${roleLabel(role)}). Open your profile.`"
   >
-    <span class="user-avatar" aria-hidden="true">
-      {{ initials }}
-      <!-- online: this session is active -->
-      <span class="user-online"></span>
-    </span>
+    <span class="user-avatar" aria-hidden="true">{{ initials }}</span>
 
-    <!-- the name, then the role beside it -->
-    <span class="min-w-0">
-      <span class="user-caption">Logged in as</span>
+    <span class="user-text">
       <span class="user-name">{{ displayName }}</span>
+      <span class="user-role">
+        <span class="user-dot" aria-hidden="true"></span>
+        {{ roleLabel(role) }}
+        <span class="sr-only">, logged in</span>
+      </span>
     </span>
-    <span class="user-role">{{ roleLabel(role) }}</span>
   </RouterLink>
 </template>
 
@@ -50,94 +49,82 @@ const initials = computed(() => {
 </script>
 
 <style scoped>
-/* the role's colour in measured touches: a deep solid avatar, a thin
-   border and the role chip; the card itself stays calm (no glow) */
+/* a raised panel: the colour lives in the avatar and the role line */
 .user-badge {
   display: inline-flex;
   min-width: 0;
   max-width: 100%;
   align-items: center;
-  gap: 0.65rem;
-  border-radius: 999px;
-  border: 1px solid color-mix(in srgb, var(--tone) 30%, transparent);
-  background:
-    linear-gradient(90deg, color-mix(in srgb, var(--tone) 8%, transparent), transparent 60%),
-    var(--surface);
-  padding: 0.3rem 0.75rem 0.3rem 0.3rem;
-  transition: border-color 0.15s var(--ease), background-color 0.15s var(--ease);
+  gap: 0.7rem;
+  border-radius: 14px;
+  border: 1px solid var(--hairline);
+  background: linear-gradient(180deg, var(--surface-raised), var(--surface));
+  box-shadow: 0 6px 16px -10px rgba(0, 0, 0, 0.6);
+  padding: 0.35rem 0.9rem 0.35rem 0.35rem;
+  transition:
+    border-color 0.15s var(--ease),
+    transform 0.15s var(--ease);
 }
 
 .user-badge:hover,
 .user-badge:focus-visible {
   outline: none;
-  border-color: color-mix(in srgb, var(--tone) 55%, transparent);
+  border-color: color-mix(in srgb, var(--tone) 45%, transparent);
+  transform: translateY(-1px);
 }
 
+/* rounded square, a rich gradient of the role's colour */
 .user-avatar {
-  position: relative;
   display: grid;
   flex: none;
   place-items: center;
-  width: 2.25rem;
-  height: 2.25rem;
-  border-radius: 999px;
-  /* the role's colour, a shade deeper so it doesn't glare */
-  background: linear-gradient(145deg, color-mix(in srgb, var(--tone) 85%, #fff), color-mix(in srgb, var(--tone) 65%, #000));
-  font-size: 0.8rem;
+  width: 2.35rem;
+  height: 2.35rem;
+  border-radius: 10px;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--tone) 90%, #fff), color-mix(in srgb, var(--tone) 60%, #000));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.25),
+    0 4px 10px -4px color-mix(in srgb, var(--tone) 60%, transparent);
+  font-size: 0.82rem;
   font-weight: 800;
   letter-spacing: 0.03em;
   color: #fff;
-  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.25);
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.3);
 }
 
-.user-online {
-  position: absolute;
-  right: -2px;
-  bottom: -2px;
-  width: 0.65rem;
-  height: 0.65rem;
-  border-radius: 999px;
-  border: 2px solid var(--surface);
-  background: var(--color-emerald-400);
-}
-
-.user-caption {
-  display: block;
-  font-size: 0.62rem;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--color-zinc-500);
+.user-text {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  line-height: 1.2;
 }
 
 .user-name {
-  display: block;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: 0.92rem;
   font-weight: 800;
-  line-height: 1.25;
   color: #fff;
 }
 
 .user-role {
-  flex: none;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--tone) 14%, transparent);
-  padding: 0.15rem 0.6rem;
-  font-size: 0.66rem;
-  font-weight: 800;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: color-mix(in srgb, var(--tone) 75%, #fff);
+  margin-top: 0.15rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: color-mix(in srgb, var(--tone) 70%, #fff);
 }
 
-/* small phones: "Logged in as" goes, the name and role stay */
-@media (max-width: 420px) {
-  .user-caption {
-    display: none;
-  }
+/* green with a soft halo: logged in now */
+.user-dot {
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 999px;
+  background: var(--color-emerald-400);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-emerald-400) 22%, transparent);
 }
 </style>
