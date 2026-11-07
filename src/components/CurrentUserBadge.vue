@@ -50,24 +50,26 @@ const initials = computed(() => {
 </script>
 
 <style scoped>
+/* calm on purpose: a plain card, the role's colour only in small, soft
+   touches (no glow, no tinted background) so it's easy on the eyes */
 .user-badge {
   display: inline-flex;
   min-width: 0;
   max-width: 100%;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.65rem;
   border-radius: 999px;
-  border: 1px solid color-mix(in srgb, var(--tone) 35%, transparent);
-  background:
-    linear-gradient(90deg, color-mix(in srgb, var(--tone) 16%, transparent), transparent 75%),
-    var(--surface);
-  box-shadow: var(--shadow-card);
-  padding: 0.35rem 0.6rem 0.35rem 0.35rem;
+  border: 1px solid var(--hairline);
+  background: var(--surface);
+  padding: 0.3rem 0.75rem 0.3rem 0.3rem;
+  transition: border-color 0.15s var(--ease), background-color 0.15s var(--ease);
 }
 
 .user-badge:hover,
 .user-badge:focus-visible {
-  border-color: color-mix(in srgb, var(--tone) 60%, transparent);
+  outline: none;
+  border-color: rgba(255, 255, 255, 0.2);
+  background: var(--surface-raised);
 }
 
 .user-avatar {
@@ -75,28 +77,23 @@ const initials = computed(() => {
   display: grid;
   flex: none;
   place-items: center;
-  width: 2.6rem;
-  height: 2.6rem;
+  width: 2.25rem;
+  height: 2.25rem;
   border-radius: 999px;
-  background: var(--tone);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--tone) 25%, transparent);
-  font-size: 0.85rem;
-  font-weight: 800;
+  background: color-mix(in srgb, var(--tone) 18%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--tone) 35%, transparent);
+  font-size: 0.78rem;
+  font-weight: 700;
   letter-spacing: 0.02em;
-  color: #0a0a0c;
-}
-
-/* white letters on the brand red; the lighter colours keep dark ones */
-.tone-red .user-avatar {
-  color: #fff;
+  color: color-mix(in srgb, var(--tone) 70%, #fff);
 }
 
 .user-online {
   position: absolute;
-  right: -1px;
-  bottom: -1px;
-  width: 0.75rem;
-  height: 0.75rem;
+  right: -2px;
+  bottom: -2px;
+  width: 0.65rem;
+  height: 0.65rem;
   border-radius: 999px;
   border: 2px solid var(--surface);
   background: var(--color-emerald-400);
@@ -104,40 +101,32 @@ const initials = computed(() => {
 
 .user-caption {
   display: block;
-  font-size: 0.66rem;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--color-zinc-400);
+  font-size: 0.68rem;
+  font-weight: 500;
+  color: var(--color-zinc-500);
 }
-
 
 .user-name {
   display: block;
-  margin-top: 0.1rem;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 1rem;
-  font-weight: 800;
-  color: #fff;
+  font-size: 0.9rem;
+  font-weight: 700;
+  line-height: 1.25;
+  color: var(--color-zinc-200);
 }
 
 .user-role {
   flex: none;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--tone) 20%, transparent);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--tone) 40%, transparent);
-  padding: 0.1rem 0.55rem;
+  background: rgba(255, 255, 255, 0.06);
+  padding: 0.15rem 0.55rem;
   font-size: 0.68rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--tone);
+  font-weight: 700;
+  color: var(--color-zinc-300);
 }
-
-
 
 /* small phones: "Logged in as" goes, the name and role stay */
 @media (max-width: 420px) {
