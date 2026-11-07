@@ -77,7 +77,7 @@
     <p v-if="deliveryId" class="rounded-xl bg-sky-500/10 px-3 py-2 text-sm text-sky-200">
       For the delivery <b class="text-white">{{ deliveryTitle || 'on the calendar' }}</b>
     </p>
-    <div v-else-if="deliveries.length > 0">
+    <div v-else-if="mode !== 'owner' && deliveries.length > 0">
       <label class="field-label" :for="`${uid}-delivery`">
         For an arrived delivery? <span class="font-normal text-zinc-500">(optional)</span>
       </label>
@@ -89,8 +89,8 @@
       </select>
     </div>
 
-    <!-- 2. where it came from -->
-    <div>
+    <!-- 2. where it came from (the owner only uploads: no supplier box) -->
+    <div v-if="mode !== 'owner'">
       <label class="field-label" :for="`${uid}-supplier`">2. Supplier name</label>
       <input
         :id="`${uid}-supplier`"
@@ -104,7 +104,7 @@
       />
     </div>
 
-    <!-- 3. staff: a note for the owner / owner: the profit -->
+    <!-- 3. staff: a note for the owner (the owner has nothing to fill in) -->
     <div v-if="mode === 'staff'">
       <label class="field-label" :for="`${uid}-note`">
         3. Note for the owner <span class="font-normal text-zinc-500">(optional)</span>
@@ -120,26 +120,6 @@
         :disabled="busy"
       ></textarea>
       <p class="mt-1 text-xs text-zinc-500">Faulty or missing items? Write them here: the owner sees it before adding the stock.</p>
-    </div>
-
-    <div v-else>
-      <label class="field-label" :for="`${uid}-profit`">3. Profit percentage</label>
-      <div class="flex items-center gap-2">
-        <input
-          :id="`${uid}-profit`"
-          v-model="percent"
-          type="number"
-          inputmode="decimal"
-          min="0"
-          max="1000"
-          step="0.01"
-          placeholder="e.g. 25"
-          class="field-input flex-1"
-          :disabled="busy"
-        />
-        <span class="text-lg font-bold text-zinc-400">%</span>
-      </div>
-      <p class="mt-1.5 text-xs text-zinc-500">Added to the cost of each new product on this receipt to make its price.</p>
     </div>
 
     <p v-if="error" class="rounded-xl bg-red-600/15 p-3 text-sm text-red-400" role="alert">{{ error }}</p>
@@ -207,7 +187,6 @@ function fillSupplier() {
   if (delivery?.supplier && !supplierName.value.trim()) supplierName.value = delivery.supplier
 }
 const note = ref('')
-const percent = ref('')
 const busy = ref(false)
 const error = ref('')
 
@@ -266,26 +245,17 @@ async function submit() {
     return
   }
 
-  const supplier = supplierName.value.trim()
+  // owner: only the picture is needed. The supplier is the delivery's (if
+  // any), and the profit starts at 0%: he sets each price when the scanner is done.
+  const supplier = props.mode === 'owner'
+    ? supplierName.value.trim() || 'Owner upload'
+    : supplierName.value.trim()
   if (!supplier) {
     error.value = 'Write which supplier the receipt is from.'
     return
   }
 
-  let profit = null
-  if (props.mode === 'owner') {
-    const raw = String(percent.value).trim()
-    profit = Number(raw)
-    if (raw === '' || !Number.isFinite(profit)) {
-      error.value = 'Enter the profit percentage.'
-      return
-    }
-    if (profit < 0 || profit > 1000) {
-      error.value = 'The percentage must be between 0 and 1000.'
-      return
-    }
-    profit = Math.round(profit * 100) / 100 // at most 2 decimals
-  }
+  const profit = props.mode === 'owner' ? 0 : null
 
   busy.value = true
   try {

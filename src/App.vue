@@ -357,7 +357,7 @@ const NAV = {
     {
       section: 'Inspection',
       items: [
-        { to: '/calendar', label: 'Calendar', icon: 'calendar' },
+        { to: '/calendar', label: 'To-Do List', icon: 'calendar' },
         { to: '/approval', label: 'Approval', icon: 'approval' },
         { to: '/documentation', label: 'Documentation', icon: 'docs' },
       ],
