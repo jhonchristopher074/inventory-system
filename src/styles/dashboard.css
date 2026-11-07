@@ -8,57 +8,45 @@
    each var() and not on .kpi itself: these scoped rules outrank the tone
    classes, so a default set here would always win. */
 
-/* ---- the tiles at the top (most open their page) ---- */
+/* ---- the tiles at the top (most open their page) ----
+   Filled with their colour, like AdminLTE's boxes: the tone a little
+   darker so white text reads well on every colour. */
 .kpi {
+  --fill: color-mix(in srgb, var(--tone, var(--brand)) 72%, #000);
   position: relative;
   display: block;
   overflow: hidden;
   /* the numbers size themselves to the tile (cqi below) */
   container-type: inline-size;
   border-radius: var(--radius-md);
-  border: 1px solid var(--hairline);
-  /* a soft fill of the tile's colour over the card */
+  border: 1px solid color-mix(in srgb, var(--tone, var(--brand)) 60%, transparent);
   background:
-    linear-gradient(160deg, color-mix(in srgb, var(--tone, var(--brand)) 12%, transparent), transparent 70%),
-    var(--surface);
-  box-shadow: var(--shadow-card);
+    linear-gradient(150deg, rgba(255, 255, 255, 0.10), rgba(255, 255, 255, 0) 60%),
+    var(--fill);
+  box-shadow: 0 6px 18px -10px color-mix(in srgb, var(--fill) 80%, #000);
   padding: 1rem 1.1rem;
+  color: #fff;
   transition:
-    border-color 0.18s var(--ease),
+    filter 0.18s var(--ease),
     transform 0.18s var(--ease),
     box-shadow 0.18s var(--ease);
-}
-
-/* a top edge in the tile's colour */
-.kpi::before {
-  content: '';
-  position: absolute;
-  inset: 0 0 auto 0;
-  height: 3px;
-  background: var(--tone, var(--brand));
 }
 
 /* only a tile that opens a page lifts under the mouse */
 a.kpi:hover,
 a.kpi:focus-visible {
   outline: none;
-  border-color: color-mix(in srgb, var(--tone, var(--brand)) 40%, transparent);
+  filter: brightness(1.08);
   transform: translateY(-2px);
-  box-shadow: 0 6px 18px -8px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 10px 22px -10px color-mix(in srgb, var(--fill) 80%, #000);
 }
 
-/* a tile showing a problem (e.g. something out of stock): its border and
-   number in its colour (no glow: calm, but clearly different) */
+/* a tile showing a problem: an outline as well, so it stands out */
 .kpi-alert {
-  border-color: color-mix(in srgb, var(--tone, var(--brand)) 45%, transparent);
+  border-color: rgba(255, 255, 255, 0.45);
 }
 
-.kpi-alert .kpi-value {
-  color: var(--tone, var(--brand-bright));
-}
-
-/* the alert-orange caution sign of a tile that needs action now (AlertTile:
-   Low stock, Overdue), with a ring that keeps pulsing out of it */
+/* the caution sign of a tile that needs action now (AlertTile) */
 .kpi-caution {
   position: relative;
   display: grid;
@@ -67,8 +55,8 @@ a.kpi:focus-visible {
   width: 2.4rem;
   height: 2.4rem;
   border-radius: 0.75rem;
-  background: var(--alert);
-  color: #1a1000;
+  background: #fff;
+  color: var(--fill);
 }
 
 .kpi-top {
@@ -80,8 +68,8 @@ a.kpi:focus-visible {
 
 .kpi-label {
   font-size: 0.8rem;
-  font-weight: 600;
-  color: var(--color-zinc-400);
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.85);
 }
 
 .kpi-icon {
@@ -91,10 +79,8 @@ a.kpi:focus-visible {
   width: 2.4rem;
   height: 2.4rem;
   border-radius: 0.75rem;
-  /* a solid square of the tile's colour, like AdminLTE's info boxes */
-  background: var(--tone, var(--brand-bright));
+  background: rgba(255, 255, 255, 0.2);
   color: #fff;
-  box-shadow: 0 4px 12px -4px color-mix(in srgb, var(--tone, var(--brand)) 60%, transparent);
 }
 
 /* the one big number of the page */
@@ -122,15 +108,16 @@ a.kpi:focus-visible {
   font-size: 0.4em;
   font-weight: 700;
   letter-spacing: 0;
-  color: var(--color-zinc-400);
+  color: rgba(255, 255, 255, 0.8);
 }
 
 .kpi-sub {
   margin-top: 0.35rem;
   font-size: 0.8rem;
-  color: var(--color-zinc-400);
+  color: rgba(255, 255, 255, 0.82);
 }
 
+/* (white on the colour, whatever colour class the line has) */
 .kpi-change {
   margin-top: 0.3rem;
   display: flex;
@@ -138,6 +125,7 @@ a.kpi:focus-visible {
   gap: 0.35rem;
   font-size: 0.8rem;
   font-weight: 700;
+  color: #fff;
 }
 
 /* ---- cards ---- */

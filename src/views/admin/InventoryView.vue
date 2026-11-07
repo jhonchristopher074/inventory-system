@@ -566,7 +566,7 @@
               <img
                 v-if="newProduct.image_url"
                 :src="newProduct.image_url"
-                class="h-40 w-full object-cover"
+                class="h-40 w-full cursor-zoom-in object-cover" title="See it big" @click="previewImage = newProduct.image_url"
               />
               <div v-else class="flex h-40 items-center justify-center text-sm text-zinc-500">
                 No picture
@@ -719,7 +719,7 @@
               <img
                 v-if="editForm.image_url"
                 :src="editForm.image_url"
-                class="h-40 w-full object-cover"
+                class="h-40 w-full cursor-zoom-in object-cover" title="See it big" @click="previewImage = editForm.image_url"
               />
               <div v-else class="flex h-40 items-center justify-center text-sm text-zinc-500">
                 No picture
