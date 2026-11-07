@@ -38,6 +38,25 @@
         </button>
       </div>
 
+      <!-- only what's overdue, on the open tab (?due=overdue) -->
+      <button
+        v-if="view === 'list'"
+        type="button"
+        class="flex shrink-0 items-center gap-2 rounded-full border px-3.5 py-2 text-sm font-bold transition"
+        :class="overdueOnly
+          ? 'border-red-500 bg-red-600 text-white'
+          : 'border-red-500/40 bg-zinc-900 text-red-400 hover:bg-red-600/10'"
+        :aria-pressed="overdueOnly"
+        :title="overdueOnly ? 'Show everything again' : 'Only what is overdue'"
+        @click="dueFilter = overdueOnly ? 'all' : 'overdue'"
+      >
+        <NavIcon name="alert" class="h-4 w-4" />
+        Overdue
+        <span class="rounded-full px-1.5 text-xs" :class="overdueOnly ? 'bg-black/20' : 'bg-red-600/15'">
+          {{ activeTab === 'delivery' ? overdueDeliveries.length : overdueInspectionCount }}
+        </span>
+      </button>
+
       <div v-else class="flex flex-wrap items-center gap-2" role="group" aria-label="Show on the calendar">
         <button
           v-for="kind in KINDS"
@@ -101,7 +120,7 @@
     <!-- INSPECTION: one table row per product; Details opens the small window below -->
     <InspectionTable
       v-if="view === 'list' && activeTab === 'inspection'"
-      :rows="inspectionRows"
+      :rows="overdueOnly ? inspectionRows.filter((row) => row.overdue) : inspectionRows"
       :loading="loading"
       action-label="Details"
       storage-key="inspections"
@@ -111,8 +130,15 @@
     <!-- DELIVERY -->
     <div v-if="view === 'list' && activeTab === 'delivery'">
       <!-- nothing yet: the way to add one, right here -->
+      <p
+        v-if="overdueOnly && deliveries.length > 0 && overdueDeliveries.length === 0"
+        class="rounded-[24px] border border-white/10 bg-zinc-900 p-6 text-center text-sm text-zinc-400"
+      >
+        No delivery is overdue.
+      </p>
+
       <div
-        v-if="deliveries.length === 0"
+        v-else-if="deliveries.length === 0"
         class="flex flex-col items-center gap-3 rounded-[24px] border border-dashed border-white/15 bg-zinc-900 px-5 py-10 text-center"
       >
         <p class="font-bold text-white">No deliveries scheduled</p>
@@ -130,10 +156,9 @@
 
       <div v-else class="grid grid-cols-1 gap-5 sm:grid-cols-[repeat(auto-fill,260px)]">
         <div
-          v-for="delivery in deliveries"
+          v-for="delivery in (overdueOnly ? overdueDeliveries : deliveries)"
           :key="delivery.id"
           class="rounded-[22px] border border-white/10 bg-zinc-900 p-5 shadow-xl"
-          :class="isDeliveryOverdue(delivery) ? 'border-red-500/70 bg-red-950/30 shadow-red-500/20' : ''"
         >
           <h2 class="text-xl font-bold text-white">{{ delivery.title }}</h2>
 
@@ -255,8 +280,7 @@
           <article
             v-for="event in dayItems"
             :key="event.key"
-            class="rounded-xl border p-3.5"
-            :class="event.state === 'overdue' ? 'border-[#ff9500]/45 bg-[#ff9500]/[0.06]' : 'border-white/10 bg-white/[0.03]'"
+            class="rounded-xl border border-white/10 bg-white/[0.03] p-3.5"
           >
             <div class="flex items-start justify-between gap-3">
               <div class="min-w-0">
@@ -623,6 +647,12 @@ const KINDS = [
 const showKinds = ref({ inspection: true, delivery: true })
 const calMonth = ref(getToday().slice(0, 7)) // 'YYYY-MM' shown in Month
 const pickedDay = ref(null) // 'YYYY-MM-DD' open in the day window
+
+// List: only what's overdue (?due=overdue), like Inventory's Low stock
+const dueFilter = useQueryParam('due', 'all', ['all', 'overdue'])
+const overdueOnly = computed(() => dueFilter.value === 'overdue')
+const overdueInspectionCount = computed(() => inspectionRows.value.filter((row) => row.overdue).length)
+const overdueDeliveries = computed(() => deliveries.value.filter(isDeliveryOverdue))
 
 const products = ref([])
 const allProducts = ref([])

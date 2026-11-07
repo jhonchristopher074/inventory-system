@@ -123,11 +123,7 @@ function formatDate(date) {
           </thead>
 
           <tbody>
-            <tr
-              v-for="row in visible"
-              :key="row.item.id"
-              :class="{ 'bg-red-950/25': row.overdue }"
-            >
+            <tr v-for="row in visible" :key="row.item.id">
               <td data-label="Date" class="whitespace-nowrap text-sm font-bold" :class="row.overdue ? 'text-red-400' : 'text-white'">
                 {{ formatDate(row.date) }}
               </td>

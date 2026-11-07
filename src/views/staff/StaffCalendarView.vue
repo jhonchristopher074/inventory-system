@@ -72,7 +72,7 @@
             v-for="delivery in waitingReceivings"
             :key="'rcv-' + delivery.id"
             class="flex flex-col justify-between gap-4 rounded-[22px] border bg-zinc-900 p-5 shadow-xl"
-            :class="isReceivingLate(delivery) ? 'border-red-500/60 bg-red-950/20' : 'border-violet-500/30'"
+            :class="isReceivingLate(delivery) ? 'border-white/10' : 'border-violet-500/30'"
           >
             <div class="min-w-0">
               <p class="truncate text-lg font-bold text-white" :title="delivery.file_name">{{ delivery.file_name || 'Delivery' }}</p>
@@ -138,8 +138,7 @@
           <article
             v-for="delivery in visibleDeliveries"
             :key="delivery.id"
-            class="flex flex-col gap-4 rounded-[22px] border bg-zinc-900 p-5 shadow-xl"
-            :class="isDeliveryOverdue(delivery) ? 'border-red-500/60 bg-red-950/25' : 'border-white/10'"
+            class="flex flex-col gap-4 rounded-[22px] border border-white/10 bg-zinc-900 p-5 shadow-xl"
           >
             <div class="min-w-0 flex-1">
               <div class="flex items-start justify-between gap-3">
@@ -833,12 +832,6 @@ async function confirmReceive({ items, note }) {
 const arrival = ref(null) // { delivery, step: 'ask' | 'upload' }
 const arrivalError = ref('')
 const arrivalSaving = ref(false)
-
-// late: its date passed and the goods haven't come
-function isDeliveryOverdue(delivery) {
-  if (!delivery.delivery_date || isDelivered(delivery)) return false
-  return String(delivery.delivery_date).slice(0, 10) < getToday()
-}
 
 function openArrival(delivery, step) {
   arrivalError.value = ''
