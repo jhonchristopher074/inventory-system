@@ -55,12 +55,12 @@ const initials = computed(() => {
   min-width: 0;
   max-width: 100%;
   align-items: center;
-  gap: 0.7rem;
-  border-radius: 14px;
+  gap: 0.85rem;
+  border-radius: 16px;
   border: 1px solid var(--hairline);
   background: linear-gradient(180deg, var(--surface-raised), var(--surface));
   box-shadow: 0 6px 16px -10px rgba(0, 0, 0, 0.6);
-  padding: 0.35rem 0.9rem 0.35rem 0.35rem;
+  padding: 0.45rem 1.15rem 0.45rem 0.45rem;
   transition:
     border-color 0.15s var(--ease),
     transform 0.15s var(--ease);
@@ -78,14 +78,14 @@ const initials = computed(() => {
   display: grid;
   flex: none;
   place-items: center;
-  width: 2.35rem;
-  height: 2.35rem;
-  border-radius: 10px;
+  width: 2.9rem;
+  height: 2.9rem;
+  border-radius: 12px;
   background: linear-gradient(135deg, color-mix(in srgb, var(--tone) 90%, #fff), color-mix(in srgb, var(--tone) 60%, #000));
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.25),
     0 4px 10px -4px color-mix(in srgb, var(--tone) 60%, transparent);
-  font-size: 0.82rem;
+  font-size: 1rem;
   font-weight: 800;
   letter-spacing: 0.03em;
   color: #fff;
@@ -104,25 +104,25 @@ const initials = computed(() => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 0.92rem;
+  font-size: 1.08rem;
   font-weight: 800;
   color: #fff;
 }
 
 .user-role {
-  margin-top: 0.15rem;
+  margin-top: 0.2rem;
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
-  font-size: 0.72rem;
+  font-size: 0.82rem;
   font-weight: 700;
   color: color-mix(in srgb, var(--tone) 70%, #fff);
 }
 
 /* green with a soft halo: logged in now */
 .user-dot {
-  width: 0.45rem;
-  height: 0.45rem;
+  width: 0.55rem;
+  height: 0.55rem;
   border-radius: 999px;
   background: var(--color-emerald-400);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-emerald-400) 22%, transparent);
