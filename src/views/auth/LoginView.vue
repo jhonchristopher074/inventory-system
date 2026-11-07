@@ -465,7 +465,7 @@
 
 /* "Code expires in 59:41", under the code box */
 .timer-line {
-  margin: -0.35rem 0 0.9rem;
+  margin: 0.6rem 0 1.1rem;
   text-align: center;
   font-size: 0.82rem;
   color: #9a9aa6;
