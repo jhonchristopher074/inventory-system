@@ -1,7 +1,7 @@
 -- =====================================================================
 -- Calendar: the owner can delete a delivery
 -- ---------------------------------------------------------------------
--- Run after 20261109000001_reorder_low_stock.sql.
+-- Run after 20261108000001_receipt_notes_qty.sql.
 --
 -- For a delivery scheduled by mistake, or one that isn't coming. One that
 -- already has its receipt (upload_id) can't be deleted: the receipt and
