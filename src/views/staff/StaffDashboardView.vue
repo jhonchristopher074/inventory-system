@@ -212,19 +212,8 @@
 
           <ul v-if="lowStockList.length > 0" class="divide-y divide-white/5">
             <li v-for="product in lowStockList" :key="product.id" class="flex items-center gap-3 py-2.5">
-              <img
-                v-if="product.image_url"
-                :src="product.image_url"
-                alt=""
-                loading="lazy"
-                class="h-10 w-10 shrink-0 rounded-[10px] object-cover"
-              />
-              <span v-else class="grid h-10 w-10 shrink-0 place-items-center rounded-[10px] bg-white/5 text-zinc-500">
-                <NavIcon name="inventory" class="h-5 w-5" />
-              </span>
-
-              <div class="min-w-0 flex-1">
-                <p class="truncate text-sm font-bold text-white">{{ product.name }}</p>
+<div class="min-w-0 flex-1">
+                <p class="truncate text-sm font-bold text-white" :title="product.name">{{ product.name }}</p>
                 <p class="truncate text-xs text-zinc-500">{{ product.category || 'Uncategorized' }}</p>
               </div>
 

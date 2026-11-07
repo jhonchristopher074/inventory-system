@@ -1,11 +1,17 @@
 <template>
-  <!-- pb-24: room under the page buttons for the + button, which stays at
-       the bottom right of the screen -->
-  <div class="min-h-screen pb-24 text-white">
+  <div class="min-h-screen text-white">
     <PageHeader
       title="Employee Documentation"
       subtitle="Create and view your own documentation records."
-    />
+    >
+      <button
+        type="button"
+        class="inline-flex items-center gap-1.5 rounded-xl bg-red-600 px-4 py-2 text-sm font-bold text-white shadow-lg shadow-red-900/40 transition hover:bg-red-700"
+        @click="showAddModal = true"
+      >
+        <span class="text-base leading-none">+</span> Add documentation
+      </button>
+    </PageHeader>
 
     <!-- DOCUMENT GRID: 2 a row on phones (smaller cards), up to 4. The
          columns follow the width of the page area, not the whole window
@@ -72,7 +78,7 @@
     </div>
 
     <p v-if="!loading && documents.length === 0" class="card p-5 text-zinc-400">
-      No documentation yet. Press + to add one.
+      No documentation yet. Press "Add documentation" to add one.
     </p>
 
     <!-- 16 or 24 documents a page (4 full rows), or all of them -->
@@ -87,14 +93,6 @@
       card
       class="mt-5"
     />
-
-    <!-- PLUS BUTTON -->
-    <button
-      class="fixed bottom-8 right-8 z-40 flex h-14 w-14 items-center justify-center rounded-[14px] bg-red-600 text-3xl font-black text-white shadow-[0_0_20px_rgba(239,68,68,0.4)] transition hover:scale-105 hover:bg-red-700"
-      @click="showAddModal = true"
-    >
-      +
-    </button>
 
     <!-- ADD MODAL -->
     <div

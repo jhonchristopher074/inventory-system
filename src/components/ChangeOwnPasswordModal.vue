@@ -142,7 +142,7 @@ async function saveNew() {
 
       <label class="ap-label" for="op-new">New password</label>
       <div class="ap-field">
-        <input maxlength="72" id="op-new" ref="firstInput" v-model="newPassword" v-clean:password
+        <input maxlength="24" id="op-new" ref="firstInput" v-model="newPassword" v-clean:password
                :type="$passwordType(show)" v-no-save="show" autocomplete="off" />
         <button type="button" class="ap-toggle" @click="show = !show">
           {{ show ? 'Hide' : 'Show' }}
@@ -157,7 +157,7 @@ async function saveNew() {
 
       <label class="ap-label" for="op-confirm">Confirm new password</label>
       <div class="ap-field">
-        <input maxlength="72" id="op-confirm" v-model="confirmPassword" v-clean:password
+        <input maxlength="24" id="op-confirm" v-model="confirmPassword" v-clean:password
                :type="$passwordType(show)" v-no-save="show" autocomplete="off" />
       </div>
 

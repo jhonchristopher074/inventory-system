@@ -5,7 +5,11 @@ import App from './App.vue'
 import router from './router'
 import { blockInspect } from './lib/inspectGuard'
 import { passwordType, vNoSave } from './lib/noSavePassword'
+import { guardNumbers } from './lib/numberGuard'
 import './style.css'
+
+// every number box: digits only, no leading zeros, a maximum (lib/numberGuard.js)
+guardNumbers()
 
 // The live site: no right-click menu or developer-tools keys (F12…) on any
 // page, for every role (see lib/inspectGuard.js). Not while developing.

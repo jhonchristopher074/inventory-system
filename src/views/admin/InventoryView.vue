@@ -117,12 +117,10 @@
             <tr v-for="product in visibleProducts" :key="product.id">
               <td class="cell-main">
                 <div class="flex min-w-0 items-center gap-3">
-                  <img
+                  <ZoomThumb
                     v-if="product.image_url"
                     :src="product.image_url"
-                    :alt="product.name"
-                    class="list-thumb"
-                    loading="lazy"
+                    :alt="product.nickname || product.name"
                   />
                   <span
                     v-else
@@ -568,7 +566,7 @@
               <img
                 v-if="newProduct.image_url"
                 :src="newProduct.image_url"
-                class="h-40 w-full object-cover"
+                class="h-40 w-full cursor-zoom-in object-cover" title="See it big" @click="previewImage = newProduct.image_url"
               />
               <div v-else class="flex h-40 items-center justify-center text-sm text-zinc-500">
                 No picture
@@ -721,7 +719,7 @@
               <img
                 v-if="editForm.image_url"
                 :src="editForm.image_url"
-                class="h-40 w-full object-cover"
+                class="h-40 w-full cursor-zoom-in object-cover" title="See it big" @click="previewImage = editForm.image_url"
               />
               <div v-else class="flex h-40 items-center justify-center text-sm text-zinc-500">
                 No picture
@@ -780,6 +778,7 @@
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue'
 import PageHeader from '../../components/PageHeader.vue'
+import ZoomThumb from '../../components/ZoomThumb.vue'
 import StockHistoryModal from '../../components/StockHistoryModal.vue'
 import ActionSheet from '../../components/ActionSheet.vue'
 import TablePager from '../../components/TablePager.vue'

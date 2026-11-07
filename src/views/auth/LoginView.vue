@@ -48,6 +48,7 @@
                 v-model="resetCode"
                 class="code-input"
                 inputmode="numeric"
+                data-free-number
                 autocomplete="one-time-code"
                 maxlength="6"
                 required
