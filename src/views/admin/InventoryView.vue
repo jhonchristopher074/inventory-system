@@ -28,14 +28,6 @@
         Stock History
       </button>
 
-      <button
-        class="flex-1 rounded-2xl border border-white/10 bg-zinc-900 px-5 py-3 font-bold text-zinc-200 hover:bg-zinc-800 sm:flex-none"
-        title="The orders sent to suppliers"
-        @click="reorderTab = 'orders'"
-      >
-        Orders
-      </button>
-
       <!-- phones: on its own line under the other two -->
       <button
         class="basis-full rounded-2xl bg-red-600 px-5 py-3 font-bold text-white hover:bg-red-700 sm:basis-auto sm:flex-none"
@@ -51,26 +43,6 @@
     >
       {{ errorMessage }}
     </p>
-
-    <!-- LOW STOCK ALARM: order them again from their suppliers -->
-    <div
-      v-if="lowCount > 0"
-      class="mb-4 flex flex-wrap items-center gap-3 rounded-2xl border border-amber-500/40 bg-amber-500/10 px-4 py-3"
-      role="status"
-    >
-      <NavIcon name="alert" class="h-5 w-5 shrink-0 text-amber-400" />
-      <p class="min-w-0 flex-1 text-sm text-amber-100">
-        <b>{{ count(lowCount) }} {{ lowCount === 1 ? 'product is' : 'products are' }} running low</b>
-        <span class="text-amber-200/70"> ({{ LOW_STOCK }} or fewer left). Order them again from their suppliers?</span>
-      </p>
-      <button
-        type="button"
-        class="shrink-0 rounded-xl bg-amber-500 px-4 py-2 text-sm font-bold text-black hover:bg-amber-400"
-        @click="reorderTab = 'order'"
-      >
-        Order again
-      </button>
-    </div>
 
     <!-- products a cashier disabled at the POS: they can't be sold until
          enabled here (or in the POS) -->
@@ -310,12 +282,6 @@
       :products="products"
       @changed="onCategoriesChanged"
       @close="showCategories = false"
-    />
-
-    <ReorderModal
-      v-if="reorderTab"
-      :tab="reorderTab"
-      @close="reorderTab = ''"
     />
 
     <StockHistoryModal
@@ -857,7 +823,6 @@ import TablePager from '../../components/TablePager.vue'
 import NavIcon from '../../components/NavIcon.vue'
 import StockLevel from '../../components/StockLevel.vue'
 import CategoryManager from '../../components/CategoryManager.vue'
-import ReorderModal from '../../components/ReorderModal.vue'
 import { NO_CATEGORY, fetchCategories } from '../../lib/categories'
 import { supabase } from '../../lib/supabase'
 import { heldProductIds, withoutHeld } from '../../lib/heldProducts'
@@ -973,10 +938,6 @@ async function changeCategory(product, value) {
 
 // "Low stock" button: ?stock=low in the address
 const stockFilter = useQueryParam('stock', 'all', ['all', 'low'])
-
-// Order again window: '' closed, 'order' or 'orders' (?reorder=orders opens it,
-// e.g. from the bell's "Order sent")
-const reorderTab = useQueryParam('reorder', '', ['', 'order', 'orders'])
 const lowOnly = computed(() => stockFilter.value === 'low')
 
 // the category and the search
