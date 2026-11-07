@@ -101,8 +101,8 @@ function tipSide(i) {
 <template>
   <div ref="root" class="flex flex-col">
     <div class="flex min-h-44 flex-1 gap-2">
-      <!-- the scale: three clean amounts, with faint lines across -->
-      <div class="relative w-12 shrink-0 text-right text-[11px] tabular-nums text-zinc-500" aria-hidden="true">
+      <!-- the scale: three clean amounts, with white lines across -->
+      <div class="relative w-12 shrink-0 text-right text-[11px] font-semibold tabular-nums text-zinc-300" aria-hidden="true">
         <span
           v-for="(line, i) in lines"
           :key="line"
@@ -117,8 +117,8 @@ function tipSide(i) {
         <div
           v-for="(line, i) in lines"
           :key="line"
-          class="absolute inset-x-0 border-t"
-          :class="i === lines.length - 1 ? 'border-white/15' : 'border-white/5'"
+          class="absolute inset-x-0 border-t-2"
+          :class="i === lines.length - 1 ? 'border-white/70' : 'border-white/30'"
           :style="{ top: `${i * 50}%` }"
           aria-hidden="true"
         ></div>
