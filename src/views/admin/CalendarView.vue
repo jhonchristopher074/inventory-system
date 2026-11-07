@@ -1,174 +1,240 @@
 <template>
   <div>
-    <PageHeader title="Calendar" subtitle="Products scheduled for inspection and delivery." />
+    <PageHeader title="To-Do List" subtitle="Inspections and deliveries waiting to be done, most urgent first." />
 
-    <!-- tabs like the Approval page's; the add button on the same line -->
+    <!-- filter chips + search + add -->
     <div class="mb-4 flex flex-wrap items-center gap-3">
       <div class="inline-flex max-w-full gap-1 overflow-x-auto rounded-2xl border border-white/5 bg-zinc-900 p-1">
         <button
+          v-for="tab in tabs"
+          :key="tab.key"
           type="button"
           class="flex shrink-0 items-center gap-2 whitespace-nowrap rounded-xl px-3.5 py-2 text-sm font-bold transition"
-          :class="activeTab === 'inspection' ? 'bg-red-600 text-white' : 'text-zinc-400 hover:bg-white/5 hover:text-white'"
-          :aria-pressed="activeTab === 'inspection'"
-          @click="activeTab = 'inspection'"
+          :class="activeTab === tab.key ? 'bg-red-600 text-white' : 'text-zinc-400 hover:bg-white/5 hover:text-white'"
+          :aria-pressed="activeTab === tab.key"
+          @click="activeTab = tab.key"
         >
-          Inspection
+          {{ tab.label }}
           <span
-            v-if="taskBadges.tabs['admin:inspection']"
-            class="grid h-5 min-w-5 place-items-center rounded-full px-1.5 text-[0.7rem] font-extrabold"
-            :class="activeTab === 'inspection' ? 'bg-white text-red-600' : 'bg-red-600 text-white'"
-            :title="'Inspections overdue'"
-          >{{ taskBadges.tabs['admin:inspection'] }}</span>
-        </button>
-        <button
-          type="button"
-          class="flex shrink-0 items-center gap-2 whitespace-nowrap rounded-xl px-3.5 py-2 text-sm font-bold transition"
-          :class="activeTab === 'delivery' ? 'bg-red-600 text-white' : 'text-zinc-400 hover:bg-white/5 hover:text-white'"
-          :aria-pressed="activeTab === 'delivery'"
-          @click="activeTab = 'delivery'"
-        >
-          Delivery
+            class="text-xs font-semibold"
+            :class="activeTab === tab.key ? 'text-white/80' : 'text-zinc-500'"
+          >{{ counts[tab.key] }}</span>
           <span
-            v-if="taskBadges.tabs['admin:delivery']"
+            v-if="overdueCounts[tab.key]"
             class="grid h-5 min-w-5 place-items-center rounded-full px-1.5 text-[0.7rem] font-extrabold"
-            :class="activeTab === 'delivery' ? 'bg-white text-red-600' : 'bg-red-600 text-white'"
-            :title="'Deliveries overdue'"
-          >{{ taskBadges.tabs['admin:delivery'] }}</span>
+            :class="activeTab === tab.key ? 'bg-white text-red-600' : 'bg-red-600 text-white'"
+            title="Overdue"
+          >{{ overdueCounts[tab.key] }}</span>
         </button>
       </div>
 
-      <button
-        type="button"
-        class="ml-auto inline-flex items-center gap-1.5 rounded-xl bg-red-600 px-4 py-2 text-sm font-bold text-white shadow-lg shadow-red-900/40 transition hover:bg-red-700"
-        :title="activeTab === 'delivery' ? 'Schedule a delivery' : 'Schedule an inspection'"
-        @click="openAddModal"
-      >
-        <span class="text-base leading-none">+</span>
-        Add {{ activeTab === 'delivery' ? 'delivery' : 'inspection' }}
-      </button>
+      <div class="ml-auto flex w-full items-center gap-2 sm:w-auto">
+        <input
+          v-model="search"
+          type="search"
+          placeholder="Search..."
+          aria-label="Search the to-do list"
+          class="min-w-0 flex-1 rounded-xl border border-white/10 bg-zinc-900 px-3 py-2 text-sm text-white outline-none focus:border-red-500 sm:w-56 sm:flex-none"
+        />
+
+        <button
+          type="button"
+          class="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-red-600 px-4 py-2 text-sm font-bold text-white shadow-lg shadow-red-900/40 transition hover:bg-red-700"
+          :title="activeTab === 'delivery' ? 'Schedule a delivery' : 'Schedule an inspection'"
+          @click="openAddModal"
+        >
+          <span class="text-base leading-none">+</span>
+          Add task
+        </button>
+      </div>
     </div>
 
-    <p v-if="loading && activeTab === 'delivery'" class="text-sm text-zinc-400">Loading...</p>
+    <p v-if="loading" class="text-sm text-zinc-400">Loading...</p>
     <p v-if="errorMessage" class="mb-4 rounded-xl bg-red-600/20 p-4 text-red-400">{{ errorMessage }}</p>
 
-    <!-- INSPECTION: one table row per product; Details opens the small window below -->
-    <InspectionTable
-      v-if="activeTab === 'inspection'"
-      :rows="inspectionRows"
-      :loading="loading"
-      action-label="Details"
-      storage-key="inspections"
-      @open="openPanel"
-    />
+    <!-- summary + colour key -->
+    <div v-if="!loading && visibleItems.length > 0" class="mb-4 flex flex-wrap items-center justify-between gap-2 text-sm text-zinc-400">
+      <p>
+        <b class="text-white">{{ visibleItems.length }}</b> to do
+        <template v-if="visibleOverdue > 0">
+          · <b class="text-red-400">{{ visibleOverdue }} overdue</b>
+        </template>
+      </p>
+      <p class="flex items-center gap-3 text-xs">
+        <span class="flex items-center gap-1.5"><span class="h-2 w-2 rounded-full bg-red-500"></span>Approved</span>
+        <span class="flex items-center gap-1.5"><span class="h-2 w-2 rounded-full bg-lime-400"></span>Saved</span>
+        <span class="flex items-center gap-1.5"><span class="h-2 w-2 rounded-full bg-amber-400"></span>Submitted</span>
+      </p>
+    </div>
 
-    <!-- DELIVERY -->
-    <div v-if="activeTab === 'delivery'">
-      <!-- nothing yet: the way to add one, right here -->
-      <div
-        v-if="deliveries.length === 0"
-        class="flex flex-col items-center gap-3 rounded-[24px] border border-dashed border-white/15 bg-zinc-900 px-5 py-10 text-center"
-      >
-        <p class="font-bold text-white">No deliveries scheduled</p>
+    <!-- nothing to do -->
+    <div
+      v-if="!loading && visibleItems.length === 0"
+      class="flex flex-col items-center gap-3 rounded-[24px] border border-dashed border-white/15 bg-zinc-900 px-5 py-10 text-center"
+    >
+      <template v-if="search.trim()">
+        <p class="font-bold text-white">No task matches "{{ search.trim() }}"</p>
+        <button
+          type="button"
+          class="rounded-2xl bg-zinc-800 px-5 py-2.5 font-bold text-white hover:bg-zinc-700"
+          @click="search = ''"
+        >
+          Clear search
+        </button>
+      </template>
+      <template v-else>
+        <p class="font-bold text-white">All caught up</p>
         <p class="max-w-sm text-sm text-zinc-400">
-          Expecting goods from a supplier? Add the delivery so the staff know when it comes.
+          No inspections or deliveries are waiting. Add one so the staff know what comes next.
         </p>
         <button
           type="button"
           class="mt-1 rounded-2xl bg-red-600 px-5 py-2.5 font-bold text-white hover:bg-red-700"
           @click="openAddModal"
         >
-          + Add delivery
+          + Add task
         </button>
-      </div>
-
-      <div v-else class="grid grid-cols-1 gap-5 sm:grid-cols-[repeat(auto-fill,260px)]">
-        <div
-          v-for="delivery in deliveries"
-          :key="delivery.id"
-          class="rounded-[22px] border border-white/10 bg-zinc-900 p-5 shadow-xl"
-          :class="isDeliveryOverdue(delivery) ? 'border-red-500/70 bg-red-950/30 shadow-red-500/20' : ''"
-        >
-          <h2 class="text-xl font-bold text-white">{{ delivery.title }}</h2>
-
-          <p class="mt-3 text-sm text-zinc-400">
-            Supplier: {{ delivery.supplier || 'No supplier' }}
-          </p>
-
-          <p class="mt-2 text-sm font-bold text-red-400">
-            {{ formatDate(delivery.delivery_date) }}
-          </p>
-
-          <div class="mt-2 flex flex-wrap items-center gap-2">
-            <span
-              v-if="receiptStateOf(delivery)"
-              class="rounded-full px-3 py-1 text-xs font-bold"
-              :class="receiptStateOf(delivery).tone"
-            >
-              {{ receiptStateOf(delivery).text }}
-            </span>
-            <span v-else class="text-sm text-emerald-400">{{ delivery.status || 'Scheduled' }}</span>
-            <span
-              v-if="isDeliveryOverdue(delivery)"
-              class="rounded-full bg-red-600/20 px-3 py-1 text-xs font-bold text-red-400"
-            >
-              Overdue
-            </span>
-          </div>
-
-          <!-- arrived without its receipt: no stock until it's in -->
-          <template v-if="delivery.receipt_state === 'waiting'">
-            <p class="mt-3 text-xs text-amber-200/80">
-              No stock is added until its receipt is in. When the supplier sends it, link it in Approval, or upload it here.
-            </p>
-            <RouterLink
-              :to="{ path: '/approval', query: { receiptFor: delivery.id } }"
-              class="mt-3 block w-full rounded-xl bg-amber-500 py-2 text-center text-sm font-bold text-black hover:bg-amber-400"
-            >
-              Add receipt
-            </RouterLink>
-          </template>
-          <p v-else-if="delivery.receipt_state === 'sent'" class="mt-3 text-xs text-zinc-500">
-            Its receipt <b class="text-zinc-300">{{ delivery.receipt_file }}</b> is in Approval.
-          </p>
-
-          <!-- delete (not once a receipt is linked to it): asks first, here -->
-          <template v-if="!delivery.upload_id">
-            <div v-if="deletingId === delivery.id" class="mt-4 rounded-xl border border-red-500/40 bg-red-600/10 p-3">
-              <p class="text-sm font-bold text-red-200">Delete this delivery?</p>
-              <p class="mt-0.5 text-xs text-zinc-400">It leaves the calendar and the staff are told.</p>
-              <p v-if="deleteError" class="mt-2 text-xs text-red-300" role="alert">{{ deleteError }}</p>
-              <div class="mt-3 flex gap-2">
-                <button
-                  type="button"
-                  class="flex-1 rounded-lg bg-zinc-800 py-2 text-sm font-bold text-white hover:bg-zinc-700"
-                  :disabled="deleteBusy"
-                  @click="deletingId = null"
-                >
-                  Keep
-                </button>
-                <button
-                  type="button"
-                  class="flex-1 rounded-lg bg-red-600 py-2 text-sm font-bold text-white hover:bg-red-700 disabled:opacity-50"
-                  :disabled="deleteBusy"
-                  @click="deleteDelivery(delivery)"
-                >
-                  {{ deleteBusy ? 'Deleting…' : 'Yes, delete' }}
-                </button>
-              </div>
-            </div>
-            <button
-              v-else
-              type="button"
-              class="mt-4 flex w-full items-center justify-center gap-1.5 rounded-xl border border-white/10 py-2 text-sm font-bold text-zinc-300 transition hover:border-red-500/50 hover:bg-red-600/10 hover:text-red-300"
-              :title="'Delete ' + delivery.title"
-              @click="askDelete(delivery)"
-            >
-              Delete
-            </button>
-          </template>
-        </div>
-      </div>
+      </template>
     </div>
+
+    <!-- THE LIST: Overdue, Today, This week, Later -->
+    <section v-for="group in todoGroups" :key="group.key" class="mb-6">
+      <h2 class="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-wider" :class="group.tone">
+        {{ group.label }}
+        <span class="rounded-full bg-white/10 px-2 py-0.5 text-[0.7rem] text-zinc-300">{{ group.items.length }}</span>
+      </h2>
+
+      <ul class="space-y-2">
+        <li
+          v-for="task in group.items"
+          :key="task.key"
+          class="rounded-2xl border p-4"
+          :class="task.overdue ? 'border-red-500/50 bg-red-950/20' : 'border-white/10 bg-zinc-900'"
+        >
+          <div class="flex items-start gap-3">
+            <!-- the empty circle of a to-do item -->
+            <span
+              class="mt-0.5 h-5 w-5 shrink-0 rounded-full border-2"
+              :class="group.circle"
+              aria-hidden="true"
+            ></span>
+
+            <div class="min-w-0 flex-1">
+              <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
+                <span
+                  class="rounded-full px-2 py-0.5 text-[0.65rem] font-extrabold uppercase tracking-wide"
+                  :class="task.kind === 'inspection' ? 'bg-sky-500/15 text-sky-300' : 'bg-violet-500/15 text-violet-300'"
+                >
+                  {{ task.kind === 'inspection' ? 'Inspection' : 'Delivery' }}
+                </span>
+                <h3 class="min-w-0 break-words font-bold text-white">{{ task.title }}</h3>
+              </div>
+
+              <p class="mt-1 text-sm text-zinc-400">{{ task.sub }}</p>
+
+              <p class="mt-1 text-sm font-bold" :class="task.overdue ? 'text-red-400' : 'text-zinc-300'">
+                {{ task.when }}
+                <span class="font-normal text-zinc-500">· {{ formatDate(task.date) }}</span>
+              </p>
+
+              <!-- INSPECTION: how far along it is -->
+              <template v-if="task.kind === 'inspection'">
+                <div class="mt-3 max-w-md">
+                  <div class="flex items-center justify-between text-xs text-zinc-400">
+                    <span class="font-bold text-white">{{ task.row.totalPct }}%</span>
+                    <span>{{ count(task.row.remaining) }} left of {{ count(task.row.qty) }}</span>
+                  </div>
+                  <div class="mt-1 flex h-1.5 overflow-hidden rounded-full bg-zinc-800">
+                    <span class="bg-red-500" :style="{ width: task.row.approvedPct + '%' }"></span>
+                    <span class="bg-lime-400" :style="{ width: task.row.savedPct + '%' }"></span>
+                    <span class="bg-amber-400" :style="{ width: task.row.submittedPct + '%' }"></span>
+                  </div>
+                </div>
+
+                <p v-if="task.row.waiting > 0" class="mt-2 text-xs font-bold text-yellow-400">
+                  {{ task.row.waiting }} waiting for your approval
+                </p>
+              </template>
+
+              <!-- DELIVERY: receipt state, add receipt, delete -->
+              <template v-else>
+                <div class="mt-2 flex flex-wrap items-center gap-2">
+                  <span
+                    v-if="receiptStateOf(task.delivery)"
+                    class="rounded-full px-3 py-1 text-xs font-bold"
+                    :class="receiptStateOf(task.delivery).tone"
+                  >
+                    {{ receiptStateOf(task.delivery).text }}
+                  </span>
+                  <span v-else class="text-sm text-emerald-400">{{ task.delivery.status || 'Scheduled' }}</span>
+                </div>
+
+                <!-- arrived without its receipt: no stock until it's in -->
+                <template v-if="task.delivery.receipt_state === 'waiting'">
+                  <p class="mt-3 text-xs text-amber-200/80">
+                    No stock is added until its receipt is in. When the supplier sends it, link it in Approval, or upload it here.
+                  </p>
+                  <RouterLink
+                    :to="{ path: '/approval', query: { receiptFor: task.delivery.id } }"
+                    class="mt-3 inline-block rounded-xl bg-amber-500 px-4 py-2 text-center text-sm font-bold text-black hover:bg-amber-400"
+                  >
+                    Add receipt
+                  </RouterLink>
+                </template>
+                <p v-else-if="task.delivery.receipt_state === 'sent'" class="mt-3 text-xs text-zinc-500">
+                  Its receipt <b class="text-zinc-300">{{ task.delivery.receipt_file }}</b> is in Approval.
+                </p>
+
+                <!-- delete (not once a receipt is linked to it): asks first, here -->
+                <template v-if="!task.delivery.upload_id">
+                  <div v-if="deletingId === task.delivery.id" class="mt-3 max-w-sm rounded-xl border border-red-500/40 bg-red-600/10 p-3">
+                    <p class="text-sm font-bold text-red-200">Delete this delivery?</p>
+                    <p class="mt-0.5 text-xs text-zinc-400">It leaves the list and the staff are told.</p>
+                    <p v-if="deleteError" class="mt-2 text-xs text-red-300" role="alert">{{ deleteError }}</p>
+                    <div class="mt-3 flex gap-2">
+                      <button
+                        type="button"
+                        class="flex-1 rounded-lg bg-zinc-800 py-2 text-sm font-bold text-white hover:bg-zinc-700"
+                        :disabled="deleteBusy"
+                        @click="deletingId = null"
+                      >
+                        Keep
+                      </button>
+                      <button
+                        type="button"
+                        class="flex-1 rounded-lg bg-red-600 py-2 text-sm font-bold text-white hover:bg-red-700 disabled:opacity-50"
+                        :disabled="deleteBusy"
+                        @click="deleteDelivery(task.delivery)"
+                      >
+                        {{ deleteBusy ? 'Deleting…' : 'Yes, delete' }}
+                      </button>
+                    </div>
+                  </div>
+                  <button
+                    v-else
+                    type="button"
+                    class="mt-3 rounded-xl border border-white/10 px-4 py-1.5 text-sm font-bold text-zinc-300 transition hover:border-red-500/50 hover:bg-red-600/10 hover:text-red-300"
+                    :title="'Delete ' + task.title"
+                    @click="askDelete(task.delivery)"
+                  >
+                    Delete
+                  </button>
+                </template>
+              </template>
+            </div>
+
+            <button
+              v-if="task.kind === 'inspection'"
+              type="button"
+              class="shrink-0 rounded-full bg-red-600 px-4 py-1.5 text-xs font-bold text-white hover:bg-red-700"
+              @click="openPanel(task.row.item)"
+            >
+              Details
+            </button>
+          </div>
+        </li>
+      </ul>
+    </section>
 
     <!-- ADD SCHEDULE MODAL -->
     <div
@@ -224,7 +290,6 @@
                     <span class="text-xl text-red-400">⌕</span>
 
                     <input
-                      maxlength="80"
                       v-model="productSearch"
                       type="text"
                       placeholder="Search product..."
@@ -266,7 +331,6 @@
             <div>
               <label class="label">Delivery Title</label>
               <input
-                maxlength="100"
                 v-model="newSchedule.title"
                 type="text"
                 placeholder="What's being delivered, e.g. 50 bags of cement"
@@ -277,7 +341,6 @@
             <div>
               <label class="label">Supplier</label>
               <input
-                maxlength="100"
                 v-model="newSchedule.supplier"
                 type="text"
                 placeholder="Who delivers it, e.g. JM Supply"
@@ -422,7 +485,6 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { refreshTasksSoon, taskBadges } from '../../lib/taskCounts'
 import { supabase } from '../../lib/supabase'
 import PageHeader from '../../components/PageHeader.vue'
-import InspectionTable from '../../components/InspectionTable.vue'
 import { count } from '../../lib/format'
 import { isDelivered, isOpenDelivery, receiptStateOf } from '../../lib/deliveries'
 import { RouterLink } from 'vue-router'
@@ -431,7 +493,15 @@ import { toast } from '../../lib/toast'
 
 // in the address (?tab=delivery), like the Staff calendar, so the Dashboard
 // can open the Delivery tab
-const activeTab = useQueryParam('tab', 'inspection', ['inspection', 'delivery'])
+const activeTab = useQueryParam('tab', 'all', ['all', 'inspection', 'delivery'])
+
+const tabs = [
+  { key: 'all', label: 'All' },
+  { key: 'inspection', label: 'Inspection' },
+  { key: 'delivery', label: 'Delivery' },
+]
+
+const search = ref('')
 
 const products = ref([])
 const allProducts = ref([])
@@ -479,6 +549,119 @@ const inspectionRows = computed(() =>
       approval => approval.product_id === item.id && approval.status === 'submitted'
     ).length,
   }))
+)
+
+/* ------------------------------------------------------------------
+   To-do list: inspections and deliveries as one list, most urgent first
+------------------------------------------------------------------ */
+// whole days from today to a YYYY-MM-DD date (negative = in the past)
+function dayDiff(date) {
+  if (!date) return null
+
+  const [y, m, d] = String(date).slice(0, 10).split('-').map(Number)
+  const [ty, tm, td] = getToday().split('-').map(Number)
+
+  return Math.round((new Date(y, m - 1, d) - new Date(ty, tm - 1, td)) / 86400000)
+}
+
+function whenLabel(task, diff) {
+  if (diff === null) return 'No date'
+
+  if (task.overdue) return diff === -1 ? '1 day overdue' : `${-diff} days overdue`
+  if (diff < 0) return 'Arrived'
+  if (diff === 0) return 'Today'
+  if (diff === 1) return 'Tomorrow'
+
+  return `In ${diff} days`
+}
+
+function bucketOf(task, diff) {
+  if (task.overdue) return 'overdue'
+  if (diff === null) return 'later'
+  if (diff <= 0) return 'today'
+  if (diff <= 7) return 'week'
+  return 'later'
+}
+
+const todoItems = computed(() => {
+  const list = []
+
+  for (const row of inspectionRows.value) {
+    list.push({
+      key: 'i' + row.item.id,
+      kind: 'inspection',
+      title: row.item.name,
+      sub: `${row.item.category || 'Uncategorized'} · batch of ${count(row.qty)}`,
+      date: row.date ? String(row.date).slice(0, 10) : '',
+      overdue: row.overdue,
+      row,
+    })
+  }
+
+  for (const delivery of deliveries.value) {
+    list.push({
+      key: 'd' + delivery.id,
+      kind: 'delivery',
+      title: delivery.title,
+      sub: `Supplier: ${delivery.supplier || 'No supplier'}`,
+      date: delivery.delivery_date ? String(delivery.delivery_date).slice(0, 10) : '',
+      overdue: isDeliveryOverdue(delivery),
+      delivery,
+    })
+  }
+
+  for (const task of list) {
+    const diff = dayDiff(task.date)
+    task.bucket = bucketOf(task, diff)
+    task.when = whenLabel(task, diff)
+  }
+
+  // earliest date first; tasks without a date go last
+  return list.sort((a, b) => {
+    if (!a.date && !b.date) return 0
+    if (!a.date) return 1
+    if (!b.date) return -1
+    return a.date.localeCompare(b.date)
+  })
+})
+
+const counts = computed(() => ({
+  all: todoItems.value.length,
+  inspection: todoItems.value.filter((task) => task.kind === 'inspection').length,
+  delivery: todoItems.value.filter((task) => task.kind === 'delivery').length,
+}))
+
+const overdueCounts = computed(() => ({
+  all: todoItems.value.filter((task) => task.overdue).length,
+  inspection: todoItems.value.filter((task) => task.overdue && task.kind === 'inspection').length,
+  delivery: todoItems.value.filter((task) => task.overdue && task.kind === 'delivery').length,
+}))
+
+// what the chip and the search box leave
+const visibleItems = computed(() => {
+  const text = search.value.toLowerCase().trim()
+
+  return todoItems.value.filter((task) => {
+    if (activeTab.value !== 'all' && task.kind !== activeTab.value) return false
+    if (!text) return true
+
+    return `${task.title} ${task.sub}`.toLowerCase().includes(text)
+  })
+})
+
+const visibleOverdue = computed(() => visibleItems.value.filter((task) => task.overdue).length)
+
+const GROUPS = [
+  { key: 'overdue', label: 'Overdue', tone: 'text-red-400', circle: 'border-red-500' },
+  { key: 'today', label: 'Today', tone: 'text-amber-300', circle: 'border-amber-400' },
+  { key: 'week', label: 'This week', tone: 'text-zinc-300', circle: 'border-zinc-400' },
+  { key: 'later', label: 'Later', tone: 'text-zinc-400', circle: 'border-zinc-600' },
+]
+
+const todoGroups = computed(() =>
+  GROUPS
+    .map((group) => ({ ...group, items: visibleItems.value.filter((task) => task.bucket === group.key) }))
+    .filter((group) => group.items.length > 0)
 )
 
 const filteredAllProducts = computed(() => {
@@ -719,7 +902,7 @@ async function deleteDelivery(delivery) {
 
 function openAddModal() {
   newSchedule.value = {
-    type: activeTab.value,
+    type: activeTab.value === 'delivery' ? 'delivery' : 'inspection',
     product_id: '',
     title: '',
     supplier: '',
