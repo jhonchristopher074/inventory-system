@@ -89,27 +89,27 @@
               <td class="cell-actions">
                 <div class="row-actions">
                   <button
-                    class="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-700"
+                    class="act-btn bg-emerald-600 text-white hover:bg-emerald-700"
                     title="Move back to Inventory"
                     @click="openActionModal('restore', product)"
                   >
-                    Restore
+                    <NavIcon name="restore" class="h-3.5 w-3.5" /> Restore
                   </button>
 
                   <button
-                    class="rounded-lg bg-zinc-800 px-3 py-1.5 text-xs font-bold text-zinc-200 hover:bg-zinc-700"
+                    class="act-btn bg-zinc-800 text-zinc-200 hover:bg-zinc-700"
                     title="Report a problem with this product"
                     @click="openReportModal(product)"
                   >
-                    Report
+                    <NavIcon name="flag" class="h-3.5 w-3.5" /> Report
                   </button>
 
                   <button
-                    class="rounded-lg bg-red-600/15 px-3 py-1.5 text-xs font-bold text-red-300 hover:bg-red-600/30 hover:text-white"
+                    class="act-btn bg-red-600/15 text-red-300 hover:bg-red-600/30 hover:text-white"
                     title="Remove it from Inventory and Archived"
                     @click="openActionModal('delete', product)"
                   >
-                    Delete
+                    <NavIcon name="trash" class="h-3.5 w-3.5" /> Delete
                   </button>
                 </div>
               </td>
@@ -268,6 +268,7 @@ import { supabase } from '../../lib/supabase'
 import { usePagination } from '../../lib/usePagination'
 import PageHeader from '../../components/PageHeader.vue'
 import ZoomThumb from '../../components/ZoomThumb.vue'
+import NavIcon from '../../components/NavIcon.vue'
 import TablePager from '../../components/TablePager.vue'
 import StockLevel from '../../components/StockLevel.vue'
 import { peso } from '../../lib/format'
@@ -492,5 +493,17 @@ function formatDate(date) {
   font-size: 0.875rem;
   font-weight: 700;
   color: rgb(212 212 216);
+}
+
+/* the row's buttons: an icon and a word, one size (as in Inventory) */
+.act-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border-radius: 0.5rem;
+  padding: 0.375rem 0.7rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  white-space: nowrap;
 }
 </style>

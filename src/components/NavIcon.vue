@@ -154,6 +154,23 @@
       <path d="M12 7v5l3 2" />
     </template>
 
+    <!-- curved arrow back (restore) -->
+    <template v-else-if="name === 'restore'">
+      <path d="M4 10h11a5 5 0 010 10h-3" />
+      <path d="M8 6l-4 4 4 4" />
+    </template>
+
+    <!-- flag (report) -->
+    <template v-else-if="name === 'flag'">
+      <path d="M5 21V4M5 4h11l-2 4 2 4H5" />
+    </template>
+
+    <!-- trash can (delete) -->
+    <template v-else-if="name === 'trash'">
+      <path d="M4 7h16M10 11v6M14 11v6" />
+      <path d="M6 7l1 13a1 1 0 001 1h8a1 1 0 001-1l1-13M9 7V4h6v3" />
+    </template>
+
     <!-- dots (more) -->
     <template v-else-if="name === 'more'">
       <path d="M5 12h.01M12 12h.01M19 12h.01" stroke-width="3" />
