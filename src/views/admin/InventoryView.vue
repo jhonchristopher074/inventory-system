@@ -365,10 +365,12 @@
           <div class="mt-6 w-full text-left">
             <label class="label">Inspection Date</label>
 
+            <!-- today or later: a past date would be overdue at once -->
             <input
               v-model="inspectionDate"
               type="date"
-              class="w-full rounded-2xl border border-white/10 bg-zinc-800 px-4 py-4 text-lg text-white outline-none"
+              :min="todayYmd()"
+              class="w-full rounded-2xl border border-white/10 bg-zinc-800 px-4 py-4 text-lg text-white outline-none [color-scheme:dark]"
             />
           </div>
 
@@ -1301,11 +1303,22 @@ async function saveEdit() {
   await fetchProducts()
 }
 
+// today on this computer's clock, 'YYYY-MM-DD' (what a date box uses)
+function todayYmd() {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
 async function setInspectionDate() {
   if (!selectedProduct.value || detailBusy.value) return
 
   if (!inspectionDate.value) {
     detailMessage.value = { type: 'error', text: 'Choose a date first.' }
+    return
+  }
+  // typed in by hand: the picker alone doesn't stop it
+  if (inspectionDate.value < todayYmd()) {
+    detailMessage.value = { type: 'error', text: 'Pick today or a later date: that day has already passed.' }
     return
   }
 
