@@ -70,6 +70,22 @@ const days = computed(() => {
   return out.slice(35).every((d) => !d.inMonth) ? out.slice(0, 35) : out
 })
 
+// items before / after the month shown: a mark on ‹ and ›
+const monthStart = computed(() => `${props.month}-01`)
+const monthEnd = computed(() => {
+  const first = firstOfMonth.value
+  return keyOf(new Date(first.getFullYear(), first.getMonth() + 1, 0))
+})
+const earlier = computed(() => props.events.filter((e) => e.date && String(e.date).slice(0, 10) < monthStart.value))
+const later = computed(() => props.events.filter((e) => e.date && String(e.date).slice(0, 10) > monthEnd.value))
+const earlierOverdue = computed(() => earlier.value.filter((e) => e.state === 'overdue').length)
+
+function markText(list, overdue, where) {
+  if (!list.length) return ''
+  const things = `${list.length} ${list.length === 1 ? 'item' : 'items'} ${where}`
+  return overdue ? `${things}, ${overdue} overdue` : things
+}
+
 const monthCount = computed(() =>
   days.value.filter((d) => d.inMonth).reduce((sum, d) => sum + d.items.length, 0)
 )
@@ -96,9 +112,33 @@ function dayLabel(day) {
     <!-- ‹ November 2026 ›   Today -->
     <header class="cal-head">
       <div class="flex items-center gap-1">
-        <button type="button" class="cal-nav" aria-label="Previous month" @click="move(-1)">‹</button>
+        <button
+          type="button"
+          class="cal-nav"
+          :aria-label="'Previous month' + (earlier.length ? ` (${markText(earlier, earlierOverdue, 'in earlier months')})` : '')"
+          :title="markText(earlier, earlierOverdue, 'in earlier months')"
+          @click="move(-1)"
+        >
+          ‹
+          <!-- something earlier: orange with its count when overdue -->
+          <span
+            v-if="earlier.length"
+            class="cal-mark"
+            :class="earlierOverdue ? 'is-overdue' : ''"
+            aria-hidden="true"
+          >{{ earlierOverdue || '' }}</span>
+        </button>
         <h2 class="cal-title">{{ title }}</h2>
-        <button type="button" class="cal-nav" aria-label="Next month" @click="move(1)">›</button>
+        <button
+          type="button"
+          class="cal-nav"
+          :aria-label="'Next month' + (later.length ? ` (${markText(later, 0, 'in later months')})` : '')"
+          :title="markText(later, 0, 'in later months')"
+          @click="move(1)"
+        >
+          ›
+          <span v-if="later.length" class="cal-mark" aria-hidden="true"></span>
+        </button>
       </div>
       <span class="hidden text-xs text-zinc-500 sm:inline">
         {{ monthCount }} scheduled this month
@@ -191,6 +231,7 @@ function dayLabel(day) {
 }
 
 .cal-nav {
+  position: relative;
   display: grid;
   width: 2rem;
   height: 2rem;
@@ -204,6 +245,58 @@ function dayLabel(day) {
 .cal-nav:hover {
   background: rgba(255, 255, 255, 0.07);
   color: #fff;
+}
+
+/* on ‹ / ›: there's something that way. A small dot, or orange with
+   the number of overdue items, pulsing */
+.cal-mark {
+  position: absolute;
+  top: -0.15rem;
+  right: -0.15rem;
+  display: grid;
+  min-width: 0.6rem;
+  height: 0.6rem;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--color-zinc-400);
+  font-size: 0.6rem;
+  font-weight: 800;
+  line-height: 1;
+  color: #1a1000;
+}
+
+.cal-mark.is-overdue {
+  min-width: 1.05rem;
+  height: 1.05rem;
+  padding: 0 0.2rem;
+  background: #ff9500;
+}
+
+.cal-mark.is-overdue::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  border: 2px solid #ff9500;
+  animation: mark-pulse 1.6s ease-out infinite;
+}
+
+@keyframes mark-pulse {
+  from {
+    transform: scale(1);
+    opacity: 0.9;
+  }
+  to {
+    transform: scale(1.8);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cal-mark.is-overdue::after {
+    animation: none;
+    opacity: 0;
+  }
 }
 
 .cal-today {
