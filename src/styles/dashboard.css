@@ -71,6 +71,36 @@ a.kpi:focus-visible {
   color: #1a1000;
 }
 
+/* an orange ring that keeps pulsing out of it */
+.kpi-caution::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  border: 2px solid var(--alert);
+  animation: caution-pulse 1.6s ease-out infinite;
+}
+
+@keyframes caution-pulse {
+  from {
+    transform: scale(1);
+    opacity: 0.9;
+  }
+  to {
+    transform: scale(1.7);
+    opacity: 0;
+  }
+}
+
+/* no movement wanted: a still ring instead */
+@media (prefers-reduced-motion: reduce) {
+  .kpi-caution::after {
+    animation: none;
+    transform: scale(1.25);
+    opacity: 0.4;
+  }
+}
+
 .kpi-top {
   display: flex;
   align-items: center;
