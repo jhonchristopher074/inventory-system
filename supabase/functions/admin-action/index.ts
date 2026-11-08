@@ -15,7 +15,7 @@ import {
 } from "../_shared/auth.ts";
 
 // The admin role can never be handed out: there is only one admin.
-const ASSIGNABLE_ROLES = ["cashier", "staff", "supplier"];
+const ASSIGNABLE_ROLES = ["cashier", "staff", "supplier", "manager"];
 const ACTIONS = ["set_role", "toggle_active", "reset_password", "rename", "change_email"];
 // the actions also allowed on the admin's own account
 const SELF_ACTIONS = ["rename", "change_email"];

@@ -439,6 +439,12 @@ const NAV = {
   ],
 }
 
+// a Manager: the Owner's menu, with his own Profile (no accounts)
+NAV.manager = NAV.admin.map((group) => ({
+  ...group,
+  items: group.items.map((item) => (item.to === '/profile' ? { ...item, to: '/manager/profile' } : item)),
+}))
+
 const navGroups = computed(() => NAV[role.value] || [])
 
 // the role's own Profile page (the top bar's name opens it)

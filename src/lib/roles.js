@@ -4,6 +4,9 @@
 
 export const ROLE_LABELS = {
   admin: 'Owner',
+  // runs the store like the Owner, without the accounts (see
+  // supabase/migrations/20261114000001_manager_role.sql)
+  manager: 'Manager',
   cashier: 'Cashier',
   staff: 'Staff',
   supplier: 'Supplier',
@@ -13,6 +16,7 @@ export const ROLE_LABELS = {
 // dashboard (DashboardHero), in the top bar and on the Profile page.
 export const ROLE_TONES = {
   admin: 'red',
+  manager: 'amber',
   staff: 'violet',
   cashier: 'green',
   supplier: 'blue',
@@ -20,6 +24,11 @@ export const ROLE_TONES = {
 
 export function roleTone(role) {
   return ROLE_TONES[String(role || '').trim()] || 'red'
+}
+
+// the pages a role uses: a Manager uses the Owner's
+export function pageRole(role) {
+  return role === 'manager' ? 'admin' : role
 }
 
 export function roleLabel(role) {

@@ -60,6 +60,7 @@ function closeReveal() {
     <label for="ce-role">Role</label>
     <select id="ce-role" v-model="role">
       <option value="staff">Staff</option>
+      <option value="manager">Manager (runs the store, no accounts)</option>
       <option value="cashier">Cashier</option>
       <option value="supplier">Supplier</option>
     </select>

@@ -1944,7 +1944,12 @@ async function askReceive(group) {
 // the active staff accounts, loaded once ('' or why it failed)
 async function loadStaff() {
   if (staffList.value.length > 0) return ''
-  const { data, error } = await supabase.rpc('admin_list_users')
+  // names only (the Owner and a Manager); before 20261114000001 is run,
+  // the Owner's accounts list as before
+  let { data, error } = await supabase.rpc('list_staff_names')
+  if (error && /list_staff_names|schema cache/i.test(error.message)) {
+    ;({ data, error } = await supabase.rpc('admin_list_users'))
+  }
   if (error) return `Couldn't load the staff accounts: ${error.message}`
   staffList.value = (data || []).filter((user) => user.role === 'staff' && user.is_active !== false)
   return ''

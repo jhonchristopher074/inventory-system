@@ -181,7 +181,7 @@ async function forStaff(last) {
   }
 }
 
-const LOADERS = { admin: forOwner, staff: forStaff }
+const LOADERS = { admin: forOwner, manager: forOwner, staff: forStaff }
 
 let running = false
 let again = false

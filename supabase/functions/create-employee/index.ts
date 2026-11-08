@@ -8,7 +8,7 @@ import {
 } from "../_shared/auth.ts";
 
 // There is only one admin (the owner), so "admin" can never be assigned here.
-const ALLOWED_ROLES = (Deno.env.get("ALLOWED_ROLES") ?? "staff,cashier,supplier").split(",");
+const ALLOWED_ROLES = (Deno.env.get("ALLOWED_ROLES") ?? "staff,cashier,supplier,manager").split(",");
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });

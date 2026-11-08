@@ -5,7 +5,7 @@
     <DashboardHero
       tone="red"
       icon="dashboard"
-      role="Owner"
+      :role="roleLabel(currentUser.role) || 'Owner'"
       place="Store overview"
       subtitle="Sales, stock and approvals for the whole store."
       :now="now"
@@ -313,6 +313,8 @@ import {
   salesToday,
 } from '../../lib/dashboardStats'
 import { isDelivered } from '../../lib/deliveries'
+import { roleLabel } from '../../lib/roles'
+import { currentUser } from '../../lib/currentUser'
 
 // Inventory showing only the products running low (emptiest first)
 const LOW_STOCK_LINK = '/inventory?stock=low'

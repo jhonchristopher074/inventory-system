@@ -323,7 +323,7 @@ const filteredUsers = computed(() => {
 })
 
 // Categories (tabs + grouped sections)
-const CATEGORIES = ['admin', 'staff', 'cashier', 'supplier'].map((key) => ({
+const CATEGORIES = ['admin', 'manager', 'staff', 'cashier', 'supplier'].map((key) => ({
   key,
   label: ROLE_LABELS[key], // the 'admin' role is the Owner (lib/roles.js)
 }))

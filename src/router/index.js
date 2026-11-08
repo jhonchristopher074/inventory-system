@@ -1,4 +1,5 @@
 import { ref } from 'vue'
+import { pageRole } from '../lib/roles'
 import { createRouter, createWebHistory } from 'vue-router'
 import { supabase } from '../lib/supabase'
 
@@ -22,6 +23,7 @@ const ApprovalView = () => import('../views/admin/ApprovalView.vue')
 const DocumentationView = () => import('../views/admin/DocumentationView.vue')
 const ArchivedView = () => import('../views/admin/ArchivedView.vue')
 const ProfileView = () => import('../views/admin/ProfileView.vue')
+const ManagerProfileView = () => import('../views/admin/ManagerProfileView.vue')
 const AdminPOSView = () => import('../views/admin/AdminPOSView.vue')
 const AdminSalesHistoryView = () => import('../views/admin/AdminSalesHistoryView.vue')
 
@@ -52,7 +54,9 @@ const routes = [
   { path: '/approval', component: ApprovalView, meta: { requiresAuth: true, role: 'admin' } },
   { path: '/documentation', component: DocumentationView, meta: { requiresAuth: true, role: 'admin' } },
   { path: '/archived', component: ArchivedView, meta: { requiresAuth: true, role: 'admin' } },
-  { path: '/profile', component: ProfileView, meta: { requiresAuth: true, role: 'admin' } },
+  // Profile & Users: the Owner only. A Manager has his own Profile.
+  { path: '/profile', component: ProfileView, meta: { requiresAuth: true, role: 'admin', ownerOnly: true } },
+  { path: '/manager/profile', component: ManagerProfileView, meta: { requiresAuth: true, role: 'admin', managerOnly: true } },
   { path: '/admin/pos', component: AdminPOSView, meta: { requiresAuth: true, role: 'admin' },},
   { path: '/admin/sales', component: AdminSalesHistoryView, meta: { requiresAuth: true, role: 'admin' },},
 
@@ -82,6 +86,7 @@ export const currentRole = ref('')
 
 const HOME = {
   admin: '/',
+  manager: '/',
   cashier: '/cashier',
   staff: '/staff',
   supplier: '/SupplierDropBoxView',
@@ -186,7 +191,10 @@ router.beforeEach(async (to) => {
 
   if (to.path === '/login') return home
 
-  if (to.meta.role && to.meta.role !== profile.role) return home
+  // a Manager uses the Owner's pages, except the accounts (Profile & Users)
+  if (to.meta.role && to.meta.role !== pageRole(profile.role)) return home
+  if (to.meta.ownerOnly && profile.role !== 'admin') return '/manager/profile'
+  if (to.meta.managerOnly && profile.role !== 'manager') return '/profile'
 })
 
 /* ------------------------------------------------------------------
