@@ -577,7 +577,7 @@
         </ul>
         <p v-else class="mb-4 text-sm text-zinc-500">Nothing to approve.</p>
 
-        <h3 class="mb-2 text-xs font-bold uppercase tracking-wider text-lime-400">
+        <h3 class="mb-2 text-xs font-bold uppercase tracking-wider text-sky-300">
           Saved by staff, not submitted yet ({{ selectedProductSavedList.length }})
         </h3>
 

@@ -88,10 +88,10 @@ function formatDate(date) {
       <!-- what the colours of the progress bar mean -->
       <div class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-zinc-400">
         <span class="flex items-center gap-1.5">
-          <span class="inline-block h-2 w-2 rounded-full bg-red-600" aria-hidden="true"></span>Approved
+          <span class="inline-block h-2 w-2 rounded-full bg-emerald-500" aria-hidden="true"></span>Approved
         </span>
         <span class="flex items-center gap-1.5">
-          <span class="inline-block h-2 w-2 rounded-full bg-lime-400" aria-hidden="true"></span>Saved
+          <span class="inline-block h-2 w-2 rounded-full bg-sky-400" aria-hidden="true"></span>Saved
         </span>
         <span class="flex items-center gap-1.5">
           <span class="inline-block h-2 w-2 rounded-full bg-yellow-400" aria-hidden="true"></span>Submitted
@@ -149,8 +149,8 @@ function formatDate(date) {
                     role="img"
                     :aria-label="`${row.totalPct}% inspected, ${row.remaining} left`"
                   >
-                    <div class="h-full bg-red-600" :style="{ width: row.approvedPct + '%' }"></div>
-                    <div class="h-full bg-lime-400" :style="{ width: row.savedPct + '%' }"></div>
+                    <div class="h-full bg-emerald-500" :style="{ width: row.approvedPct + '%' }"></div>
+                    <div class="h-full bg-sky-400" :style="{ width: row.savedPct + '%' }"></div>
                     <div class="h-full bg-yellow-400" :style="{ width: row.submittedPct + '%' }"></div>
                   </div>
                 </div>
@@ -169,7 +169,7 @@ function formatDate(date) {
                   </span>
                   <span
                     v-if="row.mine"
-                    class="whitespace-nowrap rounded-full bg-lime-500/15 px-2.5 py-0.5 text-xs font-bold text-lime-400"
+                    class="whitespace-nowrap rounded-full bg-sky-500/15 px-2.5 py-0.5 text-xs font-bold text-sky-300"
                   >
                     Your draft saved
                   </span>

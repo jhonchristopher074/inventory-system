@@ -509,7 +509,7 @@ function inspectedPct(product) {
 
 function inspectionStatus(product) {
   if (isOverdue(product)) {
-    return { label: 'Overdue', icon: 'alert', tone: 'bg-red-600/15 text-red-400', bar: 'bg-red-500' }
+    return { label: 'Overdue', icon: 'alert', tone: 'bg-red-600/15 text-red-400', bar: 'bg-zinc-300' }
   }
   if (Number(product.return_count) > 0) {
     return { label: 'Return', icon: '', tone: 'bg-red-600/15 text-red-400', bar: 'bg-zinc-300' }

@@ -406,18 +406,18 @@
             </div>
 
             <div class="flex h-2.5 w-full overflow-hidden rounded-full bg-zinc-800">
-              <div class="h-full bg-red-600 transition-all duration-300" :style="{ width: approvedSegmentPercent + '%' }"></div>
-              <div class="h-full bg-lime-400 transition-all duration-300" :style="{ width: savedSegmentPercent + '%' }"></div>
+              <div class="h-full bg-emerald-500 transition-all duration-300" :style="{ width: approvedSegmentPercent + '%' }"></div>
+              <div class="h-full bg-sky-400 transition-all duration-300" :style="{ width: savedSegmentPercent + '%' }"></div>
               <div class="h-full bg-yellow-400 transition-all duration-300" :style="{ width: submittedSegmentPercent + '%' }"></div>
             </div>
 
             <div class="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-zinc-400">
               <span class="flex items-center gap-1.5">
-                <span class="h-2 w-2 rounded-full bg-red-600" aria-hidden="true"></span>
+                <span class="h-2 w-2 rounded-full bg-emerald-500" aria-hidden="true"></span>
                 Approved by owner <b class="text-white">{{ count(adminApprovedQty(selectedProduct)) }}</b>
               </span>
               <span class="flex items-center gap-1.5">
-                <span class="h-2 w-2 rounded-full bg-lime-400" aria-hidden="true"></span>
+                <span class="h-2 w-2 rounded-full bg-sky-400" aria-hidden="true"></span>
                 Saved <b class="text-white">{{ count(savedQty(selectedProduct)) }}</b>
               </span>
               <span class="flex items-center gap-1.5">
@@ -487,7 +487,7 @@
               <li
                 v-for="approval in selectedProductSavedList"
                 :key="approval.id"
-                class="rounded-xl border border-lime-500/20 bg-black/40 px-3 py-2.5"
+                class="rounded-xl border border-sky-500/20 bg-black/40 px-3 py-2.5"
               >
                 <div class="flex items-center justify-between gap-3">
                   <div class="min-w-0 text-sm">
@@ -498,7 +498,7 @@
                       Approved {{ count(approval.approved_qty) }} · Return {{ count(approval.return_qty) }}
                     </p>
                   </div>
-                  <span class="shrink-0 rounded-full bg-lime-500/15 px-2 py-0.5 text-[11px] font-bold text-lime-400">
+                  <span class="shrink-0 rounded-full bg-sky-500/15 px-2 py-0.5 text-[11px] font-bold text-sky-300">
                     Saved, not submitted
                   </span>
                 </div>

@@ -116,8 +116,8 @@
 
           <!-- what the colours of the progress bars mean (as in the Calendar) -->
           <div class="legend mb-3" aria-hidden="true">
-            <span><i class="bg-red-600"></i>Approved</span>
-            <span><i class="bg-lime-400"></i>Saved</span>
+            <span><i class="bg-emerald-500"></i>Approved</span>
+            <span><i class="bg-sky-400"></i>Saved</span>
             <span><i class="bg-yellow-400"></i>Submitted</span>
           </div>
 
@@ -144,8 +144,8 @@
               <!-- how much of the batch is approved, saved and submitted -->
               <div class="mt-2.5 flex items-center gap-2">
                 <div class="flex h-1.5 flex-1 overflow-hidden rounded-full bg-white/10">
-                  <div class="h-full bg-red-600" :style="{ width: row.approvedPct + '%' }"></div>
-                  <div class="h-full bg-lime-400" :style="{ width: row.savedPct + '%' }"></div>
+                  <div class="h-full bg-emerald-500" :style="{ width: row.approvedPct + '%' }"></div>
+                  <div class="h-full bg-sky-400" :style="{ width: row.savedPct + '%' }"></div>
                   <div class="h-full bg-yellow-400" :style="{ width: row.submittedPct + '%' }"></div>
                 </div>
                 <span class="shrink-0 text-xs text-zinc-400">{{ count(row.done) }} / {{ count(row.qty) }}</span>
@@ -289,7 +289,7 @@
 
           <!-- pieces counted so far that the owner hasn't approved yet -->
           <div class="mb-3 flex flex-wrap gap-2">
-            <span class="chip bg-lime-400/15 text-lime-400">Saved {{ count(savedPieces) }} pcs</span>
+            <span class="chip bg-sky-500/15 text-sky-300">Saved {{ count(savedPieces) }} pcs</span>
             <span class="chip bg-yellow-500/15 text-yellow-400">Submitted {{ count(submittedPieces) }} pcs</span>
           </div>
 
@@ -305,7 +305,7 @@
 
               <span
                 class="chip"
-                :class="approval.status === 'submitted' ? 'bg-yellow-500/15 text-yellow-400' : 'bg-lime-400/15 text-lime-400'"
+                :class="approval.status === 'submitted' ? 'bg-yellow-500/15 text-yellow-400' : 'bg-sky-500/15 text-sky-300'"
               >
                 {{ approval.status === 'submitted' ? 'Submitted' : 'Saved' }}
               </span>
@@ -562,7 +562,7 @@ function rowStatus(row) {
   // all counted, waiting: on you to submit, or on the owner to approve
   if (row.remaining === 0) {
     return row.saved > 0
-      ? { label: 'Saved', icon: '', tone: 'bg-lime-400/15 text-lime-400' }
+      ? { label: 'Saved', icon: '', tone: 'bg-sky-500/15 text-sky-300' }
       : { label: 'Submitted', icon: '', tone: 'bg-sky-500/15 text-sky-300' }
   }
   if (row.isToday) return { label: 'Today', icon: '', tone: 'bg-yellow-500/15 text-yellow-400' }
