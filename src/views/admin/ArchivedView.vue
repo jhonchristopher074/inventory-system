@@ -38,7 +38,16 @@
     <!-- ARCHIVED TABLE: 10, 15 or all products a page -->
     <div ref="tableTop" class="card overflow-hidden">
       <div class="overflow-x-auto">
-        <table class="data-table resp-table">
+        <table class="data-table resp-table fixed-cols">
+          <!-- the same widths on every page and filter; Product takes the rest -->
+          <colgroup>
+            <col />
+            <col class="w-[12rem]" />
+            <col class="w-[8rem]" />
+            <col class="w-[7rem]" />
+            <col class="w-[9rem]" />
+            <col class="w-[22rem]" />
+          </colgroup>
           <thead>
             <tr>
               <th>Product</th>

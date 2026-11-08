@@ -771,6 +771,20 @@ tbody tr:hover {
   background: rgba(224, 27, 50, 0.06);
 }
 
+/* fixed-cols: the columns keep their widths (a <colgroup> sets them),
+   whatever the rows on this page hold, so Category / Price / Stock don't
+   move when the filter or the page changes. Computer only: on phones the
+   rows are cards. */
+@media (min-width: 761px) {
+  .data-table.fixed-cols {
+    table-layout: fixed;
+  }
+
+  .data-table.fixed-cols td {
+    overflow-wrap: anywhere;
+  }
+}
+
 /* numbers: right-aligned, never split over two lines */
 .data-table .num {
   text-align: right;

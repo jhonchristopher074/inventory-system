@@ -102,7 +102,16 @@
          (@container: the buttons below adapt to the table's own width) -->
     <div ref="tableTop" class="card @container overflow-hidden">
       <div class="overflow-x-auto">
-        <table class="data-table resp-table">
+        <table class="data-table resp-table fixed-cols">
+          <!-- the same widths on every page and filter; Product takes the rest.
+               Actions: Edit + More on a narrow table, every button on a wide one -->
+          <colgroup>
+            <col />
+            <col class="w-[13rem]" />
+            <col class="w-[8rem]" />
+            <col class="w-[7rem]" />
+            <col :class="hasDisabled ? 'w-[16rem] @5xl:w-[32rem]' : 'w-[12rem] @5xl:w-[27rem]'" />
+          </colgroup>
           <thead>
             <tr>
               <th>Product</th>
@@ -1019,6 +1028,10 @@ function onManageAction(key) {
    Products disabled at the POS (lib/disabledProducts.js)
 ------------------------------------------------------------------ */
 const { disabled: disabledMap, load: loadDisabled, infoFor: disabledInfo, enable } = useDisabledProducts()
+
+// any product disabled at the POS: its row has an extra Enable button, so
+// the Actions column is made wider (for the whole table, not per page)
+const hasDisabled = computed(() => products.value.some((product) => disabledInfo(product)))
 const disabledCount = computed(() => disabledMap.value.size)
 const enablingId = ref(null)
 const enableMessage = ref('')

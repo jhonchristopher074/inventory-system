@@ -6,7 +6,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { supabase } from '../lib/supabase'
 import { count } from '../lib/format'
-import { usePagination } from '../lib/usePagination'
+import { ALL, usePagination } from '../lib/usePagination'
 import TablePager from './TablePager.vue'
 import NavIcon from './NavIcon.vue'
 import { downloadStockHistory } from '../lib/stockHistoryExport'
@@ -162,6 +162,23 @@ async function exportAs(format) {
 
 const tableTop = ref(null)
 const { page, pageSize, visible, reset } = usePagination(shown, { storageKey: 'stockHistory', scrollTarget: tableTop })
+
+// The last page has fewer rows: keep the window as tall as a full page, so
+// it doesn't shrink and move the page buttons. Measured on a full page.
+const fullPageHeight = ref(0)
+watch(pageSize, () => {
+  fullPageHeight.value = 0
+})
+watch(
+  visible,
+  () => {
+    const el = tableTop.value
+    if (!el || pageSize.value === ALL || visible.value.length < pageSize.value) return
+    el.style.minHeight = ''
+    fullPageHeight.value = Math.max(fullPageHeight.value, el.offsetHeight)
+  },
+  { flush: 'post' }
+)
 watch(search, reset)
 
 // "Nov 7, 3:17 PM" (the year only when it isn't this year)
@@ -192,7 +209,7 @@ onMounted(fetchMovements)
       @keydown.esc="emit('close')"
     >
       <!-- min-w-0: the box may shrink to a phone screen; the table scrolls -->
-      <div class="flex max-h-[90vh] w-full min-w-0 max-w-4xl flex-col rounded-[28px] border border-white/10 bg-zinc-900 p-4 shadow-2xl sm:p-6">
+      <div class="flex max-h-[90vh] w-full min-w-0 max-w-5xl flex-col rounded-[28px] border border-white/10 bg-zinc-900 p-4 shadow-2xl sm:p-6">
         <div class="mb-4 flex items-start justify-between gap-4">
           <div class="min-w-0">
             <h2 class="text-2xl font-extrabold text-white">Stock History</h2>
@@ -237,8 +254,23 @@ onMounted(fetchMovements)
           No stock changes recorded yet. Changes are recorded from the day the stock history was switched on.
         </p>
 
-        <div v-if="movements.length > 0" ref="tableTop" class="min-h-0 overflow-auto rounded-2xl border border-white/10">
-          <table class="w-full text-left text-sm">
+        <!-- keeps a full page's height on a shorter (last) page -->
+        <div
+          v-if="movements.length > 0"
+          ref="tableTop"
+          class="min-h-0 overflow-auto rounded-2xl border border-white/10"
+          :style="fullPageHeight ? { minHeight: `${fullPageHeight}px` } : null"
+        >
+          <!-- fixed columns: the same widths on every page -->
+          <table class="w-full table-fixed text-left text-sm" :class="product ? 'min-w-[40rem]' : 'min-w-[56rem]'">
+            <colgroup>
+              <col class="w-[9.5rem]" />
+              <col v-if="!product" />
+              <col class="w-[5rem]" />
+              <col class="w-[7.5rem]" />
+              <col :class="product ? '' : 'w-[14rem]'" />
+              <col class="w-[9rem]" />
+            </colgroup>
             <thead class="sticky top-0 bg-zinc-950 text-xs uppercase tracking-wide text-zinc-400">
               <tr>
                 <th class="px-3 py-2.5">When</th>
@@ -257,7 +289,7 @@ onMounted(fetchMovements)
                 class="border-t border-white/5 text-zinc-300"
               >
                 <td class="whitespace-nowrap px-3 py-2 text-zinc-400">{{ formatDateTime(move.created_at) }}</td>
-                <td v-if="!product" class="max-w-[16rem] truncate px-3 py-2 text-white" :title="move.product_name">
+                <td v-if="!product" class="truncate px-3 py-2 text-white" :title="move.product_name">
                   {{ move.product_name }}
                 </td>
                 <td
@@ -269,9 +301,9 @@ onMounted(fetchMovements)
                 <td class="whitespace-nowrap px-3 py-2 text-right text-zinc-400">
                   {{ count(move.old_quantity) }} → <span class="font-bold text-white">{{ count(move.new_quantity) }}</span>
                 </td>
-                <td class="whitespace-nowrap px-3 py-2">{{ move.reason }}</td>
+                <td class="truncate px-3 py-2" :title="move.reason">{{ move.reason }}</td>
                 <td
-                  class="max-w-[10rem] truncate px-3 py-2"
+                  class="truncate px-3 py-2"
                   :title="move.recorded_by_name && move.recorded_by_name !== move.changed_by_name ? `Recorded as ${move.recorded_by_name}` : move.changed_by_name"
                 >
                   {{ move.changed_by_name || '—' }}

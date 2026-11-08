@@ -64,8 +64,10 @@ function localTime(date) {
 // a date and time from the database ("2026-11-08T10:20:31.123+00:00")
 const ISO_TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/
 
-function cellValue(value) {
+function cellValue(value, key = '') {
   if (value === null || value === undefined) return null
+  // roles as the app names them: 'admin' is the Owner
+  if (typeof value === 'string' && /(^|_)role$/.test(key)) return roleLabel(value)
   if (typeof value === 'string' && ISO_TIME.test(value)) {
     const date = new Date(value)
     if (!Number.isNaN(date.getTime())) return localTime(date)
@@ -132,7 +134,7 @@ export async function downloadBackup(madeBy = '') {
     sheet.columns = columns.map((key) => ({ header: key, key, width: Math.min(40, Math.max(12, key.length + 4)) }))
     styleHead(sheet.getRow(1))
     for (const row of rows) {
-      const added = sheet.addRow(columns.map((key) => cellValue(row[key])))
+      const added = sheet.addRow(columns.map((key) => cellValue(row[key], key)))
       added.eachCell((cell) => {
         if (cell.value instanceof Date) cell.numFmt = 'mmm d, yyyy h:mm AM/PM'
       })
