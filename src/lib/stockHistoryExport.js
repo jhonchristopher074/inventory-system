@@ -25,9 +25,13 @@ function timeText(date) {
 }
 
 // a file name without characters Windows refuses
-function fileNameFor(product, ext, made) {
+// "Stock history - Cement 40kg - 2026-11-01 to 2026-11-08.pdf"
+function fileNameFor(product, ext, made, period) {
   const what = product ? String(product.name || 'product').replace(/[\\/:*?"<>|]+/g, ' ').trim().slice(0, 60) : 'all products'
-  return `Stock history - ${what} - ${stamp(made)}.${ext}`
+  const when = period?.from || period?.to
+    ? [period.from, period.to].filter(Boolean).join(' to ')
+    : `all time, ${stamp(made)}`
+  return `Stock history - ${what} - ${when}.${ext}`
 }
 
 // one row of the file
@@ -72,7 +76,7 @@ function pdfText(value) {
     .trim()
 }
 
-async function toPdf(rows, { product, madeBy, made }) {
+async function toPdf(rows, { product, madeBy, made, period }) {
   const [{ jsPDF }, { autoTable }] = await Promise.all([import('jspdf'), import('jspdf-autotable')])
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })
   const pageWidth = doc.internal.pageSize.getWidth()
@@ -93,6 +97,7 @@ async function toPdf(rows, { product, madeBy, made }) {
   doc.text(
     [
       `Product: ${pdfText(product ? product.name : 'All products')}`,
+      `Period: ${pdfText(period?.label || 'All time')}`,
       `Printed: ${dayText(made)}, ${timeText(made)}${madeBy ? ` by ${pdfText(madeBy)}` : ''}`,
       `Changes: ${rows.length}`,
     ].join('     '),
@@ -149,7 +154,7 @@ async function toPdf(rows, { product, madeBy, made }) {
 }
 
 /* ---------------- Excel ---------------- */
-async function toXlsx(rows, { product, madeBy, made }) {
+async function toXlsx(rows, { product, madeBy, made, period }) {
   const module = await import('exceljs')
   const ExcelJS = module.default ?? module
   const workbook = new ExcelJS.Workbook()
@@ -167,7 +172,7 @@ async function toXlsx(rows, { product, madeBy, made }) {
 
   sheet.addRow([SHOP]).font = { bold: true, size: 16 }
   sheet.addRow(['Stock history (audit trail)']).font = { bold: true, size: 12, color: { argb: 'FF6B6B76' } }
-  sheet.addRow([`Product: ${product ? product.name : 'All products'}`])
+  sheet.addRow([`Product: ${product ? product.name : 'All products'} · Period: ${period?.label || 'All time'}`])
   sheet.addRow([`Made on ${dayText(made)}, ${timeText(made)}${madeBy ? ` by ${madeBy}` : ''} · ${rows.length} changes`])
   sheet.addRow([])
 
@@ -192,14 +197,15 @@ async function toXlsx(rows, { product, madeBy, made }) {
   return workbook.xlsx.writeBuffer()
 }
 
-export async function downloadStockHistory({ movements, product = null, madeBy = '', format = 'xlsx' }) {
+// period: { label: 'Nov 1 - Nov 8, 2026', from: 'YYYY-MM-DD', to: 'YYYY-MM-DD' } (or none: all time)
+export async function downloadStockHistory({ movements, product = null, madeBy = '', format = 'xlsx', period = null }) {
   const made = new Date()
   const rows = movements.map(rowOf)
   if (format === 'pdf') {
-    const doc = await toPdf(rows, { product, madeBy, made })
-    doc.save(fileNameFor(product, 'pdf', made))
+    const doc = await toPdf(rows, { product, madeBy, made, period })
+    doc.save(fileNameFor(product, 'pdf', made, period))
     return
   }
-  const buffer = await toXlsx(rows, { product, madeBy, made })
-  save(new Blob([buffer], { type: XLSX_TYPE }), fileNameFor(product, 'xlsx', made))
+  const buffer = await toXlsx(rows, { product, madeBy, made, period })
+  save(new Blob([buffer], { type: XLSX_TYPE }), fileNameFor(product, 'xlsx', made, period))
 }
