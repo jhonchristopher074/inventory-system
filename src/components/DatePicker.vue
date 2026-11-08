@@ -97,6 +97,7 @@ function position() {
 
 function show() {
   if (props.disabled) return
+  mode.value = 'days'
   focusDay.value = startDay()
   shownMonth.value = focusDay.value.slice(0, 7)
   position()
@@ -195,6 +196,54 @@ function goMonth(by) {
   focusDay.value = `${target}-${pad(Math.min(d.getDate(), last))}`
 }
 
+/* ---------------- month & year chooser ----------------
+   The title opens it: ‹ 2026 › and the 12 months; a month opens its days. */
+const mode = ref('days') // 'days' | 'months'
+const chooserYear = ref(0)
+
+const MONTHS = Array.from({ length: 12 }, (_, i) =>
+  new Date(2000, i, 1).toLocaleDateString(undefined, { month: 'short' })
+)
+
+function openChooser() {
+  chooserYear.value = Number(shownMonth.value.slice(0, 4))
+  mode.value = 'months'
+}
+
+function yearOk(year) {
+  if (props.min && `${year}-12-31` < props.min) return false
+  if (props.max && `${year}-01-01` > props.max) return false
+  return true
+}
+
+const chooserMonths = computed(() =>
+  MONTHS.map((name, i) => {
+    const key = `${chooserYear.value}-${pad(i + 1)}`
+    return {
+      key,
+      name,
+      ok: monthOk(key),
+      isShown: key === shownMonth.value,
+      isNow: key === today().slice(0, 7),
+      isPicked: Boolean(props.modelValue) && key === props.modelValue.slice(0, 7),
+    }
+  })
+)
+
+function chooseMonth(month) {
+  if (!month.ok) return
+  shownMonth.value = month.key
+  // the keyboard day: the same day number, or the first allowed one
+  const d = parse(focusDay.value || `${month.key}-01`)
+  const last = new Date(Number(month.key.slice(0, 4)), Number(month.key.slice(5, 7)), 0).getDate()
+  let day = `${month.key}-${pad(Math.min(d.getDate(), last))}`
+  if (props.min && day < props.min) day = props.min
+  if (props.max && day > props.max) day = props.max
+  focusDay.value = day
+  mode.value = 'days'
+  nextTick(() => panel.value?.querySelector('.dp-day.is-focus')?.focus())
+}
+
 /* ---------------- picking ---------------- */
 function pick(day) {
   if (!allowed(day)) return
@@ -222,9 +271,12 @@ function onKey(event) {
   const moves = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -7, ArrowDown: 7 }
   if (event.key === 'Escape') {
     event.preventDefault()
-    close()
+    // in the chooser: back to the days first
+    if (mode.value === 'months') mode.value = 'days'
+    else close()
     return
   }
+  if (mode.value === 'months') return
   if (event.key in moves || event.key === 'PageUp' || event.key === 'PageDown') {
     event.preventDefault()
     let next = focusDay.value
@@ -274,14 +326,47 @@ function onKey(event) {
       aria-label="Choose a date"
       @keydown="onKey"
     >
-      <!-- ‹ November 2026 › -->
-      <div class="dp-head">
+      <!-- MONTH & YEAR: ‹ 2026 › and its months -->
+      <template v-if="mode === 'months'">
+        <div class="dp-head">
+          <button type="button" class="dp-nav" :disabled="!yearOk(chooserYear - 1)" aria-label="Previous year" @click="chooserYear--">‹</button>
+          <button type="button" class="dp-title dp-title-btn" title="Back to the days" @click="mode = 'days'">
+            {{ chooserYear }} <span class="dp-title-caret is-up" aria-hidden="true">▾</span>
+          </button>
+          <button type="button" class="dp-nav" :disabled="!yearOk(chooserYear + 1)" aria-label="Next year" @click="chooserYear++">›</button>
+        </div>
+
+        <div class="dp-months">
+          <button
+            v-for="month in chooserMonths"
+            :key="month.key"
+            type="button"
+            class="dp-month"
+            :class="{ 'is-shown': month.isShown, 'is-now': month.isNow, 'is-picked': month.isPicked }"
+            :disabled="!month.ok"
+            @click="chooseMonth(month)"
+          >
+            {{ month.name }}
+          </button>
+        </div>
+      </template>
+
+      <!-- ‹ November 2026 › (the title opens the month & year chooser) -->
+      <div v-if="mode === 'days'" class="dp-head">
         <button type="button" class="dp-nav" :disabled="!canPrev" aria-label="Previous month" @click="goMonth(-1)">‹</button>
-        <p class="dp-title" aria-live="polite">{{ monthTitle }}</p>
+        <button
+          type="button"
+          class="dp-title dp-title-btn"
+          aria-live="polite"
+          title="Choose the month and year"
+          @click="openChooser"
+        >
+          {{ monthTitle }} <span class="dp-title-caret" aria-hidden="true">▾</span>
+        </button>
         <button type="button" class="dp-nav" :disabled="!canNext" aria-label="Next month" @click="goMonth(1)">›</button>
       </div>
 
-      <div class="dp-grid" role="grid">
+      <div v-if="mode === 'days'" class="dp-grid" role="grid">
         <span v-for="name in WEEKDAYS" :key="name" class="dp-weekday" role="columnheader">{{ name }}</span>
         <button
           v-for="day in days"
@@ -437,6 +522,73 @@ function onKey(event) {
 .dp-title {
   font-size: 0.98rem;
   font-weight: 800;
+}
+
+.dp-title-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border-radius: 0.6rem;
+  padding: 0.3rem 0.6rem;
+  color: #fff;
+}
+
+.dp-title-btn:hover,
+.dp-title-btn:focus-visible {
+  outline: none;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.dp-title-caret {
+  font-size: 0.7rem;
+  color: var(--color-zinc-400);
+  transition: transform 0.15s;
+}
+
+.dp-title-caret.is-up {
+  transform: rotate(180deg);
+}
+
+/* the 12 months of the chooser */
+.dp-months {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.4rem;
+  padding: 0.25rem 0 0.15rem;
+}
+
+.dp-month {
+  border-radius: 0.7rem;
+  padding: 0.85rem 0;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--color-zinc-200);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.dp-month:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.09);
+}
+
+.dp-month:disabled {
+  cursor: not-allowed;
+  color: var(--color-zinc-600);
+  opacity: 0.55;
+}
+
+/* this month: outlined in red · the month with the picked date: red */
+.dp-month.is-now {
+  box-shadow: inset 0 0 0 1.5px rgba(244, 52, 76, 0.7);
+}
+
+.dp-month.is-shown {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+.dp-month.is-picked {
+  background: var(--brand);
+  color: #fff;
 }
 
 .dp-nav {
