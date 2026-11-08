@@ -328,7 +328,25 @@
       v-if="receipt"
       class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
     >
-      <div class="max-h-[92vh] w-full max-w-md overflow-y-auto card p-5 shadow-2xl">
+      <!-- like Sales History's: the receipt scrolls, Close / Print stay in view -->
+      <div
+        class="flex max-h-[92vh] w-full max-w-md flex-col rounded-[24px] border border-white/10 bg-zinc-900 p-5 shadow-2xl"
+        role="dialog"
+        aria-modal="true"
+        :aria-label="`Receipt of sale #${receipt.id}`"
+      >
+        <div class="mb-4 flex items-start justify-between gap-3">
+          <div class="min-w-0">
+            <p class="text-xs font-bold uppercase tracking-[0.14em] text-zinc-500">Receipt</p>
+            <h2 class="text-xl font-extrabold text-white">Sale #{{ receipt.id }}</h2>
+            <p class="text-xs text-zinc-400">{{ formatDate(receipt.created_at) }} · {{ receiptCashier }}</p>
+          </div>
+          <span class="mt-1 inline-flex shrink-0 items-center gap-1.5 rounded-full bg-emerald-500/15 px-2.5 py-1 text-xs font-bold text-emerald-300">
+            <i class="h-1.5 w-1.5 rounded-full bg-current" aria-hidden="true"></i>Paid
+          </span>
+        </div>
+
+        <div class="min-h-0 overflow-y-auto">
         <div id="receiptArea" class="rounded-2xl bg-white p-5 text-black">
           <div class="text-center">
             <h2 class="text-2xl font-extrabold">10 FIVE 7 Hardware</h2>
@@ -365,8 +383,9 @@
 
           <p class="mt-5 text-center text-xs">Thank you for your purchase!</p>
         </div>
+        </div>
 
-        <div class="mt-4 grid grid-cols-2 gap-3">
+        <div class="mt-4 grid shrink-0 grid-cols-2 gap-3">
           <button class="rounded-xl bg-zinc-800 py-3 font-bold text-white hover:bg-zinc-700" @click="receipt = null">
             Close
           </button>
@@ -701,8 +720,11 @@ async function checkout() {
   checkingOut.value = false
 }
 
+// "Nov 8, 2026, 8:07 PM", like Sales History's receipt
 function formatDate(date) {
-  return new Date(date).toLocaleString()
+  return new Date(date).toLocaleString(undefined, {
+    month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit',
+  })
 }
 
 function printReceipt() {
