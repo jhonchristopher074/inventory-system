@@ -950,6 +950,17 @@ onBeforeUnmount(() => {
                       </span>
                     </span>
 
+                    <!-- just a word: take the category off (or drop the pick) -->
+                    <button
+                      v-if="canRemove(product)"
+                      type="button"
+                      class="remove-link"
+                      :title="staged.has(product.id) ? 'Drop this pick' : 'Take it out of ' + categoryOf(product)"
+                      @click="takeOutOfCategory(product)"
+                    >
+                      Remove
+                    </button>
+
                     <select
                       class="move-select"
                       :class="{ 'is-staged': staged.has(product.id) }"
@@ -961,17 +972,6 @@ onBeforeUnmount(() => {
                       <option v-if="isUncategorized" value="">Select category</option>
                       <option v-for="name in categoryNames" :key="name" :value="name">{{ name }}</option>
                     </select>
-
-                    <!-- just a word: take the category off (or drop the pick) -->
-                    <button
-                      v-if="canRemove(product)"
-                      type="button"
-                      class="remove-link"
-                      :title="staged.has(product.id) ? 'Drop this pick' : 'Take it out of ' + categoryOf(product)"
-                      @click="takeOutOfCategory(product)"
-                    >
-                      Remove
-                    </button>
                   </li>
 
                   <li v-if="productsHere.length === 0" class="px-3 py-8 text-center text-sm text-zinc-500">
