@@ -199,6 +199,39 @@
             </p>
             <p class="help">Can't log in? Ask the store owner to reset your account.</p>
           </form>
+
+          <!-- GUEST: look around on sample data, view only (lib/guestMode.js) -->
+          <div class="guest">
+            <div class="guest-or"><span>or</span></div>
+
+            <button
+              v-if="!guestOpen"
+              type="button"
+              class="guest-btn"
+              @click="guestOpen = true"
+            >
+              Continue as guest
+              <span class="guest-btn-sub">View only · sample data</span>
+            </button>
+
+            <div v-else class="guest-pick" role="group" aria-label="Look around as">
+              <p class="guest-title">Look around as…</p>
+              <div class="guest-roles">
+                <button
+                  v-for="option in GUEST_ROLES"
+                  :key="option.role"
+                  type="button"
+                  class="guest-role"
+                  @click="enterAsGuest(option.role)"
+                >
+                  <b>{{ option.label }}</b>
+                  <span>{{ option.hint }}</span>
+                </button>
+              </div>
+              <p class="guest-note">Nothing you do as a guest is saved, and no real store data is shown.</p>
+              <button type="button" class="text-link back" @click="guestOpen = false">← Back</button>
+            </div>
+          </div>
         </template>
       </div>
     </section>
@@ -596,6 +629,103 @@
   color: #a5a5b2;
 }
 
+/* ---- guest mode ---- */
+.guest {
+  margin-top: 1.4rem;
+}
+
+.guest-or {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #6c6c79;
+}
+
+.guest-or::before,
+.guest-or::after {
+  content: '';
+  height: 1px;
+  flex: 1;
+  background: #2a2a32;
+}
+
+.guest-btn {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+  border-radius: 0.85rem;
+  border: 1px dashed #3a3a44;
+  background: transparent;
+  padding: 0.8rem 1rem;
+  font-weight: 800;
+  color: #e6e6ec;
+  transition: border-color 0.15s, background-color 0.15s;
+}
+
+.guest-btn:hover,
+.guest-btn:focus-visible {
+  outline: none;
+  border-color: #f4344c;
+  background: rgba(224, 27, 50, 0.06);
+}
+
+.guest-btn-sub {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #8b8b97;
+}
+
+.guest-title {
+  margin-bottom: 0.6rem;
+  font-weight: 800;
+  color: #fff;
+}
+
+.guest-roles {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.guest-role {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  border-radius: 0.8rem;
+  border: 1px solid #2a2a32;
+  background: #151519;
+  padding: 0.7rem 0.8rem;
+  text-align: left;
+  color: #fff;
+  transition: border-color 0.15s, transform 0.15s;
+}
+
+.guest-role span {
+  font-size: 0.72rem;
+  line-height: 1.3;
+  color: #8b8b97;
+}
+
+.guest-role:hover,
+.guest-role:focus-visible {
+  outline: none;
+  border-color: #f4344c;
+  transform: translateY(-1px);
+}
+
+.guest-note {
+  margin-top: 0.7rem;
+  font-size: 0.75rem;
+  color: #8b8b97;
+}
+
 .help {
   margin-top: 0.4rem;
   text-align: center;
@@ -630,6 +760,7 @@ import { startPasswordRecovery } from '../../lib/passwordRecovery'
 import { cleanEmail, vClean, withoutInvisible } from '../../lib/cleanText'
 import { logoUrl, showDefaultLogo } from '../../lib/storeLogo'
 import { saveCurrentUser } from '../../lib/currentUser'
+import { GUEST_ROLES, startGuest } from '../../lib/guestMode'
 
 const router = useRouter()
 const route = useRoute()
@@ -642,6 +773,17 @@ const showPassword = ref(false)
 const loading = ref(false)
 // shows e.g. "Your temporary password has expired..." after being sent back here
 const errorMessage = ref(route.query.notice ? String(route.query.notice) : '')
+
+// guest mode: pick a role, then the app opens on sample data
+const guestOpen = ref(false)
+
+function enterAsGuest(role) {
+  startGuest(role, () => {
+    // the same "logged in" marks a real login sets (auto-logout rules)
+    markLoggedIn()
+    markActivity()
+  })
+}
 // good news, e.g. "Your password was changed..." after a password reset
 const infoMessage = ref(route.query.info ? String(route.query.info) : '')
 const sendingReset = ref(false)

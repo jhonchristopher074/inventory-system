@@ -142,6 +142,15 @@
         <!-- the store's logo, big and faint, in the middle behind every page -->
         <img :src="logoUrl" alt="" aria-hidden="true" class="app-watermark" @error="showDefaultLogo" />
 
+        <!-- guest mode: say so on every page, with a way out -->
+        <div v-if="guest" class="guest-banner" role="status">
+          <span class="guest-banner-dot" aria-hidden="true"></span>
+          <p class="min-w-0 flex-1">
+            <b>Guest mode</b> · looking around as {{ guestLabel }} · view only, sample data
+          </p>
+          <button type="button" class="guest-banner-btn" @click="leaveGuest">Exit guest mode</button>
+        </div>
+
         <!-- top right: who is logged in (name, role), then the bell -->
         <div class="app-topbar mb-5 flex items-center justify-end gap-3">
           <!-- who is logged in: name, role and the role's colour -->
@@ -165,6 +174,7 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter, RouterLink } from 'vue-router'
+import { endGuest, guestRoleLabel, isGuest } from './lib/guestMode'
 import { supabase } from './lib/supabase'
 import NotificationBell from './components/NotificationBell.vue'
 import NavIcon from './components/NavIcon.vue'
@@ -319,8 +329,17 @@ onBeforeUnmount(() => {
 /* ------------------------------------------------------------------
    Auto-logout after a while without activity (see lib/idleLogout.js)
 ------------------------------------------------------------------ */
+// guest mode (lib/guestMode.js): set when the page loads
+const guest = isGuest()
+const guestLabel = guestRoleLabel()
+
+function leaveGuest() {
+  endGuest()
+}
+
 async function idleLogout() {
   if (route.path === '/login') return
+  if (guest) return leaveGuest()
 
   const {
     data: { session },
@@ -467,6 +486,9 @@ async function logout() {
     return
   }
 
+  // a guest: back to the login page, guest mode over
+  if (guest) return leaveGuest()
+
   loggingOut.value = true
   logoutError.value = ''
 
@@ -484,3 +506,46 @@ async function logout() {
   router.push('/login')
 }
 </script>
+
+<style scoped>
+/* guest mode: a strip across the top of every page */
+.guest-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 1rem;
+  border-radius: 14px;
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  background: rgba(56, 189, 248, 0.08);
+  padding: 0.55rem 0.6rem 0.55rem 0.9rem;
+  font-size: 0.85rem;
+  color: #cdeffd;
+}
+
+.guest-banner b {
+  color: #fff;
+}
+
+.guest-banner-dot {
+  width: 0.55rem;
+  height: 0.55rem;
+  flex: none;
+  border-radius: 999px;
+  background: #38bdf8;
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.25);
+}
+
+.guest-banner-btn {
+  flex: none;
+  border-radius: 0.6rem;
+  background: rgba(255, 255, 255, 0.1);
+  padding: 0.4rem 0.75rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+.guest-banner-btn:hover {
+  background: rgba(255, 255, 255, 0.18);
+}
+</style>

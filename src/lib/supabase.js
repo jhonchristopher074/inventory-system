@@ -1,9 +1,12 @@
 import { createClient } from '@supabase/supabase-js'
+import { createDemoClient } from './demoClient'
+import { guestRole } from './guestMode'
 
 const supabaseUrl = 'https://dvtnrfhsxabtcmpgojnn.supabase.co'
 const supabaseKey = 'sb_publishable_Q8ji7AnBzqNNDP_qeO7jAA_v1fzL9P8'
 
-export const supabase = createClient(supabaseUrl, supabaseKey)
+// guest mode (lib/guestMode.js): sample data, nothing saved, no network
+export const supabase = guestRole() ? createDemoClient(guestRole()) : createClient(supabaseUrl, supabaseKey)
 
 // Every realtime subscription needs its own channel name. With a fixed name,
 // a screen opened again (e.g. after logging in again) got the previous,
