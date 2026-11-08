@@ -23,6 +23,49 @@
       <!-- ADD USER: the server generates a one-time temporary password.
            Phones: behind a button, so the user list isn't pushed down. -->
       <div class="lg:flex lg:min-h-0 lg:flex-col">
+        <!-- a Manager: who he is, his password, and what he can do here -->
+        <template v-if="!isOwner">
+          <section class="card mb-4 shrink-0 overflow-hidden">
+            <div class="me-head">
+              <span class="me-avatar" aria-hidden="true">{{ initials(me) }}</span>
+              <div class="min-w-0">
+                <p class="truncate text-lg font-extrabold text-white">{{ me.full_name || 'You' }}</p>
+                <p class="truncate text-xs text-zinc-400">{{ me.email }}</p>
+                <span class="mt-1.5 inline-flex rounded-md px-2 py-0.5 text-[11px] font-bold ring-1" :class="roleTone(me.role)">
+                  {{ ROLE_LABELS[me.role] || me.role }}
+                </span>
+              </div>
+            </div>
+            <div class="border-t border-white/5 p-4">
+              <button
+                type="button"
+                class="flex w-full items-center justify-center gap-2 rounded-xl bg-white/10 py-2.5 text-sm font-bold text-white hover:bg-white/15"
+                @click="showOwnPassword = true"
+              >
+                <NavIcon name="key" class="h-4 w-4" /> Change my password
+              </button>
+            </div>
+          </section>
+
+          <section class="card mb-4 shrink-0 p-4">
+            <p class="text-[11px] font-bold uppercase tracking-[0.14em] text-zinc-500">What you can do here</p>
+            <ul class="mt-3 space-y-2.5 text-sm">
+              <li class="flex gap-2.5">
+                <span class="perm-dot bg-emerald-500/15 text-emerald-300" aria-hidden="true">✓</span>
+                <span class="text-zinc-300">See every account</span>
+              </li>
+              <li class="flex gap-2.5">
+                <span class="perm-dot bg-emerald-500/15 text-emerald-300" aria-hidden="true">✓</span>
+                <span class="text-zinc-300">Disable or enable <b class="text-white">staff, cashier</b> and <b class="text-white">supplier</b> accounts (⋯ on a row)</span>
+              </li>
+              <li class="flex gap-2.5">
+                <span class="perm-dot bg-white/5 text-zinc-500" aria-hidden="true">✕</span>
+                <span class="text-zinc-500">Add accounts, change roles, names, emails or passwords: the Owner does those</span>
+              </li>
+            </ul>
+          </section>
+        </template>
+
         <!-- the store's logo: change it (crop, then your password) -->
         <StoreLogoCard class="mb-4 shrink-0" />
 
@@ -323,6 +366,7 @@ import AdminPasswordPrompt from '../../components/AdminPasswordPrompt.vue'
 import TempPasswordReveal from '../../components/TempPasswordReveal.vue'
 import ChangeOwnPasswordModal from '../../components/ChangeOwnPasswordModal.vue'
 import StoreLogoCard from '../../components/StoreLogoCard.vue'
+import NavIcon from '../../components/NavIcon.vue'
 
 const showOwnPassword = ref(false)
 
@@ -638,6 +682,40 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
+/* a Manager's own card */
+.me-head {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  padding: 1.1rem 1.1rem 1rem;
+  background: linear-gradient(135deg, rgba(251, 191, 36, 0.1), transparent 70%);
+}
+
+.me-avatar {
+  display: grid;
+  flex: none;
+  width: 3.2rem;
+  height: 3.2rem;
+  place-items: center;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #fcd34d, #b45309);
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: #fff;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.3);
+}
+
+.perm-dot {
+  display: grid;
+  flex: none;
+  width: 1.25rem;
+  height: 1.25rem;
+  place-items: center;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 800;
+}
+
 /* computers: the Add employee card reaches the bottom, level with the
    accounts card beside it */
 @media (min-width: 1024px) {
