@@ -304,24 +304,51 @@ function moved(list, to) {
   return to === NO_CATEGORY ? `Took ${what} out: now Uncategorized.` : `Moved ${what} to ${to}.`
 }
 
-// a product's category menu: "Select category" in Uncategorized, its own
-// category elsewhere. Picking another moves it (and the menu shows the old
-// value until the move is shown, so a failed one doesn't leave it wrong).
-function moveOne(product, event) {
-  const to = event.target.value
-  const from = categoryOf(product)
-  event.target.value = from === NO_CATEGORY ? '' : from
-  if (to && to !== from) moveProducts([{ product, to }], (done) => moved(done, to))
+// Picks wait here until "Save changes": product id -> the category picked.
+// Nothing moves before that, so a wrong pick is just undone with Discard.
+const staged = reactive(new Map())
+
+function stage(product, to) {
+  if (!to || to === categoryOf(product)) staged.delete(product.id)
+  else staged.set(product.id, to)
 }
 
-// the ticked ones
+// what the product's menu shows: the pick waiting, else where it is
+function menuValue(product) {
+  if (staged.has(product.id)) return staged.get(product.id)
+  return isUncategorized.value ? '' : categoryOf(product)
+}
+
+// a product's category menu: "Select category" in Uncategorized, its own
+// category elsewhere. Picking another only marks it (see staged).
+function moveOne(product, event) {
+  stage(product, event.target.value)
+}
+
+// the ticked ones: all marked for that category
 function moveChecked(event) {
   const to = event.target.value
   event.target.value = ''
   if (!to) return
-  const list = productsHere.value.filter((p) => checked.has(p.id))
+  for (const product of productsHere.value.filter((p) => checked.has(p.id))) stage(product, to)
   checked.clear()
-  moveProducts(list.map((product) => ({ product, to })), (done) => moved(done, to))
+}
+
+function discardStaged() {
+  staged.clear()
+}
+
+// "Save changes": every pick at once, grouped in the message
+async function saveStaged() {
+  const moves = [...staged.entries()]
+    .map(([id, to]) => ({ product: props.products.find((p) => p.id === id), to }))
+    .filter((move) => move.product)
+  staged.clear()
+  if (moves.length === 0) return
+  const targets = new Set(moves.map((m) => m.to))
+  await moveProducts(moves, (done) =>
+    targets.size === 1 ? moved(done, moves[0].to) : `Moved ${productCount(done.length)} to their categories.`
+  )
 }
 
 /* ---- Add products ---- */
@@ -837,6 +864,33 @@ onBeforeUnmount(() => {
                   />
                 </div>
 
+                <!-- picks waiting: nothing moves until Save changes -->
+                <div
+                  v-if="staged.size > 0"
+                  class="mb-2 flex flex-wrap items-center gap-2 rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm"
+                  role="status"
+                >
+                  <span class="min-w-0 flex-1 text-amber-100">
+                    <b>{{ count(staged.size) }} {{ staged.size === 1 ? 'change' : 'changes' }}</b> not saved yet
+                  </span>
+                  <button
+                    type="button"
+                    class="rounded-lg px-3 py-1.5 font-bold text-zinc-300 hover:bg-white/5 hover:text-white"
+                    :disabled="saving"
+                    @click="discardStaged"
+                  >
+                    Discard
+                  </button>
+                  <button
+                    type="button"
+                    class="rounded-lg bg-emerald-600 px-3.5 py-1.5 font-bold text-white hover:bg-emerald-500 disabled:opacity-50"
+                    :disabled="saving"
+                    @click="saveStaged"
+                  >
+                    Save changes
+                  </button>
+                </div>
+
                 <!-- the ticked ones -->
                 <div
                   v-if="checked.size > 0"
@@ -857,7 +911,7 @@ onBeforeUnmount(() => {
                     v-for="product in productsShown"
                     :key="product.id"
                     class="flex items-center gap-3 px-3 py-2"
-                    :class="checked.has(product.id) ? 'bg-white/[0.04]' : ''"
+                    :class="staged.has(product.id) ? 'bg-amber-500/[0.07]' : checked.has(product.id) ? 'bg-white/[0.04]' : ''"
                   >
                     <input
                       v-if="isUncategorized"
@@ -878,11 +932,17 @@ onBeforeUnmount(() => {
                       <NavIcon name="inventory" class="h-4 w-4" />
                     </span>
 
-                    <span class="min-w-0 flex-1 truncate text-sm text-zinc-200">{{ product.name }}</span>
+                    <span class="min-w-0 flex-1">
+                      <span class="block truncate text-sm text-zinc-200">{{ product.name }}</span>
+                      <span v-if="staged.has(product.id)" class="block text-xs font-bold text-amber-300">
+                        → {{ staged.get(product.id) }} (not saved)
+                      </span>
+                    </span>
 
                     <select
                       class="move-select"
-                      :value="isUncategorized ? '' : categoryOf(product)"
+                      :class="{ 'is-staged': staged.has(product.id) }"
+                      :value="menuValue(product)"
                       :disabled="pending.has(product.id)"
                       :aria-label="`Category for ${product.name}`"
                       @change="moveOne(product, $event)"
@@ -1076,6 +1136,12 @@ onBeforeUnmount(() => {
 .move-select:hover,
 .move-select:focus-visible {
   border-color: rgba(224, 27, 50, 0.45);
+  color: #fff;
+}
+
+/* picked, not saved yet */
+.move-select.is-staged {
+  border-color: rgba(251, 191, 36, 0.6);
   color: #fff;
 }
 
