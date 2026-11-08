@@ -55,8 +55,21 @@ function styleHead(row) {
   })
 }
 
+// Excel has no time zones: it shows a date's UTC time, so move it to the
+// time here (the Philippines: +8 hours)
+function localTime(date) {
+  return new Date(date.getTime() - date.getTimezoneOffset() * 60000)
+}
+
+// a date and time from the database ("2026-11-08T10:20:31.123+00:00")
+const ISO_TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/
+
 function cellValue(value) {
   if (value === null || value === undefined) return null
+  if (typeof value === 'string' && ISO_TIME.test(value)) {
+    const date = new Date(value)
+    if (!Number.isNaN(date.getTime())) return localTime(date)
+  }
   if (typeof value === 'object') value = JSON.stringify(value)
   if (typeof value === 'string' && value.length > CELL_MAX) return value.slice(0, CELL_MAX) + '…'
   return value
@@ -104,6 +117,12 @@ export async function downloadBackup(madeBy = '') {
 
   for (const t of tables) {
     const rows = data[t]
+    if (t === 'activity_log') {
+      const sheet = workbook.addWorksheet(SHEETS[t], { views: [{ state: 'frozen', ySplit: 1 }] })
+      const newest = [...rows].sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)))
+      fillActivity(sheet, newest, 1)
+      continue
+    }
     const sheet = workbook.addWorksheet(SHEETS[t].slice(0, 31), { views: [{ state: 'frozen', ySplit: 1 }] })
     const columns = [...new Set(rows.flatMap((row) => Object.keys(row)))]
     if (columns.length === 0) {
@@ -112,7 +131,12 @@ export async function downloadBackup(madeBy = '') {
     }
     sheet.columns = columns.map((key) => ({ header: key, key, width: Math.min(40, Math.max(12, key.length + 4)) }))
     styleHead(sheet.getRow(1))
-    for (const row of rows) sheet.addRow(columns.map((key) => cellValue(row[key])))
+    for (const row of rows) {
+      const added = sheet.addRow(columns.map((key) => cellValue(row[key])))
+      added.eachCell((cell) => {
+        if (cell.value instanceof Date) cell.numFmt = 'mmm d, yyyy h:mm AM/PM'
+      })
+    }
     sheet.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: columns.length } }
   }
 
@@ -122,6 +146,30 @@ export async function downloadBackup(madeBy = '') {
 }
 
 /* ---------------- activity log ---------------- */
+// the log in words: When, Who, Role, Action, Type, Item, What changed
+// (headRow: the row the column titles go on)
+function fillActivity(sheet, rows, headRow) {
+  sheet.columns = [{ width: 22 }, { width: 24 }, { width: 12 }, { width: 16 }, { width: 14 }, { width: 34 }, { width: 70 }]
+  styleHead(sheet.addRow(['When', 'Who', 'Role', 'Action', 'Type', 'Item', 'What changed']))
+
+  for (const row of rows) {
+    const d = describeActivity(row)
+    const added = sheet.addRow([
+      localTime(new Date(row.created_at)),
+      row.actor_name || 'System',
+      roleLabel(row.actor_role) || '',
+      d.verb,
+      entityLabel(row.entity),
+      d.item,
+      d.changes.join('\n'),
+    ])
+    added.getCell(1).numFmt = 'mmm d, yyyy h:mm AM/PM'
+    added.getCell(7).alignment = { wrapText: true, vertical: 'top' }
+    added.alignment = { vertical: 'top' }
+  }
+  sheet.autoFilter = { from: { row: headRow, column: 1 }, to: { row: headRow, column: 7 } }
+}
+
 export async function downloadActivity(rows, { madeBy = '', period = 'All time' } = {}) {
   const made = new Date()
   const workbook = await newWorkbook(made)
@@ -129,28 +177,12 @@ export async function downloadActivity(rows, { madeBy = '', period = 'All time' 
     views: [{ state: 'frozen', ySplit: 6 }],
     pageSetup: { paperSize: 9, orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0 },
   })
-  sheet.columns = [{ width: 22 }, { width: 24 }, { width: 12 }, { width: 16 }, { width: 14 }, { width: 34 }, { width: 60 }]
-
   sheet.addRow([SHOP]).font = { bold: true, size: 16 }
   sheet.addRow(['Activity log (audit trail)']).font = { bold: true, size: 12, color: { argb: 'FF6B6B76' } }
   sheet.addRow([`Period: ${period}`])
   sheet.addRow([`Made on ${when(made)}${madeBy ? ` by ${madeBy}` : ''} · ${rows.length} entries`])
   sheet.addRow([])
-  styleHead(sheet.addRow(['When', 'Who', 'Role', 'Action', 'Type', 'Item', 'Details']))
-
-  for (const row of rows) {
-    const d = describeActivity(row)
-    sheet.addRow([
-      when(new Date(row.created_at)),
-      row.actor_name || 'System',
-      roleLabel(row.actor_role) || '',
-      d.verb,
-      entityLabel(row.entity),
-      d.item,
-      d.changes.join('; '),
-    ])
-  }
-  sheet.autoFilter = { from: { row: 6, column: 1 }, to: { row: 6, column: 7 } }
+  fillActivity(sheet, rows, 6)
 
   const buffer = await workbook.xlsx.writeBuffer()
   save(new Blob([buffer], { type: XLSX_TYPE }), `Activity log - ${period} - ${stamp(made)}.xlsx`.replace(/[\\/:*?"<>|]+/g, ' '))
