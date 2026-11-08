@@ -10,11 +10,13 @@ import { isIdleExpired, markActivity, IDLE_MESSAGE } from '../lib/idleLogout'
 import { wasBrowserClosed, markLoggedIn, CLOSED_MESSAGE } from '../lib/browserSession'
 import { clearCurrentUser, saveCurrentUser } from '../lib/currentUser'
 import { clearSupplierNotices } from '../lib/supplierNotices'
+import { needsCode } from '../lib/twoStep'
 
 // Every page except Login is downloaded only when it's first opened, so the
 // first load (the login screen) is much smaller, especially on phones.
 const ChangePasswordView = () => import('../views/ChangePasswordView.vue')
 const ResetPasswordView = () => import('../views/auth/ResetPasswordView.vue')
+const TwoStepView = () => import('../views/auth/TwoStepView.vue')
 
 const DashboardView = () => import('../views/admin/DashboardView.vue')
 const InventoryView = () => import('../views/admin/InventoryView.vue')
@@ -47,6 +49,8 @@ const routes = [
   { path: '/change-password', name: 'change-password', component: ChangePasswordView, meta: { requiresAuth: true } },
   // opened from a "Forgot password?" email; the page itself checks the link
   { path: '/reset-password', name: 'reset-password', component: ResetPasswordView },
+  // two-step verification: the 6-digit code after the password
+  { path: '/two-step', name: 'two-step', component: TwoStepView, meta: { requiresAuth: true } },
 
   { path: '/', component: DashboardView, meta: { requiresAuth: true, role: 'admin' } },
   { path: '/inventory', component: InventoryView, meta: { requiresAuth: true, role: 'admin' } },
@@ -170,6 +174,15 @@ router.beforeEach(async (to) => {
   }
 
   if (to.path === '/change-password') return '/'
+
+  // Two-step verification is on and this login hasn't entered the code:
+  // only the code page (the server refuses the rest anyway).
+  if (await needsCode()) {
+    if (to.path === '/two-step') return
+    const keep = to.path !== '/' && to.path !== '/login'
+    return { path: '/two-step', query: keep ? { next: to.fullPath } : {} }
+  }
+  if (to.path === '/two-step') return '/'
 
   const { data: profile, error } = await supabase.rpc('get_my_profile')
 

@@ -4,7 +4,7 @@
 
   <!-- full-screen pages: no sidebar (its links don't work there anyway) -->
   <RouterView
-    v-else-if="['/login', '/change-password', '/reset-password'].includes($route.path)"
+    v-else-if="['/login', '/change-password', '/reset-password', '/two-step'].includes($route.path)"
   />
 
   <div v-else class="min-h-screen text-white app-scale">

@@ -36,13 +36,34 @@ export function anonClient(): SupabaseClient {
   );
 }
 
+// The login's assurance level from its token: 'aal2' after the 6-digit
+// code of two-step verification, else 'aal1'. (The token was already
+// checked by auth.getUser, so reading it is safe.)
+function tokenAal(token: string): string {
+  try {
+    const part = token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
+    const payload = JSON.parse(atob(part + "=".repeat((4 - (part.length % 4)) % 4)));
+    return payload.aal ?? "aal1";
+  } catch {
+    return "aal1";
+  }
+}
+
+export type Caller = User & { aal: string };
+
 // Returns the logged-in user who called the function, or null.
-export async function getCaller(req: Request): Promise<User | null> {
+export async function getCaller(req: Request): Promise<Caller | null> {
   const token = (req.headers.get("Authorization") ?? "").replace("Bearer ", "");
   if (!token) return null;
   const { data, error } = await adminClient().auth.getUser(token);
   if (error || !data.user) return null;
-  return data.user;
+  return { ...data.user, aal: tokenAal(token) };
+}
+
+// Two-step verification is off, or this login passed it.
+export function mfaOk(user: User & { aal?: string }): boolean {
+  const on = (user.factors ?? []).some((factor) => factor.status === "verified");
+  return !on || user.aal === "aal2";
 }
 
 // ---------------------------------------------------------------------
@@ -57,6 +78,7 @@ export const ADMIN_ROLE = Deno.env.get("ADMIN_ROLE") ?? "admin";
 
 export async function isAdmin(user: User): Promise<boolean> {
   if (user.app_metadata?.must_change_password) return false; // admins must also finish setup
+  if (!mfaOk(user)) return false; // the 6-digit code wasn't entered
   // Always read the CURRENT role from the profiles table, so demoting or
   // disabling an admin takes effect immediately.
   const { data } = await adminClient()
@@ -91,6 +113,7 @@ export async function logActivity(
 // The caller's role if the account is active ('admin', 'manager', ...), else null.
 export async function activeRole(user: User): Promise<string | null> {
   if (user.app_metadata?.must_change_password) return null;
+  if (!mfaOk(user)) return null; // the 6-digit code wasn't entered
   const { data } = await adminClient()
     .from(ROLE_TABLE)
     .select("role, is_active")

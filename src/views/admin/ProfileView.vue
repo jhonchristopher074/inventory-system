@@ -9,7 +9,10 @@
     <PageHeader
       title="Profile & Users"
       subtitle="User accounts and access."
-    />
+    >
+      <!-- the Owner's two-step verification (6-digit code at login) -->
+      <TwoStepButton v-if="isOwner" />
+    </PageHeader>
 
     <!-- MAIN -->
     <!-- minmax(0, …): a column may shrink to the screen; otherwise the
@@ -354,6 +357,7 @@ import TempPasswordReveal from '../../components/TempPasswordReveal.vue'
 import ChangeOwnPasswordModal from '../../components/ChangeOwnPasswordModal.vue'
 import StoreLogoCard from '../../components/StoreLogoCard.vue'
 import BackupCard from '../../components/BackupCard.vue'
+import TwoStepButton from '../../components/TwoStepButton.vue'
 import NavIcon from '../../components/NavIcon.vue'
 
 const showOwnPassword = ref(false)

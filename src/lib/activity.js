@@ -93,6 +93,8 @@ function changeLine(key, from, to) {
       return `Role ${roleLabel(from) || 'none'} → ${roleLabel(to)}`
     case 'email':
       return `Email ${text(from)} → ${text(to)}`
+    case 'two_step':
+      return `Two-step verification ${text(from)} → ${text(to)}`
     default:
       return `${title(key.replace(/_/g, ' '))} ${text(from)} → ${text(to)}`
   }
