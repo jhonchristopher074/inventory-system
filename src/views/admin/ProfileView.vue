@@ -6,7 +6,12 @@
        460px of height it scrolls like any page. Phones: one column that
        scrolls. -->
   <div class="lg:flex lg:h-[calc(100dvh-8.6rem)] lg:min-h-[460px] lg:flex-col">
-    <PageHeader title="Profile & Users" subtitle="Manage owner, cashier, and staff accounts." />
+    <PageHeader
+      title="Profile & Users"
+      :subtitle="isOwner
+        ? 'Manage owner, cashier, and staff accounts.'
+        : 'See the accounts. You can disable or enable staff, cashier and supplier accounts.'"
+    />
 
     <!-- MAIN -->
     <!-- minmax(0, …): a column may shrink to the screen; otherwise the
@@ -22,6 +27,7 @@
         <StoreLogoCard class="mb-4 shrink-0" />
 
         <button
+          v-if="isOwner"
           type="button"
           class="phone-only w-full rounded-2xl bg-red-600 py-3 font-bold text-white hover:bg-red-700"
           :aria-expanded="showCreateForm"
@@ -33,6 +39,7 @@
         <!-- hidden with CSS, not v-if: the new temporary password popup
              belongs to this form and must stay open after "Create account" -->
         <div
+          v-if="isOwner"
           class="employee-form lg:min-h-0 lg:flex-1 lg:overflow-y-auto"
           :class="showCreateForm ? 'mt-3' : 'desktop-only'"
         >
@@ -156,11 +163,11 @@
                 <!-- ROLE -->
                 <div class="cell-role">
                   <span
-                    v-if="user.role === 'admin'"
+                    v-if="user.role === 'admin' || !isOwner"
                     class="inline-flex rounded-md px-2 py-1 text-[11px] font-bold ring-1"
-                    :class="roleTone('admin')"
+                    :class="roleTone(user.role)"
                   >
-                    Owner
+                    {{ ROLE_LABELS[user.role] || user.role }}
                   </span>
 
                   <!-- role change asks for your password -->
@@ -171,6 +178,7 @@
                     title="Change role"
                     @change="onRoleChange(user, $event)"
                   >
+                    <option value="manager">Manager</option>
                     <option value="staff">Staff</option>
                     <option value="cashier">Cashier</option>
                     <option value="supplier">Supplier</option>
@@ -189,7 +197,9 @@
                 </div>
 
                 <!-- ACTIONS -->
+                <span v-if="!canMenu(user)" class="cell-actions h-8 w-8" aria-hidden="true"></span>
                 <button
+                  v-else
                   class="cell-actions grid h-8 w-8 place-items-center rounded-lg text-lg leading-none text-zinc-500 transition hover:bg-zinc-800 hover:text-white"
                   :class="menu?.user.id === user.id ? 'bg-zinc-800 text-white' : ''"
                   aria-label="Account actions"
@@ -215,6 +225,25 @@
           :style="{ top: `${menu.top}px`, right: `${menu.right}px` }"
           role="menu"
         >
+          <!-- a Manager: his own password, or disable / enable -->
+          <template v-if="!isOwner">
+            <button v-if="menu.user.id === me.id" class="menu-item" role="menuitem" @click="runMenu('own-password')">
+              Change my password
+            </button>
+            <button
+              v-else
+              class="menu-item"
+              :class="menu.user.is_active
+                ? 'text-red-400 hover:!bg-red-500/10'
+                : 'text-emerald-400 hover:!bg-emerald-500/10'"
+              role="menuitem"
+              @click="runMenu('toggle')"
+            >
+              {{ menu.user.is_active ? 'Disable account' : 'Enable account' }}
+            </button>
+          </template>
+
+          <template v-else>
           <!-- users can't rename themselves; only the owner can, here -->
           <button class="menu-item" role="menuitem" @click="runMenu('rename')">
             Rename
@@ -247,6 +276,7 @@
             >
               {{ menu.user.is_active ? 'Disable account' : 'Enable account' }}
             </button>
+          </template>
           </template>
         </div>
       </template>
@@ -285,6 +315,7 @@
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import PageHeader from '../../components/PageHeader.vue'
 import { ROLE_LABELS } from '../../lib/roles'
+import { currentUser } from '../../lib/currentUser'
 import { supabase } from '../../lib/supabase'
 import { adminAction } from '../../lib/employeeAdmin'
 import CreateEmployeeForm from '../../components/CreateEmployeeForm.vue'
@@ -294,6 +325,18 @@ import ChangeOwnPasswordModal from '../../components/ChangeOwnPasswordModal.vue'
 import StoreLogoCard from '../../components/StoreLogoCard.vue'
 
 const showOwnPassword = ref(false)
+
+// the Owner manages every account; a Manager sees them, and can only
+// disable / enable staff, cashier and supplier accounts (and change his
+// own password). The server checks the same (admin-action).
+const me = computed(() => currentUser.value || {})
+const isOwner = computed(() => me.value.role === 'admin')
+
+function canMenu(user) {
+  if (isOwner.value) return true
+  if (user.id === me.value.id) return true
+  return ['staff', 'cashier', 'supplier'].includes(user.role)
+}
 
 // phones: the "Add employee" form opens from a button
 const showCreateForm = ref(false)
@@ -362,6 +405,7 @@ const ROLE_TONES = {
   admin: 'bg-red-500/15 text-red-300 ring-red-500/30',
   staff: 'bg-violet-500/15 text-violet-300 ring-violet-500/30',
   cashier: 'bg-emerald-500/15 text-emerald-300 ring-emerald-500/30',
+  manager: 'bg-amber-500/15 text-amber-300 ring-amber-500/30',
   supplier: 'bg-sky-500/15 text-sky-300 ring-sky-500/30',
 }
 

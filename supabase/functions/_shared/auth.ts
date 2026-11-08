@@ -67,6 +67,17 @@ export async function isAdmin(user: User): Promise<boolean> {
   return data?.role === ADMIN_ROLE && data?.is_active !== false;
 }
 
+// The caller's role if the account is active ('admin', 'manager', ...), else null.
+export async function activeRole(user: User): Promise<string | null> {
+  if (user.app_metadata?.must_change_password) return null;
+  const { data } = await adminClient()
+    .from(ROLE_TABLE)
+    .select("role, is_active")
+    .eq("id", user.id)
+    .maybeSingle();
+  return data && data.is_active !== false ? data.role : null;
+}
+
 // Cryptographically secure temporary password: 8 chars, letters + numbers only;
 // always contains an uppercase letter, a lowercase letter and a digit. Ambiguous characters (0/O, 1/l/I) removed
 // so it's easier to read aloud or type.

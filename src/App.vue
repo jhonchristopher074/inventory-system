@@ -439,11 +439,8 @@ const NAV = {
   ],
 }
 
-// a Manager: the Owner's menu, with his own Profile (no accounts)
-NAV.manager = NAV.admin.map((group) => ({
-  ...group,
-  items: group.items.map((item) => (item.to === '/profile' ? { ...item, to: '/manager/profile' } : item)),
-}))
+// a Manager: the Owner's menu (Profile & Users shows him fewer actions)
+NAV.manager = NAV.admin
 
 const navGroups = computed(() => NAV[role.value] || [])
 

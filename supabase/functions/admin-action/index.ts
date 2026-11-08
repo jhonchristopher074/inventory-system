@@ -10,13 +10,15 @@
 // The ONE admin must re-type their own password for every action here.
 // Checked on the server — the browser cannot skip it.
 import {
-  adminClient, anonClient, corsHeaders, generateTempPassword, getCaller, isAdmin,
+  activeRole, adminClient, anonClient, corsHeaders, generateTempPassword, getCaller,
   json, ROLE_TABLE, tempPasswordMetadata,
 } from "../_shared/auth.ts";
 
 // The admin role can never be handed out: there is only one admin.
 const ASSIGNABLE_ROLES = ["cashier", "staff", "supplier", "manager"];
 const ACTIONS = ["set_role", "toggle_active", "reset_password", "rename", "change_email"];
+// the accounts a Manager may disable / enable
+const MANAGER_TARGETS = ["staff", "cashier", "supplier"];
 // the actions also allowed on the admin's own account
 const SELF_ACTIONS = ["rename", "change_email"];
 
@@ -26,7 +28,11 @@ Deno.serve(async (req) => {
 
   const caller = await getCaller(req);
   if (!caller) return json({ error: "Not authenticated" }, 401);
-  if (!(await isAdmin(caller))) return json({ error: "Only the administrator can do this" }, 403);
+  // the Owner: everything here. A Manager: only disable / enable a staff,
+  // cashier or supplier account (checked again below, on the account).
+  const callerRole = await activeRole(caller);
+  const isManager = callerRole === "manager";
+  if (callerRole !== "admin" && !isManager) return json({ error: "Only the administrator can do this" }, 403);
 
   let body: {
     action?: string; user_id?: string; role?: string; full_name?: string; email?: string;
@@ -41,6 +47,9 @@ Deno.serve(async (req) => {
   const email = (body.email ?? "").trim().toLowerCase();
 
   if (!ACTIONS.includes(action)) return json({ error: "Unknown action" }, 400);
+  if (isManager && action !== "toggle_active") {
+    return json({ error: "Only the owner can do this" }, 403);
+  }
   if (!/^[0-9a-f-]{36}$/i.test(userId)) return json({ error: "Invalid user" }, 400);
   if (!adminPassword) return json({ error: "Enter your password to confirm" }, 400);
   if (userId === caller.id && !SELF_ACTIONS.includes(action)) {
@@ -71,6 +80,9 @@ Deno.serve(async (req) => {
     .eq("id", userId)
     .maybeSingle();
   if (!target) return json({ error: "User not found" }, 404);
+  if (isManager && !MANAGER_TARGETS.includes(target.role)) {
+    return json({ error: "Only the owner can change this account" }, 403);
+  }
 
   if (action === "rename") {
     const { error } = await admin.from(ROLE_TABLE).update({ full_name: fullName }).eq("id", userId);
