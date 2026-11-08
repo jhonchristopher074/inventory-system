@@ -291,9 +291,18 @@
               Add receipt
             </RouterLink>
           </template>
-          <p v-else-if="delivery.receipt_state === 'sent'" class="mt-3 text-xs text-zinc-500">
-            Its receipt <b class="text-zinc-300">{{ delivery.receipt_file }}</b> is in Approval.
-          </p>
+          <template v-else-if="delivery.receipt_state === 'sent'">
+            <p class="mt-3 text-xs text-zinc-500">
+              Its receipt <b class="text-zinc-300">{{ delivery.receipt_file }}</b> is in Approval.
+            </p>
+            <RouterLink
+              to="/approval"
+              class="mt-3 flex w-full items-center justify-center gap-1.5 rounded-xl bg-yellow-500 py-2 text-sm font-bold text-black hover:bg-yellow-400"
+            >
+              <NavIcon name="approval" class="h-4 w-4" />
+              Go to Approval
+            </RouterLink>
+          </template>
 
           <!-- delete (not once a receipt is linked to it): asks first, here -->
           <template v-if="!delivery.upload_id">
@@ -721,6 +730,7 @@ import { toast } from '../../lib/toast'
 import MonthCalendar from '../../components/MonthCalendar.vue'
 import DatePicker from '../../components/DatePicker.vue'
 import NavIcon from '../../components/NavIcon.vue'
+import { onLiveRefresh } from '../../lib/liveRefresh'
 
 // in the address (?tab=delivery), like the Staff calendar, so the Dashboard
 // can open the Delivery tab
@@ -989,6 +999,12 @@ async function fetchProducts() {
 
   loading.value = false
 }
+
+// a staff upload, a delivery marked...: the lists update by themselves
+onLiveRefresh(() => {
+  fetchApprovals()
+  fetchDeliveries()
+})
 
 async function fetchDeliveries() {
   const { data, error } = await supabase.rpc('list_deliveries')

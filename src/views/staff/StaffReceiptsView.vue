@@ -1,7 +1,7 @@
 <template>
   <div>
     <PageHeader
-      title="Supplier Receipts"
+      title="Receipts"
       subtitle="A supplier handed you the paper receipt? Upload a photo of it: the owner checks it, then its stock is added."
     />
 

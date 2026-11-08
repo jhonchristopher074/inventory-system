@@ -316,7 +316,7 @@
               type="button"
               class="w-full rounded-xl bg-emerald-600 py-3 font-bold text-white hover:bg-emerald-700 disabled:opacity-50"
               :disabled="arrivalSaving"
-              @click="arrival.step = 'upload'"
+              @click="arrival.step = 'upload'; arrival.fromAsk = true"
             >
               Yes, upload it now
             </button>
@@ -349,13 +349,24 @@
             :preset-supplier="arrival.delivery.supplier || ''"
             @done="receiptUploaded"
           />
-          <button
-            type="button"
-            class="mt-2 w-full rounded-xl bg-zinc-800 py-2.5 text-sm font-bold text-white hover:bg-zinc-700"
-            @click="arrival = null"
-          >
-            Cancel
-          </button>
+          <div class="mt-2 flex gap-2">
+            <!-- came from "Did the receipt come?": back to that question -->
+            <button
+              v-if="arrival.fromAsk"
+              type="button"
+              class="flex-1 rounded-xl bg-zinc-800 py-2.5 text-sm font-bold text-white hover:bg-zinc-700"
+              @click="arrival.step = 'ask'"
+            >
+              ← Back
+            </button>
+            <button
+              type="button"
+              class="flex-1 rounded-xl bg-zinc-800 py-2.5 text-sm font-bold text-white hover:bg-zinc-700"
+              @click="arrival = null"
+            >
+              Cancel
+            </button>
+          </div>
         </template>
       </div>
     </div>
@@ -576,6 +587,7 @@ import { useQueryParam } from '../../lib/useQueryParam'
 import { isDelivered, isOpenDelivery, markArrivedWithoutReceipt, receiptStateOf } from '../../lib/deliveries'
 import ReceiptUploadForm from '../../components/ReceiptUploadForm.vue'
 import { toast } from '../../lib/toast'
+import { onLiveRefresh } from '../../lib/liveRefresh'
 import ReceiveDeliveryModal from '../../components/ReceiveDeliveryModal.vue'
 import TablePager from '../../components/TablePager.vue'
 import { usePagination } from '../../lib/usePagination'
@@ -698,6 +710,12 @@ onMounted(async () => {
   const { data: { session } } = await supabase.auth.getSession()
   myUserId.value = session?.user?.id || null
   await fetchAll()
+})
+
+// new notifications (an approval, a delivery...): the lists update by themselves
+onLiveRefresh(() => {
+  fetchApprovals()
+  fetchDeliveries()
 })
 
 async function fetchAll() {

@@ -166,6 +166,18 @@ function profitTone(item) {
 ------------------------------------------------------------------ */
 const categories = ref(null) // null: still loading, or the categories SQL wasn't run
 const products = ref([])
+// archived products: a receipt can still restock one (it stays archived)
+const archived = ref([])
+const archivedIds = computed(() => new Set(archived.value.map((product) => String(product.id))))
+const archivedNames = computed(() => new Set(archived.value.map((product) => sameName(product.name))))
+
+function isArchived(item) {
+  if (productOf(item)) return false
+  if (item.product_id != null) return archivedIds.value.has(String(item.product_id))
+  return archivedNames.value.has(sameName(item.product_name))
+}
+
+const archivedCount = computed(() => items.value.filter(isArchived).length)
 const loaded = ref(false)
 const categoryEdits = ref({}) // product id -> category picked here
 const categoryState = ref({}) // product id -> 'saving' | 'saved' | an error
@@ -265,13 +277,15 @@ onMounted(async () => {
   // would pop up the keyboard if it went to a price box)
   if (window.matchMedia?.('(pointer: fine)').matches) nextTick(() => closeButton.value?.focus({ preventScroll: true }))
 
-  const [list, result] = await Promise.all([
+  const [list, result, archivedResult] = await Promise.all([
     fetchCategories(),
     supabase.rpc('list_products', { p_filter: 'active', p_order_by: 'id_asc' }),
+    supabase.rpc('list_products', { p_filter: 'archived', p_order_by: 'id_asc' }),
   ])
 
   categories.value = list
   products.value = result.data || []
+  archived.value = archivedResult.data || []
   if (result.error) console.error('Products for the categories:', result.error)
   loaded.value = true
 })
@@ -396,6 +410,18 @@ onBeforeUnmount(() => {
             </div>
           </div>
         </section>
+
+        <!-- products in Archived: restocked, but not on sale until restored -->
+        <p
+          v-if="archivedCount > 0"
+          class="flex items-start gap-2 border-b border-white/5 bg-amber-500/[0.06] px-4 py-2.5 text-sm text-amber-200 sm:px-6"
+        >
+          <NavIcon name="archive" class="mt-0.5 h-4 w-4 shrink-0" />
+          <span>
+            <b>{{ count(archivedCount) }} {{ archivedCount === 1 ? 'product is' : 'products are' }} in Archived.</b>
+            Confirming adds {{ archivedCount === 1 ? 'its' : 'their' }} pieces, but {{ archivedCount === 1 ? 'it stays' : 'they stay' }} off the POS until you restore {{ archivedCount === 1 ? 'it' : 'them' }} in Archived.
+          </span>
+        </p>
 
         <!-- products with no category yet: one category for all of them -->
         <div
@@ -525,6 +551,13 @@ onBeforeUnmount(() => {
                     </span>
                   </div>
                   <span v-else-if="!loaded" class="text-xs text-zinc-500">Loading…</span>
+                  <span
+                    v-else-if="isArchived(item)"
+                    class="badge bg-amber-500/15 text-amber-300"
+                    title="This product is in Archived. Confirming adds its pieces to it, but it stays hidden from the POS until you restore it (Archived > Restore)."
+                  >
+                    Archived
+                  </span>
                   <span
                     v-else
                     class="text-xs text-zinc-500"

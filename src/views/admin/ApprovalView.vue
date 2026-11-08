@@ -2,7 +2,7 @@
   <div>
     <PageHeader
       title="Approval"
-      subtitle="Review supplier receipts and staff inspection requests."
+      subtitle="Review receipts (from suppliers, staff and you) and staff inspection requests."
     />
 
     <!-- TABS: one list at a time; the number is what's waiting in each.
@@ -911,6 +911,7 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
 import { linkDeliveryReceipt } from '../../lib/deliveries'
+import { onLiveRefresh } from '../../lib/liveRefresh'
 import { supabase, uniqueChannelName } from '../../lib/supabase'
 import { useQueryParam } from '../../lib/useQueryParam'
 import { setLeaveQuestion } from '../../lib/leaveGuard'
@@ -1211,6 +1212,13 @@ function isImage(fileName) {
 // answer can never overwrite a newer list. "silent" refreshes (realtime,
 // timer) don't flash "Loading..." and never wipe the list on a hiccup.
 let fetchSeq = 0
+
+// a new upload, a delivery marked...: the lists update by themselves
+onLiveRefresh(() => {
+  fetchSupplierUploads({ silent: true })
+  fetchReviewItems()
+  fetchCalendarDeliveries()
+})
 
 async function fetchSupplierUploads({ silent = false } = {}) {
   const seq = ++fetchSeq
@@ -2211,8 +2219,9 @@ const tabs = computed(() => {
   return [
     {
       key: 'uploads',
-      label: 'Supplier Uploads',
-      short: 'Uploads',
+      // from suppliers, staff and the owner: all receipts
+      label: 'Receipts',
+      short: 'Receipts',
       count: toReview + toPrice + notSent,
       hint:
         [
