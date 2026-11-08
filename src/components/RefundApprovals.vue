@@ -7,10 +7,10 @@
     <p v-if="error" class="msg msg-error" role="alert">{{ error }}</p>
     <p v-if="success" class="msg msg-ok">{{ success }}</p>
 
-    <div v-if="waiting.length > 0" ref="waitingTop" class="list-card scroll-mt-4 border-amber-500/25">
+    <div v-if="waiting.length > 0" ref="waitingTop" class="list-card scroll-mt-4 border-sky-500/25">
       <div class="list-head">
         <h2 class="list-title">Waiting (from before)</h2>
-        <span v-if="waiting.length" class="list-count bg-amber-500/15 text-amber-300">{{ count(waiting.length) }}</span>
+        <span v-if="waiting.length" class="list-count bg-sky-500/15 text-sky-300">{{ count(waiting.length) }}</span>
         <span class="list-hint" title="Approve: the sale goes down and the pieces go back in stock. Reject: nothing changes.">
           From the cashiers
         </span>

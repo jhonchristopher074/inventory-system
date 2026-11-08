@@ -91,10 +91,10 @@ function formatDate(date) {
           <span class="inline-block h-2 w-2 rounded-full bg-emerald-500" aria-hidden="true"></span>Approved
         </span>
         <span class="flex items-center gap-1.5">
-          <span class="inline-block h-2 w-2 rounded-full bg-sky-400" aria-hidden="true"></span>Saved
+          <span class="inline-block h-2 w-2 rounded-full bg-zinc-400" aria-hidden="true"></span>Saved
         </span>
         <span class="flex items-center gap-1.5">
-          <span class="inline-block h-2 w-2 rounded-full bg-yellow-400" aria-hidden="true"></span>Submitted
+          <span class="inline-block h-2 w-2 rounded-full bg-sky-400" aria-hidden="true"></span>Submitted
         </span>
       </div>
 
@@ -150,8 +150,8 @@ function formatDate(date) {
                     :aria-label="`${row.totalPct}% inspected, ${row.remaining} left`"
                   >
                     <div class="h-full bg-emerald-500" :style="{ width: row.approvedPct + '%' }"></div>
-                    <div class="h-full bg-sky-400" :style="{ width: row.savedPct + '%' }"></div>
-                    <div class="h-full bg-yellow-400" :style="{ width: row.submittedPct + '%' }"></div>
+                    <div class="h-full bg-zinc-400" :style="{ width: row.savedPct + '%' }"></div>
+                    <div class="h-full bg-sky-400" :style="{ width: row.submittedPct + '%' }"></div>
                   </div>
                 </div>
               </td>
@@ -163,13 +163,13 @@ function formatDate(date) {
                   </span>
                   <span
                     v-if="row.waiting > 0"
-                    class="whitespace-nowrap rounded-full bg-yellow-500/15 px-2.5 py-0.5 text-xs font-bold text-yellow-400"
+                    class="whitespace-nowrap rounded-full bg-sky-500/15 px-2.5 py-0.5 text-xs font-bold text-sky-300"
                   >
                     {{ row.waiting }} waiting approval
                   </span>
                   <span
                     v-if="row.mine"
-                    class="whitespace-nowrap rounded-full bg-sky-500/15 px-2.5 py-0.5 text-xs font-bold text-sky-300"
+                    class="whitespace-nowrap rounded-full bg-zinc-700/60 px-2.5 py-0.5 text-xs font-bold text-zinc-300"
                   >
                     Your draft saved
                   </span>

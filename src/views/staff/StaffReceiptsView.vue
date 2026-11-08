@@ -32,7 +32,7 @@
       <section ref="listTop" class="card scroll-mt-4 overflow-hidden" aria-labelledby="mine-title">
         <div class="flex flex-wrap items-center gap-2 border-b border-white/5 px-5 py-4">
           <h2 id="mine-title" class="text-lg font-bold text-white">My uploads</h2>
-          <span v-if="waitingCount > 0" class="rounded-full bg-yellow-500/15 px-2.5 py-0.5 text-xs font-bold text-yellow-400">
+          <span v-if="waitingCount > 0" class="rounded-full bg-sky-500/15 px-2.5 py-0.5 text-xs font-bold text-sky-300">
             {{ count(waitingCount) }} waiting
           </span>
         </div>
@@ -223,9 +223,9 @@ function stateOf(row) {
 }
 
 const TONES = {
-  waiting: 'bg-yellow-500/15 text-yellow-400',
-  approved: 'bg-sky-500/15 text-sky-300',
-  sent: 'bg-sky-500/15 text-sky-300',
+  waiting: 'bg-sky-500/15 text-sky-300',
+  approved: 'bg-emerald-600/15 text-emerald-400',
+  sent: 'bg-emerald-600/15 text-emerald-400',
   added: 'bg-emerald-600/20 text-emerald-300',
   denied: 'bg-red-600/15 text-red-400',
 }

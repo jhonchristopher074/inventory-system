@@ -508,7 +508,7 @@ const BADGES = {
   overdue: 'bg-red-600/25 text-red-300',
   report: 'bg-red-500/20 text-red-400',
   return: 'bg-red-500/20 text-red-400',
-  inspection_approval: 'bg-yellow-500/20 text-yellow-400',
+  inspection_approval: 'bg-sky-500/20 text-sky-300',
   supplier_upload: 'bg-sky-500/20 text-sky-300',
   inspection: 'bg-zinc-700/50 text-zinc-300',
   sale: 'bg-emerald-500/20 text-emerald-400',

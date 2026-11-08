@@ -519,7 +519,7 @@ function inspectionStatus(product) {
   if (currentInspected(product) >= inspectionQty(product)) {
     return { label: 'Done', icon: 'check', tone: 'bg-emerald-600/15 text-emerald-400', bar: 'bg-emerald-500' }
   }
-  return { label: 'Pending', icon: '', tone: 'bg-yellow-500/15 text-yellow-400', bar: 'bg-zinc-300' }
+  return { label: 'Pending', icon: '', tone: 'bg-sky-500/15 text-sky-300', bar: 'bg-zinc-300' }
 }
 
 // "Today", or "Oct 14, 2026" ("2026-10-14" is a local date, not UTC midnight)

@@ -61,7 +61,7 @@
                       {{ dayAndTime(sale.created_at) }}<template v-if="owner && sale.cashier_name"> · {{ sale.cashier_name }}</template>
                     </span>
                   </span>
-                  <span v-if="pendingSales.has(String(sale.id))" class="rounded-full bg-amber-500/15 px-2 py-0.5 text-xs font-bold text-amber-300">asked</span>
+                  <span v-if="pendingSales.has(String(sale.id))" class="rounded-full bg-sky-500/15 px-2 py-0.5 text-xs font-bold text-sky-300">asked</span>
                   <span class="shrink-0 font-bold tabular-nums text-white">{{ peso(sale.total_amount) }}</span>
                 </button>
               </li>
@@ -97,7 +97,7 @@
                 <p class="text-xs text-zinc-500">
                   Sold {{ count(item.quantity) }} × {{ peso(item.price) }}
                   <span v-if="item.refunded_qty > 0" class="text-zinc-400"> · {{ count(item.refunded_qty) }} refunded</span>
-                  <span v-if="pendingOf(item) > 0" class="text-amber-300"> · {{ count(pendingOf(item)) }} asked already</span>
+                  <span v-if="pendingOf(item) > 0" class="text-sky-300"> · {{ count(pendingOf(item)) }} asked already</span>
                 </p>
               </div>
               <p v-if="canRefund(item) === 0" class="shrink-0 text-xs font-bold text-zinc-500">Nothing left</p>

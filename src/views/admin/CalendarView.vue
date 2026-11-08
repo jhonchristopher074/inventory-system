@@ -161,8 +161,8 @@
             <div v-if="card.kind === 'inspection'" class="mt-2.5">
               <div class="flex h-1.5 overflow-hidden rounded-full bg-white/5">
                 <div class="h-full bg-emerald-500" :style="{ width: card.row.approvedPct + '%' }"></div>
-                <div class="h-full bg-sky-400" :style="{ width: card.row.savedPct + '%' }"></div>
-                <div class="h-full bg-yellow-400" :style="{ width: card.row.submittedPct + '%' }"></div>
+                <div class="h-full bg-zinc-400" :style="{ width: card.row.savedPct + '%' }"></div>
+                <div class="h-full bg-sky-400" :style="{ width: card.row.submittedPct + '%' }"></div>
               </div>
               <p class="mt-1 text-[0.7rem] text-zinc-500">
                 {{ card.row.totalPct }}% · {{ count(card.row.remaining) }} left<template v-if="card.row.waiting"> · {{ card.row.waiting }} to approve</template>
@@ -173,7 +173,7 @@
               <RouterLink
                 v-if="card.column === 'approve'"
                 :to="card.kind === 'inspection' ? { path: '/approval', query: { tab: 'inspections' } } : '/approval'"
-                class="rounded-lg bg-yellow-500 px-3 py-1.5 text-xs font-bold text-black hover:bg-yellow-400"
+                class="rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-bold text-black hover:bg-amber-400"
               >
                 Approve
               </RouterLink>
@@ -297,7 +297,7 @@
             </p>
             <RouterLink
               to="/approval"
-              class="mt-3 flex w-full items-center justify-center gap-1.5 rounded-xl bg-yellow-500 py-2 text-sm font-bold text-black hover:bg-yellow-400"
+              class="mt-3 flex w-full items-center justify-center gap-1.5 rounded-xl bg-amber-500 py-2 text-sm font-bold text-black hover:bg-amber-400"
             >
               <NavIcon name="approval" class="h-4 w-4" />
               Go to Approval
@@ -660,7 +660,7 @@
           </span>
         </div>
 
-        <h3 class="mb-2 text-xs font-bold uppercase tracking-wider text-yellow-400">
+        <h3 class="mb-2 text-xs font-bold uppercase tracking-wider text-amber-300">
           Waiting for your approval ({{ selectedProductSubmittedList.length }})
         </h3>
 
@@ -678,7 +678,7 @@
         </ul>
         <p v-else class="mb-4 text-sm text-zinc-500">Nothing to approve.</p>
 
-        <h3 class="mb-2 text-xs font-bold uppercase tracking-wider text-sky-300">
+        <h3 class="mb-2 text-xs font-bold uppercase tracking-wider text-zinc-400">
           Saved by staff, not submitted yet ({{ selectedProductSavedList.length }})
         </h3>
 
@@ -698,7 +698,7 @@
 
         <div class="flex flex-col gap-2 sm:flex-row">
           <button
-            class="flex-1 rounded-xl bg-yellow-600 py-2.5 text-sm font-bold text-white hover:bg-yellow-700"
+            class="flex-1 rounded-xl bg-amber-500 py-2.5 text-sm font-bold text-black hover:bg-amber-400"
             @click="$router.push('/approval')"
           >
             Go to Approval Page
@@ -1463,7 +1463,7 @@ onBeforeUnmount(() => {
 
 .col-todo { --col: #a1a1aa; }
 .col-progress { --col: #38bdf8; }
-.col-approve { --col: #fbbf24; }
+.col-approve { --col: var(--tone-amber); } /* your action: like Add receipt */
 .col-done { --col: #34d399; }
 
 .board-col-head {

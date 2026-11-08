@@ -425,8 +425,8 @@
 
             <div class="flex h-2.5 w-full overflow-hidden rounded-full bg-zinc-800">
               <div class="h-full bg-emerald-500 transition-all duration-300" :style="{ width: approvedSegmentPercent + '%' }"></div>
-              <div class="h-full bg-sky-400 transition-all duration-300" :style="{ width: savedSegmentPercent + '%' }"></div>
-              <div class="h-full bg-yellow-400 transition-all duration-300" :style="{ width: submittedSegmentPercent + '%' }"></div>
+              <div class="h-full bg-zinc-400 transition-all duration-300" :style="{ width: savedSegmentPercent + '%' }"></div>
+              <div class="h-full bg-sky-400 transition-all duration-300" :style="{ width: submittedSegmentPercent + '%' }"></div>
             </div>
 
             <div class="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-zinc-400">
@@ -435,11 +435,11 @@
                 Approved by owner <b class="text-white">{{ count(adminApprovedQty(selectedProduct)) }}</b>
               </span>
               <span class="flex items-center gap-1.5">
-                <span class="h-2 w-2 rounded-full bg-sky-400" aria-hidden="true"></span>
+                <span class="h-2 w-2 rounded-full bg-zinc-400" aria-hidden="true"></span>
                 Saved <b class="text-white">{{ count(savedQty(selectedProduct)) }}</b>
               </span>
               <span class="flex items-center gap-1.5">
-                <span class="h-2 w-2 rounded-full bg-yellow-400" aria-hidden="true"></span>
+                <span class="h-2 w-2 rounded-full bg-sky-400" aria-hidden="true"></span>
                 Submitted <b class="text-white">{{ count(submittedQty(selectedProduct)) }}</b>
               </span>
             </div>
@@ -505,7 +505,7 @@
               <li
                 v-for="approval in selectedProductSavedList"
                 :key="approval.id"
-                class="rounded-xl border border-sky-500/20 bg-black/40 px-3 py-2.5"
+                class="rounded-xl border border-white/10 bg-black/40 px-3 py-2.5"
               >
                 <div class="flex items-center justify-between gap-3">
                   <div class="min-w-0 text-sm">
@@ -516,14 +516,14 @@
                       Approved {{ count(approval.approved_qty) }} · Return {{ count(approval.return_qty) }}
                     </p>
                   </div>
-                  <span class="shrink-0 rounded-full bg-sky-500/15 px-2 py-0.5 text-[11px] font-bold text-sky-300">
+                  <span class="shrink-0 rounded-full bg-zinc-700/60 px-2 py-0.5 text-[11px] font-bold text-zinc-300">
                     Saved, not submitted
                   </span>
                 </div>
 
                 <div v-if="isMyApproval(approval)" class="mt-2 flex gap-2">
                   <button
-                    class="flex-1 rounded-lg bg-yellow-500 py-1.5 text-xs font-bold text-black hover:bg-yellow-400 disabled:opacity-50"
+                    class="flex-1 rounded-lg bg-amber-500 py-1.5 text-xs font-bold text-black hover:bg-amber-400 disabled:opacity-50"
                     :disabled="panelBusy"
                     @click="submitSavedApproval(approval)"
                   >
@@ -542,7 +542,7 @@
               <li
                 v-for="approval in selectedProductSubmittedList"
                 :key="approval.id"
-                class="flex items-center justify-between gap-3 rounded-xl border border-yellow-500/20 bg-black/40 px-3 py-2.5"
+                class="flex items-center justify-between gap-3 rounded-xl border border-sky-500/20 bg-black/40 px-3 py-2.5"
               >
                 <div class="min-w-0 text-sm">
                   <p class="truncate font-semibold text-white">
@@ -552,7 +552,7 @@
                     Approved {{ count(approval.approved_qty) }} · Return {{ count(approval.return_qty) }}
                   </p>
                 </div>
-                <span class="shrink-0 rounded-full bg-yellow-500/15 px-2 py-0.5 text-[11px] font-bold text-yellow-400">
+                <span class="shrink-0 rounded-full bg-sky-500/15 px-2 py-0.5 text-[11px] font-bold text-sky-300">
                   Waiting for owner
                 </span>
               </li>

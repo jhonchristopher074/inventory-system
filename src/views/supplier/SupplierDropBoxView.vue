@@ -773,12 +773,12 @@ function stateOf(row) {
 
 // the status chip's colours
 const CHIP_TONES = {
-  pending: 'bg-yellow-500/15 text-yellow-400',
-  countdown: 'bg-sky-500/15 text-sky-300',
-  sending: 'bg-sky-500/15 text-sky-300',
-  sent: 'bg-sky-500/15 text-sky-300',
+  pending: 'bg-sky-500/15 text-sky-300',
+  countdown: 'bg-emerald-600/15 text-emerald-400',
+  sending: 'bg-emerald-600/15 text-emerald-400',
+  sent: 'bg-emerald-600/15 text-emerald-400',
   added: 'bg-emerald-600/20 text-emerald-300',
-  approved: 'bg-white/5 text-zinc-300',
+  approved: 'bg-emerald-600/15 text-emerald-400',
   rejected: 'bg-red-600/15 text-red-400',
 }
 
