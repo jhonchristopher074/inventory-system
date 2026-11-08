@@ -99,15 +99,13 @@
                     </span>
 
                     <div class="cell-text">
-                      <button
+                      <p
                         v-if="fileUrl(upload) && isImage(upload.file_name)"
-                        type="button"
-                        class="row-name block max-w-full truncate text-left text-white hover:text-red-400"
-                        :title="'See ' + upload.file_name"
-                        @click="openZoom(upload)"
+                        class="row-name text-white"
+                        :title="upload.file_name"
                       >
                         {{ upload.file_name }}
-                      </button>
+                      </p>
                       <a
                         v-else-if="fileUrl(upload)"
                         :href="fileUrl(upload)"
@@ -369,15 +367,13 @@
             <tr v-for="upload in unsentVisible" :key="upload.id">
               <td class="cell-main">
                 <div class="cell-text">
-                  <button
+                  <p
                     v-if="fileUrl(upload) && isImage(upload.file_name)"
-                    type="button"
-                    class="row-name block max-w-full truncate text-left text-white hover:text-red-400"
-                    :title="'See ' + upload.file_name"
-                    @click="openZoom(upload)"
+                    class="row-name text-white"
+                    :title="upload.file_name"
                   >
                     {{ upload.file_name }}
-                  </button>
+                  </p>
                   <a
                     v-else-if="fileUrl(upload)"
                     :href="fileUrl(upload)"
@@ -763,7 +759,8 @@
             <button
               class="rounded-xl bg-zinc-800 px-4 py-2 text-lg font-bold text-white hover:bg-zinc-700"
               title="Zoom out"
-              @click="changeZoom(-0.5)"
+              :disabled="zoom <= 1"
+              @click="changeZoom(-0.25)"
             >
               −
             </button>
@@ -773,7 +770,8 @@
             <button
               class="rounded-xl bg-zinc-800 px-4 py-2 text-lg font-bold text-white hover:bg-zinc-700"
               title="Zoom in"
-              @click="changeZoom(0.5)"
+              :disabled="zoom >= 4"
+              @click="changeZoom(0.25)"
             >
               +
             </button>
@@ -794,15 +792,20 @@
           </button>
         </div>
 
-        <!-- scroll to move around while zoomed in; click the picture to zoom in / out -->
-        <div class="flex-1 overflow-auto p-2">
+        <!-- 100%: the whole receipt fits the screen. Zoomed in: scroll to move
+             around. Click the picture to zoom in (x2) / back out. -->
+        <div
+          class="flex min-h-0 flex-1 overflow-auto p-3"
+          :class="zoom <= 1 ? 'items-center justify-center' : ''"
+          @click.self="zoomOpen = false"
+        >
           <img
             :src="zoomTarget.url"
             :alt="zoomTarget.name"
-            class="mx-auto block max-w-none cursor-zoom-in select-none"
-            :class="zoom > 1 ? 'cursor-zoom-out' : ''"
-            :style="{ width: zoom * 100 + '%' }"
-            @click="zoom = zoom >= 2 ? 1 : 2.5"
+            class="m-auto block select-none rounded-xl object-contain shadow-2xl"
+            :class="zoom > 1 ? 'max-w-none cursor-zoom-out' : 'max-h-full max-w-full cursor-zoom-in'"
+            :style="zoom > 1 ? { height: `calc((100vh - 6rem) * ${zoom})`, width: 'auto' } : null"
+            @click="zoom = zoom > 1 ? 1 : 2"
           />
         </div>
       </div>
@@ -1184,7 +1187,7 @@ function openZoom(upload) {
 }
 
 function changeZoom(step) {
-  zoom.value = Math.min(5, Math.max(0.5, zoom.value + step))
+  zoom.value = Math.min(4, Math.max(1, Math.round((zoom.value + step) * 100) / 100))
 }
 
 function confirmReview() {
