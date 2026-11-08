@@ -118,7 +118,7 @@
 
         <!-- LOGIN -->
         <template v-else>
-          <h1 class="title">Welcome back</h1>
+          <h1 class="title">Welcome</h1>
           <p class="sub">Log in to your account.</p>
 
           <form @submit.prevent="login">

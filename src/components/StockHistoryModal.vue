@@ -8,6 +8,9 @@ import { supabase } from '../lib/supabase'
 import { count } from '../lib/format'
 import { usePagination } from '../lib/usePagination'
 import TablePager from './TablePager.vue'
+import NavIcon from './NavIcon.vue'
+import { downloadStockHistory } from '../lib/stockHistoryExport'
+import { readCurrentUser } from '../lib/currentUser'
 
 const props = defineProps({
   product: { type: Object, default: null },
@@ -40,13 +43,49 @@ async function fetchMovements() {
   movements.value = data || []
 }
 
+function matches(move, words) {
+  return `${move.product_name || ''} ${move.reason || ''} ${move.changed_by_name || ''} ${move.recorded_by_name || ''}`
+    .toLowerCase()
+    .includes(words)
+}
+
 const shown = computed(() => {
   const words = search.value.trim().toLowerCase()
   if (!words) return movements.value
-  return movements.value.filter((move) =>
-    `${move.product_name || ''} ${move.reason || ''} ${move.changed_by_name || ''}`.toLowerCase().includes(words)
-  )
+  return movements.value.filter((move) => matches(move, words))
 })
+
+// ----- Export (audit trail): every change the search shows, not only this page -----
+const exportOpen = ref(false)
+const exporting = ref('')
+const exportError = ref('')
+
+async function exportAs(format) {
+  if (exporting.value) return
+  exportOpen.value = false
+  exporting.value = format
+  exportError.value = ''
+  try {
+    // the list here holds the latest 200: the file gets all of them
+    const { data, error } = await supabase.rpc('list_stock_movements', {
+      p_product_id: props.product ? props.product.id : null,
+      p_limit: 5000,
+    })
+    if (error) throw error
+    const words = search.value.trim().toLowerCase()
+    const all = (data || []).filter((move) => !words || matches(move, words))
+    if (all.length === 0) {
+      exportError.value = 'Nothing to export.'
+      return
+    }
+    const me = readCurrentUser()
+    await downloadStockHistory({ movements: all, product: props.product, madeBy: me.full_name || me.email || '', format })
+  } catch (err) {
+    exportError.value = `Couldn't export: ${err.message || err}`
+  } finally {
+    exporting.value = ''
+  }
+}
 
 const tableTop = ref(null)
 const { page, pageSize, visible, reset } = usePagination(shown, { storageKey: 'stockHistory', scrollTarget: tableTop })
@@ -89,14 +128,46 @@ onMounted(fetchMovements)
             </p>
           </div>
 
-          <button
-            class="shrink-0 rounded-full bg-zinc-800 px-4 py-2 font-bold text-white hover:bg-zinc-700"
-            aria-label="Close"
-            @click="emit('close')"
-          >
-            ✕
-          </button>
+          <div class="flex shrink-0 items-center gap-2">
+            <!-- download for the audit trail -->
+            <div v-if="movements.length > 0" class="relative">
+              <button
+                type="button"
+                class="inline-flex items-center gap-1.5 rounded-xl bg-white/10 px-3.5 py-2 text-sm font-bold text-white hover:bg-white/15 disabled:opacity-50"
+                :disabled="Boolean(exporting)"
+                :aria-expanded="exportOpen"
+                @click="exportOpen = !exportOpen"
+              >
+                <NavIcon name="download" class="h-4 w-4" />
+                {{ exporting ? 'Exporting…' : 'Export' }}
+              </button>
+              <div
+                v-if="exportOpen"
+                class="absolute right-0 top-full z-10 mt-1.5 w-56 overflow-hidden rounded-xl border border-white/10 bg-zinc-800 shadow-2xl"
+                role="menu"
+              >
+                <button type="button" role="menuitem" class="export-item" @click="exportAs('xlsx')">
+                  <b>Excel (.xlsx)</b>
+                  <span>Formatted, ready to print</span>
+                </button>
+                <button type="button" role="menuitem" class="export-item" @click="exportAs('csv')">
+                  <b>CSV (.csv)</b>
+                  <span>For other programs</span>
+                </button>
+              </div>
+            </div>
+
+            <button
+              class="rounded-full bg-zinc-800 px-4 py-2 font-bold text-white hover:bg-zinc-700"
+              aria-label="Close"
+              @click="emit('close')"
+            >
+              ✕
+            </button>
+          </div>
         </div>
+
+        <p v-if="exportError" class="mb-3 rounded-xl bg-red-600/20 p-3 text-sm text-red-400" role="alert">{{ exportError }}</p>
 
         <input
           v-if="movements.length > 10"
@@ -154,7 +225,12 @@ onMounted(fetchMovements)
                   {{ count(move.old_quantity) }} → <span class="font-bold text-white">{{ count(move.new_quantity) }}</span>
                 </td>
                 <td class="whitespace-nowrap px-3 py-2">{{ move.reason }}</td>
-                <td class="max-w-[10rem] truncate px-3 py-2" :title="move.changed_by_name">{{ move.changed_by_name || '—' }}</td>
+                <td
+                  class="max-w-[10rem] truncate px-3 py-2"
+                  :title="move.recorded_by_name && move.recorded_by_name !== move.changed_by_name ? `Recorded as ${move.recorded_by_name}` : move.changed_by_name"
+                >
+                  {{ move.changed_by_name || '—' }}
+                </td>
               </tr>
 
               <tr v-if="shown.length === 0">
@@ -176,3 +252,27 @@ onMounted(fetchMovements)
     </div>
   </Teleport>
 </template>
+
+<style scoped>
+.export-item {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  gap: 0.1rem;
+  padding: 0.6rem 0.85rem;
+  text-align: left;
+  font-size: 0.85rem;
+  color: #fff;
+}
+
+.export-item span {
+  font-size: 0.72rem;
+  color: var(--color-zinc-400);
+}
+
+.export-item:hover,
+.export-item:focus-visible {
+  outline: none;
+  background: rgba(255, 255, 255, 0.07);
+}
+</style>
