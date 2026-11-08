@@ -67,6 +67,27 @@ export async function isAdmin(user: User): Promise<boolean> {
   return data?.role === ADMIN_ROLE && data?.is_active !== false;
 }
 
+// One row in the Owner's Activity log (supabase/migrations/20261116000001).
+// Never fails the action: before that SQL is run, the row is just skipped.
+export async function logActivity(
+  actor: User,
+  entry: { action: string; entity: string; entity_id?: string; entity_name?: string; details?: Record<string, unknown> },
+): Promise<void> {
+  try {
+    const admin = adminClient();
+    const { data: who } = await admin.from(ROLE_TABLE).select("full_name, role").eq("id", actor.id).maybeSingle();
+    await admin.from("activity_log").insert({
+      actor_id: actor.id,
+      actor_name: who?.full_name ?? actor.email ?? null,
+      actor_role: who?.role ?? null,
+      details: {},
+      ...entry,
+    });
+  } catch {
+    // the log is a record, not a gate
+  }
+}
+
 // The caller's role if the account is active ('admin', 'manager', ...), else null.
 export async function activeRole(user: User): Promise<string | null> {
   if (user.app_metadata?.must_change_password) return null;

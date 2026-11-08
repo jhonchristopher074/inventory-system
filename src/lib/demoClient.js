@@ -56,6 +56,14 @@ export function createDemoClient(role) {
       { id: 21, product_name: 'Umbrella Nails (2 inches)', requested_by: 'Steve', created_at: new Date(now - day).toISOString(), approved_qty: 3, return_qty: 0 },
       { id: 22, product_name: 'PVC pipe 1/2"', requested_by: 'Ana', created_at: new Date(now - 3 * day).toISOString(), approved_qty: 12, return_qty: 1 },
     ],
+    admin_list_activity: [
+      { id: 6, created_at: new Date(now - 9e5).toISOString(), actor_name: 'Guest Owner', actor_role: 'admin', action: 'updated', entity: 'product', entity_id: '3', entity_name: 'Cement 40kg', details: { price: { from: 270, to: 280 } } },
+      { id: 5, created_at: new Date(now - 2 * 36e5).toISOString(), actor_name: 'Ria Manager', actor_role: 'manager', action: 'updated', entity: 'refund', entity_id: '2', entity_name: null, details: { status: { from: 'pending', to: 'approved' } } },
+      { id: 4, created_at: new Date(now - 5 * 36e5).toISOString(), actor_name: 'Steve Cruz', actor_role: 'staff', action: 'created', entity: 'receipt', entity_id: '61', entity_name: 'JM Supply', details: { status: 'pending' } },
+      { id: 3, created_at: new Date(now - day).toISOString(), actor_name: 'Guest Owner', actor_role: 'admin', action: 'updated', entity: 'product', entity_id: '9', entity_name: 'Paint brush 2"', details: { is_archived: { from: false, to: true } } },
+      { id: 2, created_at: new Date(now - 2 * day).toISOString(), actor_name: 'Guest Owner', actor_role: 'admin', action: 'created', entity: 'account', entity_id: 'u5', entity_name: 'Ria Manager', details: { role: 'manager' } },
+      { id: 1, created_at: new Date(now - 3 * day).toISOString(), actor_name: 'Guest Owner', actor_role: 'admin', action: 'downloaded', entity: 'backup', details: { products: 24, sales: 130 } },
+    ],
     admin_list_users: [
       { id: 'u1', full_name: 'Guest Owner', email: 'owner@example.com', role: 'admin', is_active: true, account_no: '000000001' },
       { id: 'u2', full_name: 'Steve Cruz', email: 'steve@example.com', role: 'staff', is_active: true, account_no: '000000002' },

@@ -23,6 +23,7 @@ const ApprovalView = () => import('../views/admin/ApprovalView.vue')
 const DocumentationView = () => import('../views/admin/DocumentationView.vue')
 const ArchivedView = () => import('../views/admin/ArchivedView.vue')
 const ProfileView = () => import('../views/admin/ProfileView.vue')
+const ActivityView = () => import('../views/admin/ActivityView.vue')
 const AdminPOSView = () => import('../views/admin/AdminPOSView.vue')
 const AdminSalesHistoryView = () => import('../views/admin/AdminSalesHistoryView.vue')
 
@@ -56,6 +57,8 @@ const routes = [
   // Profile & Users (a Manager sees it with fewer actions)
   { path: '/profile', component: ProfileView, meta: { requiresAuth: true, role: 'admin' } },
   { path: '/manager/profile', redirect: '/profile' },
+  // who did what: the Owner only (it's how the Manager's work is checked too)
+  { path: '/activity', component: ActivityView, meta: { requiresAuth: true, role: 'admin', ownerOnly: true } },
   { path: '/admin/pos', component: AdminPOSView, meta: { requiresAuth: true, role: 'admin' },},
   { path: '/admin/sales', component: AdminSalesHistoryView, meta: { requiresAuth: true, role: 'admin' },},
 
@@ -192,6 +195,7 @@ router.beforeEach(async (to) => {
 
   // a Manager uses the Owner's pages, except the accounts (Profile & Users)
   if (to.meta.role && to.meta.role !== pageRole(profile.role)) return home
+  if (to.meta.ownerOnly && profile.role !== 'admin') return home
 })
 
 /* ------------------------------------------------------------------

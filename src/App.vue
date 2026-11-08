@@ -383,7 +383,10 @@ const NAV = {
     },
     {
       section: 'Account',
-      items: [{ to: '/profile', label: 'Profile', icon: 'profile' }],
+      items: [
+        { to: '/activity', label: 'Activity Log', icon: 'history' },
+        { to: '/profile', label: 'Profile', icon: 'profile' },
+      ],
     },
   ],
 
@@ -439,8 +442,12 @@ const NAV = {
   ],
 }
 
-// a Manager: the Owner's menu (Profile & Users shows him fewer actions)
-NAV.manager = NAV.admin
+// a Manager: the Owner's menu without the Activity log (Profile & Users
+// shows him fewer actions)
+NAV.manager = NAV.admin.map((group) => ({
+  ...group,
+  items: group.items.filter((item) => item.to !== '/activity'),
+}))
 
 const navGroups = computed(() => NAV[role.value] || [])
 

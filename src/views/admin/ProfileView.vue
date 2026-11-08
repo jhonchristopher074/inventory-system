@@ -50,6 +50,9 @@
         <!-- the store's logo: change it (crop, then your password) -->
         <StoreLogoCard class="mb-4 shrink-0" />
 
+        <!-- the Owner's backup: every table in one Excel file -->
+        <BackupCard v-if="isOwner" class="mb-4 shrink-0" />
+
         <button
           v-if="isOwner"
           type="button"
@@ -349,6 +352,7 @@ import AdminPasswordPrompt from '../../components/AdminPasswordPrompt.vue'
 import TempPasswordReveal from '../../components/TempPasswordReveal.vue'
 import ChangeOwnPasswordModal from '../../components/ChangeOwnPasswordModal.vue'
 import StoreLogoCard from '../../components/StoreLogoCard.vue'
+import BackupCard from '../../components/BackupCard.vue'
 import NavIcon from '../../components/NavIcon.vue'
 
 const showOwnPassword = ref(false)

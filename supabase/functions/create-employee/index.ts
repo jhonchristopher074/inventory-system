@@ -4,7 +4,7 @@
 // returns that password ONCE. It is never stored anywhere in plain text.
 import {
   adminClient, corsHeaders, generateTempPassword, getCaller, isAdmin, json,
-  ROLE_TABLE, tempPasswordMetadata,
+  logActivity, ROLE_TABLE, tempPasswordMetadata,
 } from "../_shared/auth.ts";
 
 // There is only one admin (the owner), so "admin" can never be assigned here.
@@ -78,6 +78,14 @@ Deno.serve(async (req) => {
     const next = String((parseInt(last?.account_no ?? "0", 10) || 0) + 1).padStart(9, "0");
     await admin.from(ROLE_TABLE).update({ account_no: next }).eq("id", data.user.id);
   }
+
+  await logActivity(caller, {
+    action: "created",
+    entity: "account",
+    entity_id: data.user.id,
+    entity_name: fullName,
+    details: { role, email },
+  });
 
   return json({
     user_id: data.user.id,

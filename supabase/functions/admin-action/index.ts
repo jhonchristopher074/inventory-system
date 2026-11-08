@@ -11,7 +11,7 @@
 // Checked on the server — the browser cannot skip it.
 import {
   activeRole, adminClient, anonClient, corsHeaders, generateTempPassword, getCaller,
-  json, ROLE_TABLE, tempPasswordMetadata,
+  json, logActivity, ROLE_TABLE, tempPasswordMetadata,
 } from "../_shared/auth.ts";
 
 // The admin role can never be handed out: there is only one admin.
@@ -80,6 +80,15 @@ Deno.serve(async (req) => {
     .eq("id", userId)
     .maybeSingle();
   if (!target) return json({ error: "User not found" }, 404);
+  // the Activity log row for this account
+  const logAccount = (details: Record<string, unknown>) =>
+    logActivity(caller, {
+      action: "updated",
+      entity: "account",
+      entity_id: userId,
+      entity_name: target.full_name || target.email || "",
+      details,
+    });
   if (isManager && !MANAGER_TARGETS.includes(target.role)) {
     return json({ error: "Only the owner can change this account" }, 403);
   }
@@ -96,6 +105,7 @@ Deno.serve(async (req) => {
       });
     }
 
+    await logAccount({ full_name: { from: target.full_name, to: fullName } });
     return json({ ok: true, full_name: fullName });
   }
 
@@ -120,6 +130,7 @@ Deno.serve(async (req) => {
       return json({ error: "Could not change the email" }, 500);
     }
 
+    await logAccount({ email: { from: target.email, to: email } });
     return json({ ok: true, email });
   }
 
@@ -128,6 +139,7 @@ Deno.serve(async (req) => {
   if (action === "set_role") {
     const { error } = await admin.from(ROLE_TABLE).update({ role: body.role }).eq("id", userId);
     if (error) return json({ error: "Could not change the role" }, 500);
+    await logAccount({ role: { from: target.role, to: body.role } });
     return json({ ok: true });
   }
 
@@ -137,6 +149,8 @@ Deno.serve(async (req) => {
       .update({ is_active: !(target.is_active ?? true) })
       .eq("id", userId);
     if (error) return json({ error: "Could not update the account" }, 500);
+    const wasActive = target.is_active ?? true;
+    await logAccount({ is_active: { from: wasActive, to: !wasActive } });
     return json({ ok: true });
   }
 
@@ -150,6 +164,7 @@ Deno.serve(async (req) => {
     app_metadata: { ...existing.user.app_metadata, ...tempPasswordMetadata() },
   });
   if (error || !data.user) return json({ error: "Could not reset the password" }, 500);
+  await logAccount({ password_reset: true }); // never the password itself
 
   return json({
     ok: true,
