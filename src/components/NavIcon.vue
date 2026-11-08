@@ -71,6 +71,12 @@
       <path d="M5 21v-1a5 5 0 015-5h4a5 5 0 015 5v1" />
     </template>
 
+    <!-- camera (take a photo) -->
+    <template v-else-if="name === 'camera'">
+      <path d="M4 8a2 2 0 012-2h1.5l1.5-2h6l1.5 2H18a2 2 0 012 2v10a2 2 0 01-2 2H6a2 2 0 01-2-2V8z" />
+      <circle cx="12" cy="13" r="3.5" />
+    </template>
+
     <!-- logout -->
     <template v-else-if="name === 'logout'">
       <path d="M15 17l5-5-5-5M20 12H9M11 4H6a2 2 0 00-2 2v12a2 2 0 002 2h5" />

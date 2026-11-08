@@ -4,7 +4,7 @@
          owner  Approval > Upload receipt: no approval, so the profit
                 percentage is asked here and the Approval page sends it to
                 the receipt scanner (@done gives { row, file, percent })
-       Phones get "Take a photo" (the camera straight away). -->
+       Phones and tablets get "Take a photo" (the camera straight away). -->
   <form class="flex flex-col gap-4" novalidate @submit.prevent="submit">
     <!-- 1. the receipt -->
     <div>
@@ -58,13 +58,13 @@
           <p class="text-xs text-zinc-500">A photo (JPG, PNG) or a PDF · up to {{ formatFileSize(RECEIPT_MAX_BYTES) }}</p>
         </div>
 
-        <!-- phones: the camera straight away -->
+        <!-- phones and tablets: the camera straight away -->
         <button
           type="button"
-          class="phone-only mt-2 w-full rounded-xl bg-red-600 py-3 font-bold text-white hover:bg-red-700"
+          class="touch-only mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-red-600 py-3 font-bold text-white hover:bg-red-700"
           @click="openCamera"
         >
-          Take a photo of the receipt
+          <NavIcon name="camera" class="h-5 w-5" /> Take a photo of the receipt
         </button>
       </template>
 

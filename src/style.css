@@ -827,6 +827,15 @@ tbody tr:hover {
   }
 }
 
+/* Only on a touch screen (phones and tablets, any width): the "Take a
+   photo" buttons. A computer's browser can't open its camera from a file
+   chooser, so they're hidden where there's a mouse. */
+@media (hover: hover) and (pointer: fine) {
+  .touch-only {
+    display: none !important;
+  }
+}
+
 
 /* ------------------------------------------------------------
    Phones: tighter page, slimmer sidebar rail, popups that scroll

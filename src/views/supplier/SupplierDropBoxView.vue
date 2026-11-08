@@ -103,6 +103,8 @@
           @keydown.self.space.prevent="browse"
         >
           <input ref="fileInput" type="file" hidden accept=".png,.jpg,.jpeg,.pdf" @change="handleFileSelect" />
+          <!-- the back camera, straight away (phones and tablets) -->
+          <input ref="cameraInput" type="file" hidden accept="image/*" capture="environment" @change="handleFileSelect" />
 
           <!-- nothing chosen yet -->
           <div v-if="!selectedFile" class="text-center">
@@ -150,6 +152,16 @@
             </div>
           </div>
         </div>
+
+        <button
+          v-if="!selectedFile"
+          type="button"
+          class="touch-only mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-red-600 py-3 font-bold text-white hover:bg-red-700 disabled:opacity-50"
+          :disabled="uploading"
+          @click="openCamera"
+        >
+          <NavIcon name="camera" class="h-5 w-5" /> Take a photo of the receipt
+        </button>
 
         <p v-if="errorMessage" class="mt-4 rounded-xl bg-red-600/20 p-3 text-sm text-red-400" role="alert">
           {{ errorMessage }}
@@ -566,6 +578,7 @@ async function submitSupplierUpload(file) {
   Component state
 ------------------------------------------------------------------ */
 const fileInput = ref(null)
+const cameraInput = ref(null)
 const selectedFile = ref(null)
 const isDragging = ref(false)
 const uploading = ref(false)
@@ -607,6 +620,12 @@ function browse() {
 
 function handleFileSelect(event) {
   pickFile(event.target.files[0])
+  // the same file (or another photo) can be chosen again after Remove
+  event.target.value = ''
+}
+
+function openCamera() {
+  if (!uploading.value) cameraInput.value?.click()
 }
 
 function handleDrop(event) {
