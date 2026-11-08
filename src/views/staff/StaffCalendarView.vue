@@ -299,10 +299,21 @@
         <p class="text-xs font-extrabold uppercase tracking-[0.14em] text-emerald-400">
           {{ arrival.step === 'upload' && arrival.delivery.receipt_state === 'waiting' ? 'Its receipt came' : 'Mark as delivered' }}
         </p>
-        <h2 id="arrival-title" class="mt-1 text-xl font-bold text-white">{{ arrival.delivery.title }}</h2>
-        <p class="text-sm text-zinc-400">
-          {{ arrival.delivery.supplier || 'No supplier' }} · {{ formatDate(arrival.delivery.delivery_date) }}
-        </p>
+        <!-- which delivery: its name, supplier and day -->
+        <div class="mt-2 flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-3">
+          <span class="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-sky-500/15 text-sky-300">
+            <NavIcon name="inventory" class="h-5 w-5" />
+          </span>
+          <div class="min-w-0">
+            <h2 id="arrival-title" class="truncate text-lg font-extrabold text-white" :title="arrival.delivery.title">
+              {{ arrival.delivery.title }}
+            </h2>
+            <p class="truncate text-sm text-zinc-400">
+              From <span class="text-zinc-200">{{ arrival.delivery.supplier || 'no supplier set' }}</span>
+              · {{ formatDate(arrival.delivery.delivery_date) }}
+            </p>
+          </div>
+        </div>
 
         <!-- 1. the question -->
         <template v-if="arrival.step === 'ask'">
@@ -347,26 +358,22 @@
             :delivery-id="arrival.delivery.id"
             :delivery-title="arrival.delivery.title"
             :preset-supplier="arrival.delivery.supplier || ''"
+            cancelable
+            hide-delivery-note
             @done="receiptUploaded"
-          />
-          <div class="mt-2 flex gap-2">
+            @cancel="arrival = null"
+          >
             <!-- came from "Did the receipt come?": back to that question -->
-            <button
-              v-if="arrival.fromAsk"
-              type="button"
-              class="flex-1 rounded-xl bg-zinc-800 py-2.5 text-sm font-bold text-white hover:bg-zinc-700"
-              @click="arrival.step = 'ask'"
-            >
-              ← Back
-            </button>
-            <button
-              type="button"
-              class="flex-1 rounded-xl bg-zinc-800 py-2.5 text-sm font-bold text-white hover:bg-zinc-700"
-              @click="arrival = null"
-            >
-              Cancel
-            </button>
-          </div>
+            <template v-if="arrival.fromAsk" #back>
+              <button
+                type="button"
+                class="inline-flex items-center gap-1.5 rounded-xl px-3 py-2.5 text-sm font-bold text-zinc-300 hover:bg-white/5 hover:text-white"
+                @click="arrival.step = 'ask'"
+              >
+                <NavIcon name="back" class="h-4 w-4" /> Back
+              </button>
+            </template>
+          </ReceiptUploadForm>
         </template>
       </div>
     </div>
@@ -586,6 +593,7 @@ import { count, dayAndTime } from '../../lib/format'
 import { useQueryParam } from '../../lib/useQueryParam'
 import { isDelivered, isOpenDelivery, markArrivedWithoutReceipt, receiptStateOf } from '../../lib/deliveries'
 import ReceiptUploadForm from '../../components/ReceiptUploadForm.vue'
+import NavIcon from '../../components/NavIcon.vue'
 import { toast } from '../../lib/toast'
 import { onLiveRefresh } from '../../lib/liveRefresh'
 import ReceiveDeliveryModal from '../../components/ReceiveDeliveryModal.vue'

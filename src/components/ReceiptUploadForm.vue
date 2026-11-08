@@ -74,7 +74,7 @@
 
     <!-- the Calendar delivery it's for: fixed (Mark as delivered / Add
          receipt), or picked from the ones waiting for their receipt -->
-    <p v-if="deliveryId" class="rounded-xl bg-sky-500/10 px-3 py-2 text-sm text-sky-200">
+    <p v-if="deliveryId && !hideDeliveryNote" class="rounded-xl bg-sky-500/10 px-3 py-2 text-sm text-sky-200">
       For the delivery <b class="text-white">{{ deliveryTitle || 'on the calendar' }}</b>
     </p>
     <div v-else-if="deliveries.length > 0">
@@ -144,9 +144,13 @@
 
     <p v-if="error" class="rounded-xl bg-red-600/15 p-3 text-sm text-red-400" role="alert">{{ error }}</p>
 
-    <div class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+    <!-- one row: (Back) on the left, Cancel and Send on the right -->
+    <div class="flex flex-col-reverse gap-2 border-t border-white/5 pt-4 sm:flex-row sm:items-center sm:justify-end">
+      <div v-if="$slots.back" class="sm:mr-auto">
+        <slot name="back" />
+      </div>
       <button
-        v-if="mode === 'owner'"
+        v-if="mode === 'owner' || cancelable"
         type="button"
         class="rounded-2xl bg-zinc-800 px-5 py-3 font-bold text-white hover:bg-zinc-700 disabled:opacity-50"
         :disabled="busy"
@@ -189,6 +193,10 @@ const props = defineProps({
   presetSupplier: { type: String, default: '' },
   // deliveries that arrived and wait for their receipt, to pick one (optional)
   deliveries: { type: Array, default: () => [] },
+  // a Cancel button beside Send (the owner's form always has one)
+  cancelable: { type: Boolean, default: false },
+  // the page already says which delivery: no "For the delivery …" line
+  hideDeliveryNote: { type: Boolean, default: false },
 })
 
 const emit = defineEmits(['done', 'cancel'])
