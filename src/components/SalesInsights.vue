@@ -135,7 +135,7 @@ const shownProducts = computed(() =>
     :aria-expanded="open"
     @click="open = !open"
   >
-    {{ open ? 'Hide chart & best sellers' : 'Show chart & best sellers' }}
+    {{ open ? 'Hide chart & top selling' : 'Show chart & top selling' }}
     <span class="text-xs text-zinc-400 transition" :class="open ? 'rotate-180' : ''" aria-hidden="true">▼</span>
   </button>
 

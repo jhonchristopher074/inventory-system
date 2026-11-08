@@ -203,7 +203,7 @@
           <div class="card-head">
             <div>
               <p class="eyebrow tone-green">Last 30 days</p>
-              <h2 class="card-title">Best sellers</h2>
+              <h2 class="card-title">Top selling</h2>
             </div>
             <RouterLink to="/admin/sales" class="card-link">
               Sales <NavIcon name="chevron" class="h-4 w-4" />
