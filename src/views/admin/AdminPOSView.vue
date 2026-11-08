@@ -69,6 +69,7 @@
                   :class="{ 'opacity-40 grayscale': infoFor(product) }"
                   loading="lazy"
                 />
+                <PreviewButton v-if="product.image_url" :src="product.image_url" :alt="product.name" />
                 <!-- disabled: can't be sold until the owner enables it -->
                 <span
                   v-if="infoFor(product)"
@@ -358,6 +359,7 @@ import { printElement } from '../../lib/printReceipt'
 import { count, peso } from '../../lib/format'
 import { NO_CATEGORY } from '../../lib/categories'
 import TablePager from '../../components/TablePager.vue'
+import PreviewButton from '../../components/PreviewButton.vue'
 import PageHeader from '../../components/PageHeader.vue'
 import DisableProductModal from '../../components/DisableProductModal.vue'
 import RefundRequestModal from '../../components/RefundRequestModal.vue'
