@@ -1,43 +1,36 @@
 <template>
   <!-- The Point of Sale, for the Owner (owner: refunds at once, can enable a
        disabled product) and the Cashier. Products on the left, the current
-       sale on the right (on phones: a sheet from the bar at the bottom).
-       Tap a product to add it. -->
+       sale on the right (on phones: a sheet from the bar at the bottom). -->
   <div>
-    <PageHeader title="Point of Sale" :subtitle="owner ? 'Sell, refund and keep the shelf in check.' : 'Sell and print receipts.'">
-      <button
-        type="button"
-        class="refund-btn"
-        title="A customer returned a product: refund it"
-        @click="refundOpen = true"
-      >
-        <NavIcon name="restore" class="h-4 w-4" /> Refund
-      </button>
-    </PageHeader>
-
-    <RefundRequestModal v-if="refundOpen" :owner="owner" @close="refundOpen = false" @sent="refundSent" />
+    <PageHeader title="Point of Sale" subtitle="Cashier product sales and stock-out system." />
 
     <!-- pb-24 on phones: room for the cart bar fixed at the bottom -->
-    <div class="grid gap-5 pb-24 lg:grid-cols-[minmax(0,1fr)_380px] lg:pb-0">
+    <div class="grid gap-6 pb-24 lg:grid-cols-[1fr_380px] lg:pb-0">
       <!-- PRODUCTS (a new page scrolls back up to the search box) -->
-      <section ref="productsTop" class="min-w-0 scroll-mt-4" aria-label="Products">
-        <!-- search: "/" jumps here; Enter adds the only match -->
-        <div class="search-box mb-3">
-          <svg viewBox="0 0 24 24" class="h-5 w-5 shrink-0 text-zinc-500" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-            <circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5" stroke-linecap="round" />
-          </svg>
+      <div ref="productsTop" class="min-w-0 scroll-mt-4">
+        <div class="mb-5 flex gap-2">
           <input
-            ref="searchInput"
-            v-model="searchQuery"
-            type="search"
             maxlength="80"
-            placeholder="Search products…"
-            aria-label="Search products"
-            class="min-w-0 flex-1 bg-transparent text-white outline-none placeholder:text-zinc-500"
-            @keydown.enter.prevent="addOnlyMatch"
+            v-model="searchQuery"
+            type="text"
+            placeholder="Search product..."
+            class="min-w-0 flex-1 rounded-2xl border border-white/10 bg-zinc-900 px-4 py-3 text-white outline-none focus:border-red-600"
           />
-          <kbd class="desktop-only hidden-touch" title="Press / to search">/</kbd>
+          <!-- a customer brings something back: refund it (the Owner's is applied at once) -->
+          <button
+            type="button"
+            class="shrink-0 rounded-2xl border border-amber-500/40 px-4 py-3 font-bold text-amber-300 hover:bg-amber-500/10 hover:text-white"
+            title="A customer returned a product: refund it"
+            @click="refundOpen = true"
+          >
+            Refund
+          </button>
         </div>
+
+        <RefundRequestModal v-if="refundOpen" :owner="owner" @close="refundOpen = false" @sent="refundSent" />
+
+        <p v-if="loading" class="text-zinc-400">Loading products...</p>
 
         <!-- categories: only the ones that have products, with how many -->
         <div v-if="categoryTabs.length > 2" class="category-row -mx-1 mb-4 flex gap-2 overflow-x-auto px-1 pb-2" role="group" aria-label="Category">
@@ -45,101 +38,112 @@
             v-for="tab in categoryTabs"
             :key="tab.name"
             type="button"
-            class="cat-chip"
-            :class="{ 'is-on': selectedCategory === tab.name }"
+            class="flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl px-3.5 py-2 text-sm font-bold transition"
+            :class="selectedCategory === tab.name ? 'bg-red-600 text-white' : 'bg-zinc-900 text-zinc-300 hover:bg-zinc-800 hover:text-white'"
             :aria-pressed="selectedCategory === tab.name"
             @click="selectedCategory = tab.name"
           >
             {{ tab.name }}
-            <span>{{ count(tab.count) }}</span>
+            <span class="text-xs font-semibold" :class="selectedCategory === tab.name ? 'text-white/80' : 'text-zinc-500'">{{ count(tab.count) }}</span>
           </button>
         </div>
 
-        <!-- what Disable / Enable / a refund just did -->
+        <!-- what Disable / Enable just did -->
         <p v-if="posNotice" class="mb-4 rounded-xl p-3 text-sm" :class="posNotice.ok ? 'bg-emerald-600/15 text-emerald-300' : 'bg-red-600/15 text-red-400'" role="status">
           {{ posNotice.text }}
         </p>
 
-        <p v-if="loading && products.length === 0" class="card p-6 text-center text-zinc-400">Loading products…</p>
-
-        <!-- 2 a row on phones, up to 4: the columns follow this area's width -->
+        <!-- 2 a row on phones, up to 4: the columns follow the width of this
+             area (it shares the screen with the cart), not the whole window.
+             Below 440px the cards are smaller (less padding, smaller text). -->
         <div class="@container">
-          <div class="grid grid-cols-2 gap-3 @min-[560px]:grid-cols-3 @min-[820px]:grid-cols-4">
-            <article
+          <div class="grid grid-cols-2 gap-3 @min-[440px]:gap-4 @min-[640px]:grid-cols-3 @min-[780px]:grid-cols-4">
+            <div
               v-for="product in visibleProducts"
               :key="product.id"
-              class="tile"
-              :class="{
-                'is-off': infoFor(product) || stockOf(product) <= 0,
-                'in-cart': inCart(product.id) > 0,
-              }"
+              class="card flex min-w-0 flex-col p-2.5 @min-[440px]:p-4"
+              :class="{ 'border-red-500/40': infoFor(product) }"
             >
-              <!-- the whole picture + name adds it -->
-              <button
-                type="button"
-                class="tile-main"
-                :disabled="!canSell(product) || checkingOut"
-                :aria-label="`Add ${product.name} to the sale`"
-                @click="addToCart(product)"
-              >
-                <div class="tile-media">
-                  <img
-                    v-if="product.image_url"
-                    :src="product.image_url"
-                    :alt="product.name"
-                    loading="lazy"
-                  />
-                  <span v-else class="tile-noimg" aria-hidden="true">
-                    <NavIcon name="inventory" class="h-8 w-8" />
-                  </span>
+              <div class="relative">
+                <img
+                  :src="product.image_url || 'https://via.placeholder.com/300x200'"
+                  :alt="product.name"
+                  class="mb-2 aspect-[4/3] w-full shrink-0 rounded-xl object-cover @min-[440px]:mb-3 @min-[440px]:aspect-auto @min-[440px]:h-[140px] @min-[440px]:rounded-2xl"
+                  :class="{ 'opacity-40 grayscale': infoFor(product) }"
+                  loading="lazy"
+                />
+                <PreviewButton v-if="product.image_url" :src="product.image_url" :alt="product.name" />
+                <!-- disabled: can't be sold until the owner enables it -->
+                <span
+                  v-if="infoFor(product)"
+                  class="absolute left-2 top-2 rounded-full bg-red-600 px-2.5 py-1 text-[0.65rem] font-extrabold uppercase tracking-wider text-white shadow-lg"
+                >
+                  Disabled
+                </span>
+              </div>
 
-                  <span v-if="infoFor(product)" class="tile-flag is-red">Disabled</span>
-                  <span v-else-if="stockOf(product) <= 0" class="tile-flag is-red">Out of stock</span>
+              <h2 class="line-clamp-2 min-h-[2.75em] text-sm font-bold leading-snug text-white @min-[440px]:text-lg">
+                {{ product.name }}
+              </h2>
+              <p class="truncate text-xs text-zinc-400 @min-[440px]:text-sm">
+                {{ product.category || 'Uncategorized' }}
+              </p>
 
-                  <!-- how many are in the sale already -->
-                  <span v-if="inCart(product.id) > 0" class="tile-qty">{{ count(inCart(product.id)) }}</span>
-                </div>
-
-                <div class="tile-body">
-                  <h2 class="tile-name">{{ product.name }}</h2>
-                  <div class="mt-auto flex items-end justify-between gap-2 pt-2">
-                    <p class="tile-price">{{ peso(product.price || 0) }}</p>
-                    <p class="tile-stock" :class="stockTone(product)">
-                      {{ stockOf(product) <= 0 ? 'None' : `${count(stockOf(product))} left` }}
-                    </p>
-                  </div>
-                </div>
-              </button>
-
-              <PreviewButton v-if="product.image_url" :src="product.image_url" :alt="product.name" />
-
-              <!-- disabled: the reason; the Owner can enable it -->
-              <div v-if="infoFor(product)" class="tile-foot">
-                <p class="line-clamp-2 text-xs font-semibold text-red-300" :title="infoFor(product).reason">
-                  {{ infoFor(product).reason }}
+              <!-- mt-auto pins stock, price and the button to the bottom, so they
+                   line up across the row no matter how long the product name is -->
+              <div class="mt-auto pt-2 @min-[440px]:pt-3">
+                <p class="text-xs text-zinc-300 @min-[440px]:text-sm">Stock: {{ count(product.quantity) }}</p>
+                <p class="text-sm font-bold text-red-400">
+                  {{ peso(product.price || 0) }}
                 </p>
+              </div>
+
+              <!-- disabled: the reason, and no Add to Cart -->
+              <p v-if="infoFor(product)" class="mt-1 line-clamp-2 text-xs font-bold text-red-300" :title="infoFor(product).reason">
+                {{ infoFor(product).reason }}
+              </p>
+
+              <template v-if="infoFor(product)">
+                <!-- the Owner can sell it again; a Cashier can't -->
                 <button
                   v-if="owner"
                   type="button"
-                  class="mt-2 w-full rounded-lg bg-emerald-600 py-1.5 text-xs font-bold text-white hover:bg-emerald-500 disabled:opacity-50"
+                  class="mt-2 w-full shrink-0 rounded-xl bg-emerald-600 py-2 text-sm font-bold text-white hover:bg-emerald-500 disabled:opacity-50 @min-[440px]:mt-3 @min-[440px]:text-base"
                   :disabled="enablingId === product.id"
                   @click="enableProduct(product)"
                 >
                   {{ enablingId === product.id ? 'Enabling…' : 'Enable' }}
                 </button>
-              </div>
+                <button
+                  v-else
+                  type="button"
+                  class="mt-2 w-full shrink-0 cursor-not-allowed rounded-xl bg-zinc-800 py-2 text-sm font-bold text-zinc-400 @min-[440px]:mt-3 @min-[440px]:text-base"
+                  disabled
+                  :title="infoFor(product).reason"
+                >
+                  Disabled
+                </button>
+              </template>
 
-              <!-- damaged, expired, wrong price…: take it off sale and tell the owner -->
-              <button
-                v-else
-                type="button"
-                class="tile-disable"
-                title="Damaged, expired, wrong price…: take it off sale"
-                @click="askDisable(product)"
-              >
-                Disable
-              </button>
-            </article>
+              <template v-else>
+                <button
+                  class="mt-2 w-full shrink-0 rounded-xl bg-red-600 py-2 text-sm font-bold text-white hover:bg-red-700 disabled:opacity-50 @min-[440px]:mt-3 @min-[440px]:text-base"
+                  :disabled="product.quantity <= 0 || checkingOut"
+                  @click="addToCart(product)"
+                >
+                  {{ product.quantity <= 0 ? 'Out of Stock' : 'Add to Cart' }}
+                </button>
+
+                <!-- damaged, expired, wrong price...: take it off sale and tell the owner -->
+                <button
+                  type="button"
+                  class="mt-1.5 w-full text-xs font-bold text-zinc-500 hover:text-red-400"
+                  @click="askDisable(product)"
+                >
+                  Disable product
+                </button>
+              </template>
+            </div>
           </div>
         </div>
 
@@ -156,13 +160,10 @@
           class="mt-5"
         />
 
-        <div v-else-if="!loading" class="card p-8 text-center">
-          <p class="font-bold text-white">{{ products.length > 0 ? 'No product matches' : 'No products to sell' }}</p>
-          <p class="mt-1 text-sm text-zinc-500">
-            {{ products.length > 0 ? 'Try another name or category.' : 'Products added in Inventory show up here.' }}
-          </p>
-        </div>
-      </section>
+        <p v-else-if="!loading" class="card p-5 text-zinc-400">
+          {{ products.length > 0 ? 'No product matches your search.' : 'No products to show.' }}
+        </p>
+      </div>
 
       <!-- CURRENT SALE: beside the products on wide screens; on phones a sheet -->
       <aside
@@ -173,7 +174,7 @@
         <header class="flex items-center justify-between gap-3 border-b border-white/5 px-5 py-4">
           <div>
             <h2 class="text-lg font-extrabold text-white">Current sale</h2>
-            <p class="text-xs text-zinc-500">{{ cartCount ? `${count(cartCount)} item${cartCount === 1 ? '' : 's'}` : 'Tap a product to add it' }}</p>
+            <p class="text-xs text-zinc-500">{{ cartCount ? `${count(cartCount)} item${cartCount === 1 ? '' : 's'}` : 'Add a product to start' }}</p>
           </div>
           <div class="flex items-center gap-1">
             <button
@@ -204,7 +205,7 @@
                 <NavIcon name="pos" class="h-6 w-6" />
               </span>
               <p class="mt-3 text-sm font-bold text-zinc-300">No items yet</p>
-              <p class="text-xs text-zinc-500">Products you tap show up here.</p>
+              <p class="text-xs text-zinc-500">Products you add show up here.</p>
             </div>
           </div>
 
@@ -322,70 +323,55 @@
       @cancel="cancelDisable"
     />
 
-    <!-- SALE DONE: the receipt -->
+    <!-- RECEIPT MODAL -->
     <div
       v-if="receipt"
       class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="sale-done-title"
     >
-      <div class="flex max-h-[92vh] w-full max-w-md flex-col rounded-[24px] border border-white/10 bg-zinc-900 p-5 shadow-2xl">
-        <div class="mb-4 flex items-center gap-3">
-          <span class="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-emerald-500/15 text-emerald-400">
-            <NavIcon name="check" class="h-6 w-6" />
-          </span>
-          <div class="min-w-0">
-            <h2 id="sale-done-title" class="text-lg font-extrabold text-white">Sale complete</h2>
-            <p class="text-xs text-zinc-400">Sale #{{ receipt.id }} · {{ peso(receipt.total_amount) }}</p>
+      <div class="max-h-[92vh] w-full max-w-md overflow-y-auto card p-5 shadow-2xl">
+        <div id="receiptArea" class="rounded-2xl bg-white p-5 text-black">
+          <div class="text-center">
+            <h2 class="text-2xl font-extrabold">10 FIVE 7 Hardware</h2>
+            <p class="text-sm">Inventory Management System</p>
+            <p class="mt-2 text-xs">Sales Receipt</p>
           </div>
-        </div>
 
-        <div class="min-h-0 overflow-y-auto">
-          <div id="receiptArea" class="rounded-2xl bg-white p-5 text-black">
-            <div class="text-center">
-              <h2 class="text-2xl font-extrabold">10 FIVE 7 Hardware</h2>
-              <p class="text-sm">Inventory Management System</p>
-              <p class="mt-2 text-xs">Sales Receipt</p>
-            </div>
+          <div class="my-4 border-t border-dashed border-black"></div>
 
-            <div class="my-4 border-t border-dashed border-black"></div>
+          <div class="text-sm">
+            <p><strong>Sale No:</strong> #{{ receipt.id }}</p>
+            <p><strong>Date:</strong> {{ formatDate(receipt.created_at) }}</p>
+            <p><strong>Cashier:</strong> {{ receiptCashier }}</p>
+          </div>
 
-            <div class="text-sm">
-              <p><strong>Sale No:</strong> #{{ receipt.id }}</p>
-              <p><strong>Date:</strong> {{ formatDate(receipt.created_at) }}</p>
-              <p><strong>Cashier:</strong> {{ receiptCashier }}</p>
-            </div>
+          <div class="my-4 border-t border-dashed border-black"></div>
 
-            <div class="my-4 border-t border-dashed border-black"></div>
-
-            <div class="space-y-3">
-              <div v-for="item in receipt.items" :key="item.product_id" class="text-sm">
-                <div class="flex justify-between gap-3">
-                  <p class="font-bold">{{ item.product_name }}</p>
-                  <p class="shrink-0">{{ peso(item.subtotal) }}</p>
-                </div>
-                <p class="text-xs">Qty: {{ count(item.quantity) }} × {{ peso(item.price) }}</p>
+          <div class="space-y-3">
+            <div v-for="item in receipt.items" :key="item.product_id" class="text-sm">
+              <div class="flex justify-between gap-3">
+                <p class="font-bold">{{ item.product_name }}</p>
+                <p>{{ peso(item.subtotal) }}</p>
               </div>
+              <p class="text-xs">Qty: {{ count(item.quantity) }} × {{ peso(item.price) }}</p>
             </div>
-
-            <div class="my-4 border-t border-dashed border-black"></div>
-
-            <div class="flex justify-between text-lg font-extrabold">
-              <span>Total</span>
-              <span>{{ peso(receipt.total_amount) }}</span>
-            </div>
-
-            <p class="mt-5 text-center text-xs">Thank you for your purchase!</p>
           </div>
+
+          <div class="my-4 border-t border-dashed border-black"></div>
+
+          <div class="flex justify-between text-lg font-extrabold">
+            <span>Total</span>
+            <span>{{ peso(receipt.total_amount) }}</span>
+          </div>
+
+          <p class="mt-5 text-center text-xs">Thank you for your purchase!</p>
         </div>
 
         <div class="mt-4 grid grid-cols-2 gap-3">
-          <button class="rounded-xl bg-zinc-800 py-3 font-bold text-white hover:bg-zinc-700" @click="newSale">
-            New sale
+          <button class="rounded-xl bg-zinc-800 py-3 font-bold text-white hover:bg-zinc-700" @click="receipt = null">
+            Close
           </button>
           <button class="rounded-xl bg-red-600 py-3 font-bold text-white hover:bg-red-700" @click="printReceipt">
-            Print receipt
+            Print Receipt
           </button>
         </div>
       </div>
@@ -394,14 +380,14 @@
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { supabase } from '../lib/supabase'
 import { heldProductIds, withoutHeld } from '../lib/heldProducts'
 import { GRID_PAGE_SIZES, usePagination } from '../lib/usePagination'
 import { printElement } from '../lib/printReceipt'
 import { count, peso } from '../lib/format'
 import { NO_CATEGORY } from '../lib/categories'
-import { isLowStock, stockOf } from '../lib/stock'
+import { stockOf } from '../lib/stock'
 import { readCurrentUser } from '../lib/currentUser'
 import { useDisabledProducts } from '../lib/disabledProducts'
 import TablePager from './TablePager.vue'
@@ -420,7 +406,6 @@ const products = ref([])
 const cart = ref([])
 
 const searchQuery = ref('')
-const searchInput = ref(null)
 const loading = ref(false)
 // While a sale is being processed the cart is locked: changes made in that
 // moment were wiped when the sale finished, without being sold.
@@ -432,11 +417,6 @@ const receipt = ref(null)
 // phones: the sale opens as a sheet from the bar at the bottom of the screen
 const showCart = ref(false)
 const cartCount = computed(() => cart.value.reduce((sum, item) => sum + Number(item.cartQty || 0), 0))
-
-// how many of a product are in the sale
-function inCart(id) {
-  return cart.value.find((item) => item.id === id)?.cartQty || 0
-}
 
 // The seller's name on the receipt, as the sale saved it (no name: just
 // "Owner" / "Cashier")
@@ -502,32 +482,6 @@ watch([searchQuery, selectedCategory], resetPage)
 const totalAmount = computed(() =>
   cart.value.reduce((total, item) => total + Number(item.price || 0) * Number(item.cartQty || 0), 0)
 )
-
-function canSell(product) {
-  return !infoFor(product) && stockOf(product) > 0
-}
-
-function stockTone(product) {
-  if (stockOf(product) <= 0) return 'is-red'
-  return isLowStock(product) ? 'is-amber' : ''
-}
-
-/* ---- "/" jumps to the search; Enter there adds the only match ---- */
-function onKey(event) {
-  if (event.key !== '/' || event.ctrlKey || event.metaKey || event.altKey) return
-  const tag = document.activeElement?.tagName
-  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
-  event.preventDefault()
-  searchInput.value?.focus()
-}
-
-function addOnlyMatch() {
-  const sellable = filteredProducts.value.filter(canSell)
-  if (searchQuery.value.trim() && sellable.length === 1) {
-    addToCart(sellable[0])
-    searchQuery.value = ''
-  }
-}
 
 /* ------------------------------------------------------------------
    Disable a product (lib/disabledProducts.js): it can't be sold until the
@@ -747,11 +701,6 @@ async function checkout() {
   checkingOut.value = false
 }
 
-function newSale() {
-  receipt.value = null
-  searchInput.value?.focus()
-}
-
 function formatDate(date) {
   return new Date(date).toLocaleString()
 }
@@ -760,260 +709,20 @@ function printReceipt() {
   printElement('receiptArea')
 }
 
-onMounted(() => {
-  fetchProducts()
-  window.addEventListener('keydown', onKey)
-})
-
-onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
+onMounted(fetchProducts)
 </script>
 
 <style scoped>
-.refund-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  border-radius: 0.75rem;
-  border: 1px solid rgba(245, 158, 11, 0.4);
-  padding: 0.5rem 0.9rem;
-  font-size: 0.875rem;
-  font-weight: 700;
-  color: #fcd34d;
-  transition: background-color 0.15s;
-}
-
-.refund-btn:hover {
-  background: rgba(245, 158, 11, 0.12);
-  color: #fff;
-}
-
-/* the search bar */
-.search-box {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  border-radius: 1rem;
-  border: 1px solid var(--hairline);
-  background: var(--surface);
-  padding: 0.75rem 1rem;
-}
-
-.search-box:focus-within {
-  border-color: rgba(224, 27, 50, 0.55);
-  box-shadow: 0 0 0 3px rgba(224, 27, 50, 0.14);
-}
-
-.search-box kbd {
-  border-radius: 0.4rem;
-  border: 1px solid var(--hairline);
-  padding: 0 0.4rem;
-  font-size: 0.75rem;
-  color: var(--color-zinc-500);
-}
-
-@media (hover: none) {
-  .hidden-touch {
-    display: none;
-  }
-}
-
-/* the category buttons: one row, scrolled sideways */
+/* the category buttons: one row, scrolled sideways (a thin bar shows
+   there's more; drag, swipe or shift + wheel) */
 .category-row {
   scrollbar-width: thin;
   scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
   scroll-snap-type: x proximity;
 }
 
-.cat-chip {
-  display: flex;
-  flex: none;
-  align-items: center;
-  gap: 0.4rem;
+.category-row > button {
   scroll-snap-align: start;
-  white-space: nowrap;
-  border-radius: 999px;
-  border: 1px solid var(--hairline);
-  background: var(--surface);
-  padding: 0.45rem 0.9rem;
-  font-size: 0.85rem;
-  font-weight: 700;
-  color: var(--color-zinc-300);
-  transition: background-color 0.15s, color 0.15s;
-}
-
-.cat-chip span {
-  font-size: 0.72rem;
-  font-weight: 600;
-  color: var(--color-zinc-500);
-}
-
-.cat-chip:hover {
-  color: #fff;
-}
-
-.cat-chip.is-on {
-  border-color: transparent;
-  background: var(--brand);
-  color: #fff;
-}
-
-.cat-chip.is-on span {
-  color: rgba(255, 255, 255, 0.8);
-}
-
-/* a product tile */
-.tile {
-  position: relative;
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-  overflow: hidden;
-  border-radius: 1.1rem;
-  border: 1px solid var(--hairline);
-  background: var(--surface);
-  transition: border-color 0.15s, transform 0.15s, box-shadow 0.15s;
-}
-
-.tile:hover:not(.is-off) {
-  border-color: rgba(224, 27, 50, 0.45);
-  transform: translateY(-2px);
-  box-shadow: 0 8px 20px -10px rgba(0, 0, 0, 0.6);
-}
-
-.tile.in-cart {
-  border-color: rgba(224, 27, 50, 0.6);
-}
-
-.tile-main {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  text-align: left;
-}
-
-.tile-main:focus-visible {
-  outline: 2px solid rgba(224, 27, 50, 0.7);
-  outline-offset: -2px;
-}
-
-.tile-main:disabled {
-  cursor: not-allowed;
-}
-
-.tile-media {
-  position: relative;
-  aspect-ratio: 4 / 3;
-  background: rgba(0, 0, 0, 0.35);
-}
-
-.tile-media img {
-  height: 100%;
-  width: 100%;
-  object-fit: cover;
-}
-
-.tile.is-off .tile-media img {
-  opacity: 0.4;
-  filter: grayscale(1);
-}
-
-.tile-noimg {
-  display: grid;
-  height: 100%;
-  place-items: center;
-  color: var(--color-zinc-600, #52525b);
-}
-
-.tile-flag {
-  position: absolute;
-  left: 0.5rem;
-  top: 0.5rem;
-  border-radius: 999px;
-  padding: 0.2rem 0.55rem;
-  font-size: 0.62rem;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: #fff;
-}
-
-.tile-flag.is-red {
-  background: var(--brand);
-}
-
-/* how many are in the sale */
-.tile-qty {
-  position: absolute;
-  right: 0.5rem;
-  bottom: 0.5rem;
-  display: grid;
-  min-width: 1.75rem;
-  height: 1.75rem;
-  place-items: center;
-  border-radius: 999px;
-  background: var(--brand);
-  padding: 0 0.45rem;
-  font-size: 0.8rem;
-  font-weight: 800;
-  color: #fff;
-  box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.6);
-}
-
-.tile-body {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  padding: 0.65rem 0.75rem 0.5rem;
-}
-
-.tile-name {
-  display: -webkit-box;
-  min-height: 2.6em;
-  overflow: hidden;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  font-size: 0.9rem;
-  font-weight: 700;
-  line-height: 1.3;
-  color: #fff;
-}
-
-.tile-price {
-  font-size: 1rem;
-  font-weight: 800;
-  color: #fff;
-}
-
-.tile-stock {
-  white-space: nowrap;
-  font-size: 0.72rem;
-  font-weight: 600;
-  color: var(--color-zinc-500);
-}
-
-.tile-stock.is-amber {
-  color: #fcd34d;
-}
-
-.tile-stock.is-red {
-  color: #fca5a5;
-}
-
-.tile-foot {
-  padding: 0 0.75rem 0.75rem;
-}
-
-/* small "Disable" link at the bottom of a tile */
-.tile-disable {
-  margin: 0 0.75rem 0.6rem;
-  align-self: flex-start;
-  font-size: 0.7rem;
-  font-weight: 700;
-  color: var(--color-zinc-500);
-}
-
-.tile-disable:hover {
-  color: #fca5a5;
 }
 
 /* the current sale */
