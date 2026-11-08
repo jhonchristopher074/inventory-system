@@ -8,9 +8,7 @@
   <div class="lg:flex lg:h-[calc(100dvh-8.6rem)] lg:min-h-[460px] lg:flex-col">
     <PageHeader
       title="Profile & Users"
-      :subtitle="isOwner
-        ? 'Manage owner, cashier, and staff accounts.'
-        : 'See the accounts. You can disable or enable staff, cashier and supplier accounts.'"
+      subtitle="User accounts and access."
     />
 
     <!-- MAIN -->
@@ -23,7 +21,7 @@
       <!-- ADD USER: the server generates a one-time temporary password.
            Phones: behind a button, so the user list isn't pushed down. -->
       <div class="lg:flex lg:min-h-0 lg:flex-col">
-        <!-- a Manager: who he is, his password, and what he can do here -->
+        <!-- a Manager: who he is, and his password -->
         <template v-if="!isOwner">
           <section class="card mb-4 shrink-0 overflow-hidden">
             <div class="me-head">
@@ -47,23 +45,6 @@
             </div>
           </section>
 
-          <section class="card mb-4 shrink-0 p-4">
-            <p class="text-[11px] font-bold uppercase tracking-[0.14em] text-zinc-500">What you can do here</p>
-            <ul class="mt-3 space-y-2.5 text-sm">
-              <li class="flex gap-2.5">
-                <span class="perm-dot bg-emerald-500/15 text-emerald-300" aria-hidden="true">✓</span>
-                <span class="text-zinc-300">See every account</span>
-              </li>
-              <li class="flex gap-2.5">
-                <span class="perm-dot bg-emerald-500/15 text-emerald-300" aria-hidden="true">✓</span>
-                <span class="text-zinc-300">Disable or enable <b class="text-white">staff, cashier</b> and <b class="text-white">supplier</b> accounts (⋯ on a row)</span>
-              </li>
-              <li class="flex gap-2.5">
-                <span class="perm-dot bg-white/5 text-zinc-500" aria-hidden="true">✕</span>
-                <span class="text-zinc-500">Add accounts, change roles, names, emails or passwords: the Owner does those</span>
-              </li>
-            </ul>
-          </section>
         </template>
 
         <!-- the store's logo: change it (crop, then your password) -->
