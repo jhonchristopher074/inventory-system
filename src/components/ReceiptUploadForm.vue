@@ -79,12 +79,12 @@
     </p>
     <div v-else-if="deliveries.length > 0">
       <label class="field-label" :for="`${uid}-delivery`">
-        For an arrived delivery? <span class="font-normal text-zinc-500">(optional)</span>
+        Is it for a delivery that already arrived? <span class="font-normal text-zinc-500">(optional)</span>
       </label>
       <select :id="`${uid}-delivery`" v-model="chosenDelivery" class="field-input" :disabled="busy" @change="fillSupplier">
         <option value="">No, not for one of these</option>
         <option v-for="delivery in deliveries" :key="delivery.id" :value="String(delivery.id)">
-          {{ delivery.title }}{{ delivery.supplier ? ` · ${delivery.supplier}` : '' }}
+          Yes: {{ delivery.title }}{{ delivery.supplier ? ` · ${delivery.supplier}` : '' }}
         </option>
       </select>
     </div>
@@ -187,7 +187,7 @@ const props = defineProps({
   deliveryTitle: { type: String, default: '' },
   // the supplier's name to start with (the delivery's)
   presetSupplier: { type: String, default: '' },
-  // owner: deliveries waiting for their receipt, to pick one (optional)
+  // deliveries that arrived and wait for their receipt, to pick one (optional)
   deliveries: { type: Array, default: () => [] },
 })
 
@@ -301,6 +301,7 @@ async function submit() {
       toast(`Sent "${row.file_name}" to the owner. You'll see here when it's approved.`)
       file.value = null
       supplierName.value = ''
+      chosenDelivery.value = ''
       note.value = ''
     }
 

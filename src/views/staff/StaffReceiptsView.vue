@@ -23,7 +23,9 @@
           </li>
         </ol>
 
-        <ReceiptUploadForm class="mt-4" mode="staff" @done="fetchUploads" />
+        <!-- a late receipt of an arrived delivery: pick it, and they're linked
+             (as the Calendar's "Upload its receipt" does) -->
+        <ReceiptUploadForm class="mt-4" mode="staff" :deliveries="waitingDeliveries" @done="onUploaded" />
       </section>
 
       <!-- MY UPLOADS -->
@@ -180,6 +182,23 @@ const ready = ref(true)
 const loading = ref(false)
 const listError = ref('')
 
+// Calendar deliveries that arrived without their receipt (lib/deliveries.js)
+const waitingDeliveries = ref([])
+
+async function fetchWaitingDeliveries() {
+  const { data, error } = await supabase.rpc('list_deliveries')
+  if (error) {
+    console.error(error)
+    return
+  }
+  waitingDeliveries.value = (data || []).filter((delivery) => delivery.receipt_state === 'waiting')
+}
+
+function onUploaded() {
+  fetchUploads()
+  fetchWaitingDeliveries()
+}
+
 async function fetchUploads() {
   loading.value = true
   try {
@@ -335,6 +354,7 @@ function onVisible() {
 
 onMounted(() => {
   fetchUploads()
+  fetchWaitingDeliveries()
   // only this person's rows reach them (the table's read policy)
   channel = supabase
     .channel(uniqueChannelName('staff-receipts'))
