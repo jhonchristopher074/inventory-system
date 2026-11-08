@@ -1,49 +1,37 @@
 <template>
   <div>
-    <!-- HEADER: one cashier's sales (their name was clicked), in the same
-         box as every page's title (PageHeader) -->
-    <div
-      v-if="selectedCashier"
-      class="mb-4 rounded-[26px] border border-white/10 bg-zinc-900/90 p-4 shadow-lg"
-    >
-      <button
-        type="button"
-        class="inline-flex items-center gap-2 rounded-xl border border-red-500/50 bg-red-600/15 px-4 py-2.5 text-sm font-bold text-red-100 transition hover:border-red-600 hover:bg-red-600 hover:text-white"
-        @click="showAllSales"
-      >
-        <NavIcon name="back" class="h-4 w-4" />
-        Back to all sales
-      </button>
-
-      <div class="mt-4 flex items-center gap-4">
-        <span
-          class="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-red-600 text-xl font-extrabold text-white"
-          aria-hidden="true"
-        >
-          {{ selectedCashier.initials }}
-        </span>
-
-        <div class="min-w-0">
-          <p class="text-[11px] font-bold uppercase tracking-[0.16em] text-red-400">
-            Cashier sales history
-          </p>
-          <h1 class="break-words text-2xl font-extrabold text-white">
-            {{ selectedCashier.name }}
-          </h1>
-          <p class="text-xs text-zinc-400">Only this cashier's sales are shown below.</p>
-        </div>
-      </div>
-    </div>
-
     <PageHeader
-      v-else
       title="Sales History"
-      subtitle="Monitor all cashier transactions, receipts and refunds. Click a cashier name to see their sales."
-    />
+      subtitle="Every sale, receipt and refund, by period and cashier."
+    >
+      <!-- download what's shown: a PDF to read or print, Excel with every detail -->
+      <div v-if="view === 'sales'" class="flex gap-2">
+        <button
+          type="button"
+          class="head-btn"
+          :disabled="filteredSales.length === 0 || exporting !== ''"
+          title="A table of the sales shown, easy to read and print"
+          @click="exportFile('pdf')"
+        >
+          <NavIcon name="download" class="h-4 w-4" />
+          {{ exporting === 'pdf' ? 'Making PDF…' : 'PDF' }}
+        </button>
+        <button
+          type="button"
+          class="head-btn"
+          :disabled="filteredSales.length === 0 || exporting !== ''"
+          title="The sales shown in Excel: totals, per cashier and per day, every sale, every product sold"
+          @click="exportFile('excel')"
+        >
+          <NavIcon name="download" class="h-4 w-4" />
+          {{ exporting === 'excel' ? 'Making Excel…' : 'Excel' }}
+        </button>
+      </div>
+    </PageHeader>
 
     <!-- Sales | Refunds (?view=refunds keeps it on a refresh, and the bell
          opens it). Refunds: components/RefundApprovals.vue -->
-    <div v-if="!selectedCashier" class="mb-4 inline-flex max-w-full gap-1 rounded-2xl border border-white/5 bg-zinc-900 p-1">
+    <div class="mb-4 inline-flex max-w-full gap-1 rounded-2xl border border-white/5 bg-zinc-900 p-1">
       <button
         v-for="tab in VIEW_TABS"
         :key="tab.key"
@@ -65,282 +53,317 @@
     </div>
 
     <RefundApprovals
-      v-if="view === 'refunds' && !selectedCashier"
+      v-if="view === 'refunds'"
       :refunds="refunds"
       :ready="refundsReady"
       @changed="fetchRefunds"
     />
 
     <template v-else>
+      <!-- FILTERS: period, then search and cashier -->
+      <SalesPeriodFilter v-model="range">
+        <template #end>
+          <div class="flex w-full gap-2">
+            <input
+              v-model="search"
+              type="search"
+              maxlength="80"
+              placeholder="Search sale, cashier, product"
+              aria-label="Search sales"
+              class="filter-box min-w-0 flex-1 sm:w-64 sm:flex-none"
+            />
+            <select
+              :value="cashierFilter"
+              class="filter-box w-[8.5rem] shrink-0 sm:w-40"
+              aria-label="Cashier"
+              @change="setCashier($event.target.value)"
+            >
+              <option value="">All cashiers</option>
+              <option v-for="option in cashierOptions" :key="option.key" :value="option.key">
+                {{ option.name }}
+              </option>
+            </select>
+          </div>
+        </template>
+      </SalesPeriodFilter>
 
-    <!-- DATE FILTER, with the cashier search at the right end of its row
-         (not needed once a cashier's name was clicked) -->
-    <SalesPeriodFilter v-model="range">
-      <template v-if="!selectedCashier" #end>
-        <input
-          maxlength="80"
-          v-model="cashierSearch"
-          type="search"
-          placeholder="Search cashier..."
-          aria-label="Search cashier"
-          list="cashier-names"
-          class="w-full rounded-full border border-white/10 bg-zinc-900 px-4 py-2 text-sm text-white outline-none placeholder:text-zinc-500 focus:border-red-500"
-        />
-        <!-- suggestions while typing: every cashier who has sales -->
-        <datalist id="cashier-names">
-          <option v-for="name in cashierNames" :key="name" :value="name" />
-        </datalist>
-      </template>
-    </SalesPeriodFilter>
-
-    <!-- SUMMARY of what's shown (date filter + cashier) -->
-    <div class="mb-6 grid gap-4 sm:grid-cols-3">
-      <div class="rounded-[24px] border border-white/10 bg-zinc-900 p-5">
-        <p class="text-sm text-zinc-400">Total sales</p>
-        <p class="mt-1 text-2xl font-extrabold text-red-400">
-          {{ peso(summaryTotal) }}
-        </p>
-      </div>
-
-      <div class="rounded-[24px] border border-white/10 bg-zinc-900 p-5">
-        <p class="text-sm text-zinc-400">Transactions</p>
-        <p class="mt-1 text-2xl font-extrabold text-white">
-          {{ count(filteredSales.length) }}
-        </p>
-      </div>
-
-      <div class="rounded-[24px] border border-white/10 bg-zinc-900 p-5">
-        <p class="text-sm text-zinc-400">Items sold</p>
-        <p class="mt-1 text-2xl font-extrabold text-white">
-          {{ count(summaryItems) }}
-        </p>
-      </div>
-    </div>
-
-    <!-- CHART + BEST SELLERS of what's shown -->
-    <SalesInsights :sales="filteredSales" :range="range" />
-
-    <!-- what the list shows, and download it: a PDF to read or print, an
-         Excel file with every detail -->
-    <div class="mb-3 flex flex-wrap items-center justify-between gap-3">
-      <!-- one cashier: whose sales these are (the header is scrolled out of
-           view by now; its "Back to all sales" button goes back) -->
-      <div v-if="selectedCashier" class="flex flex-wrap items-center gap-2 text-sm text-zinc-400">
-        <span>{{ salesCountText }} of</span>
-        <span class="inline-flex items-center gap-2 rounded-full border border-red-500/40 bg-red-600/10 py-1 pl-1 pr-3">
-          <span
-            class="grid h-6 w-6 place-items-center rounded-full bg-red-600 text-[0.65rem] font-extrabold text-white"
-            aria-hidden="true"
-          >
-            {{ selectedCashier.initials }}
-          </span>
+      <!-- one cashier picked: a chip to clear it -->
+      <div v-if="selectedCashier" class="mb-4 flex flex-wrap items-center gap-2 text-sm text-zinc-400">
+        Showing the sales of
+        <span class="inline-flex items-center gap-2 rounded-full border border-red-500/40 bg-red-600/10 py-1 pl-1 pr-1.5">
+          <span class="avatar h-6 w-6 text-[0.6rem]" aria-hidden="true">{{ selectedCashier.initials }}</span>
           <b class="text-white">{{ selectedCashier.name }}</b>
+          <button
+            type="button"
+            class="grid h-5 w-5 place-items-center rounded-full text-zinc-300 hover:bg-white/10 hover:text-white"
+            aria-label="Show every cashier"
+            title="Show every cashier"
+            @click="setCashier('')"
+          >
+            ✕
+          </button>
         </span>
       </div>
 
-      <p v-else class="text-sm text-zinc-400">{{ salesCountText }}</p>
+      <!-- SUMMARY of what's shown -->
+      <div class="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <div class="kpi tone-red">
+          <div class="kpi-top">
+            <p class="kpi-label">Net sales</p>
+            <span class="kpi-icon"><NavIcon name="sales" class="h-4 w-4" /></span>
+          </div>
+          <p class="kpi-value" :title="peso(summary.net)">{{ peso(summary.net) }}</p>
+          <p v-if="change" class="kpi-change" :class="change.up ? 'text-emerald-400' : 'text-red-400'">
+            <NavIcon :name="change.up ? 'up' : 'down'" class="h-3.5 w-3.5" />
+            {{ change.text }}
+          </p>
+          <p v-else class="kpi-sub">After refunds</p>
+        </div>
 
-      <div class="flex flex-wrap gap-2">
-        <button
-          class="rounded-xl bg-red-600 px-4 py-2 text-sm font-bold text-white transition hover:bg-red-700 disabled:opacity-50"
-          :disabled="filteredSales.length === 0 || exporting !== ''"
-          title="A table of the sales shown, easy to read and print"
-          @click="exportFile('pdf')"
-        >
-          {{ exporting === 'pdf' ? 'Making PDF…' : '⬇ PDF' }}
-        </button>
-        <button
-          class="rounded-xl border border-white/10 bg-zinc-900 px-4 py-2 text-sm font-bold text-white transition hover:bg-zinc-800 disabled:opacity-50"
-          :disabled="filteredSales.length === 0 || exporting !== ''"
-          title="The sales shown in Excel: totals, per cashier and per day, every sale, every product sold"
-          @click="exportFile('excel')"
-        >
-          {{ exporting === 'excel' ? 'Making Excel…' : '⬇ Excel' }}
-        </button>
+        <div class="kpi tone-blue">
+          <div class="kpi-top">
+            <p class="kpi-label">Transactions</p>
+            <span class="kpi-icon"><NavIcon name="pos" class="h-4 w-4" /></span>
+          </div>
+          <p class="kpi-value">{{ count(summary.count) }}</p>
+          <p class="kpi-sub">Avg. {{ peso(summary.average) }} a sale</p>
+        </div>
+
+        <div class="kpi tone-green">
+          <div class="kpi-top">
+            <p class="kpi-label">Items sold</p>
+            <span class="kpi-icon"><NavIcon name="inventory" class="h-4 w-4" /></span>
+          </div>
+          <p class="kpi-value">{{ count(summary.items) }}<span class="kpi-unit"> pcs</span></p>
+          <p class="kpi-sub">{{ count(summary.products) }} different products</p>
+        </div>
+
+        <div class="kpi tone-amber">
+          <div class="kpi-top">
+            <p class="kpi-label">Refunded</p>
+            <span class="kpi-icon"><NavIcon name="restore" class="h-4 w-4" /></span>
+          </div>
+          <p class="kpi-value" :title="peso(summary.refunded)">{{ peso(summary.refunded) }}</p>
+          <p class="kpi-sub">
+            {{ summary.refundedSales ? `${count(summary.refundedSales)} sale${summary.refundedSales === 1 ? '' : 's'}` : 'No refunds' }}
+          </p>
+        </div>
       </div>
-    </div>
 
-    <p v-if="exportError" class="mb-3 rounded-xl bg-red-600/20 p-3 text-sm text-red-400" role="alert">
-      {{ exportError }}
-    </p>
+      <!-- CHART + TOP SELLING of what's shown -->
+      <SalesInsights :sales="filteredSales" :range="range" />
 
-    <!-- TABLE: 10, 15 or all sales a page -->
-    <div ref="tableTop" class="scroll-mt-4 overflow-hidden rounded-[24px] border border-white/10 bg-zinc-900">
-      <table class="resp-table w-full border-collapse text-left">
-        <thead class="bg-black text-sm text-zinc-400">
-          <tr>
-            <th class="px-5 py-4">Sale ID</th>
-            <!-- one cashier: their name is already above the table -->
-            <th v-if="!selectedCashier" class="px-5 py-4">Cashier</th>
-            <th class="px-5 py-4">Date</th>
-            <th class="px-5 py-4">Items</th>
-            <th class="px-5 py-4">Total</th>
-            <th class="px-5 py-4">Receipt</th>
-          </tr>
-        </thead>
+      <p v-if="exportError" class="mb-3 rounded-xl bg-red-600/20 p-3 text-sm text-red-400" role="alert">
+        {{ exportError }}
+      </p>
 
-        <tbody>
-          <tr
-            v-for="sale in visibleSales"
-            :key="sale.id"
-            class="border-t border-white/10 transition hover:border-l-4 hover:border-l-blue-500 hover:bg-zinc-800/70"
-          >
-            <td data-label="Sale ID" class="px-5 py-4 font-bold text-white">
-              #{{ sale.id }}
-            </td>
+      <!-- TABLE: 10, 15 or all sales a page -->
+      <div ref="tableTop" class="card scroll-mt-4 overflow-hidden">
+        <div class="flex flex-wrap items-center justify-between gap-2 border-b border-white/5 px-4 py-3">
+          <h2 class="font-bold text-white">
+            Transactions
+            <span class="ml-1 text-sm font-semibold text-zinc-500">{{ count(filteredSales.length) }}</span>
+          </h2>
+          <p class="text-xs text-zinc-500">Click a sale to see its receipt.</p>
+        </div>
 
-            <td v-if="!selectedCashier" data-label="Cashier" class="px-5 py-4">
-              <button
-                class="font-semibold text-zinc-200 hover:text-red-400 hover:underline"
-                @click="openCashier(sale)"
-              >
-                {{ cashierName(sale) }}
-              </button>
-            </td>
+        <div class="overflow-x-auto">
+          <table class="data-table resp-table fixed-cols">
+            <colgroup>
+              <col class="w-[6rem]" />
+              <col class="w-[11rem]" />
+              <col class="w-[13rem]" />
+              <col />
+              <col class="w-[9rem]" />
+              <col class="w-[9.5rem]" />
+              <col class="w-[6.5rem]" />
+            </colgroup>
+            <thead>
+              <tr>
+                <th>Sale</th>
+                <th>
+                  <button type="button" class="sort-btn" @click="sortBy('date')">
+                    Date <span aria-hidden="true">{{ sortMark('date') }}</span>
+                  </button>
+                </th>
+                <th>Cashier</th>
+                <th>Items</th>
+                <th class="num">
+                  <button type="button" class="sort-btn ml-auto" @click="sortBy('total')">
+                    Total <span aria-hidden="true">{{ sortMark('total') }}</span>
+                  </button>
+                </th>
+                <th>Status</th>
+                <th class="text-right"><span class="sr-only">Receipt</span></th>
+              </tr>
+            </thead>
 
-            <td data-label="Date" class="px-5 py-4 text-zinc-300">
-              {{ formatDate(sale.created_at) }}
-            </td>
-
-            <td data-label="Items" class="px-5 py-4 text-zinc-300">
-              {{ sale.sale_items?.length || 0 }} item(s)
-            </td>
-
-            <td data-label="Total" class="px-5 py-4 font-bold text-red-400">
-              {{ peso(sale.total_amount) }}
-              <span v-if="Number(sale.refunded_amount) > 0" class="block text-xs font-bold text-amber-300">
-                {{ peso(sale.refunded_amount) }} refunded
-              </span>
-            </td>
-
-            <td data-label="Receipt" class="px-5 py-4">
-              <span
-                class="cursor-pointer font-bold text-blue-400 hover:underline"
+            <tbody>
+              <tr
+                v-for="sale in visibleSales"
+                :key="sale.id"
+                class="sale-row"
+                tabindex="0"
                 @click="openReceipt(sale)"
+                @keydown.enter="openReceipt(sale)"
               >
-                Receipt
-              </span>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+                <td class="cell-main">
+                  <span class="font-mono text-sm font-bold text-white">#{{ sale.id }}</span>
+                </td>
 
-      <p v-if="loading && sales.length === 0" class="p-6 text-center text-zinc-500">
-        Loading sales...
-      </p>
-      <p v-else-if="errorMessage" class="p-6 text-center text-red-400">
-        Couldn't load the sales: {{ errorMessage }}
-      </p>
-      <p v-else-if="filteredSales.length === 0" class="p-6 text-center text-zinc-500">
-        {{ sales.length === 0 ? 'No sales records found.' : 'No sales in this period.' }}
-      </p>
+                <td data-label="Date" class="whitespace-nowrap text-sm text-zinc-300" :title="fullDate(sale.created_at)">
+                  {{ dayAndTime(sale.created_at) }}
+                </td>
 
-      <TablePager
-        v-else
-        v-model:page="page"
-        v-model:page-size="pageSize"
-        :total="filteredSales.length"
-        noun="sales"
-      />
-    </div>
+                <td data-label="Cashier">
+                  <button
+                    type="button"
+                    class="flex min-w-0 items-center gap-2 text-left"
+                    :title="`Only ${cashierName(sale)}'s sales`"
+                    @click.stop="setCashier(String(cashierKey(sale)))"
+                  >
+                    <span class="avatar h-7 w-7 text-[0.62rem]" aria-hidden="true">{{ initialsOf(cashierName(sale)) }}</span>
+                    <span class="truncate text-sm font-semibold text-zinc-200 hover:text-white hover:underline">
+                      {{ cashierName(sale) }}
+                    </span>
+                  </button>
+                </td>
 
+                <td data-label="Items">
+                  <p class="truncate text-sm text-zinc-200" :title="itemNames(sale)">
+                    {{ firstItem(sale) }}
+                    <span v-if="moreItems(sale)" class="text-zinc-500">+{{ moreItems(sale) }} more</span>
+                  </p>
+                  <p class="text-xs text-zinc-500">{{ count(piecesOf(sale)) }} pcs</p>
+                </td>
+
+                <td data-label="Total" class="num">
+                  <p class="font-bold text-white">{{ peso(sale.total_amount) }}</p>
+                  <p v-if="Number(sale.refunded_amount) > 0" class="text-xs text-zinc-500 line-through">
+                    {{ peso(Number(sale.total_amount) + Number(sale.refunded_amount)) }}
+                  </p>
+                </td>
+
+                <td data-label="Status">
+                  <span class="status-chip" :class="statusOf(sale).tone">
+                    <i aria-hidden="true"></i>{{ statusOf(sale).label }}
+                  </span>
+                </td>
+
+                <td class="cell-actions">
+                  <div class="row-actions">
+                    <button
+                      type="button"
+                      class="view-btn"
+                      @click.stop="openReceipt(sale)"
+                    >
+                      <NavIcon name="docs" class="h-3.5 w-3.5" /> Receipt
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p v-if="loading && sales.length === 0" class="p-8 text-center text-zinc-500">
+          Loading sales…
+        </p>
+        <p v-else-if="errorMessage" class="p-8 text-center text-red-400">
+          Couldn't load the sales: {{ errorMessage }}
+        </p>
+        <div v-else-if="filteredSales.length === 0" class="p-10 text-center">
+          <p class="font-bold text-white">{{ sales.length === 0 ? 'No sales yet' : 'No sales match' }}</p>
+          <p class="mt-1 text-sm text-zinc-500">
+            {{ sales.length === 0 ? 'Sales from the POS show up here.' : 'Try another period, cashier or search.' }}
+          </p>
+        </div>
+
+        <TablePager
+          v-else
+          v-model:page="page"
+          v-model:page-size="pageSize"
+          :total="filteredSales.length"
+          noun="sales"
+        />
+      </div>
     </template>
 
-    <!-- RECEIPT MODAL -->
+    <!-- RECEIPT -->
     <div
       v-if="receiptSale"
       class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
       @click.self="receiptSale = null"
     >
-      <div class="max-h-[92vh] w-full max-w-md overflow-y-auto rounded-[24px] border border-white/10 bg-zinc-900 p-5">
-        <div id="receiptArea" class="rounded-2xl bg-white p-5 text-black">
-          <div class="text-center">
-            <h2 class="text-2xl font-extrabold">
-              10 FIVE 7 Hardware
-            </h2>
-
-            <p class="text-sm">
-              Inventory Management System
-            </p>
-
-            <p class="mt-2 text-xs">
-              Sales Receipt
-            </p>
+      <div
+        class="flex max-h-[92vh] w-full max-w-md flex-col rounded-[24px] border border-white/10 bg-zinc-900 p-5"
+        role="dialog"
+        aria-modal="true"
+        :aria-label="`Receipt of sale #${receiptSale.id}`"
+      >
+        <div class="mb-4 flex items-start justify-between gap-3">
+          <div class="min-w-0">
+            <p class="text-xs font-bold uppercase tracking-[0.14em] text-zinc-500">Receipt</p>
+            <h2 class="text-xl font-extrabold text-white">Sale #{{ receiptSale.id }}</h2>
+            <p class="text-xs text-zinc-400">{{ fullDate(receiptSale.created_at) }} · {{ cashierName(receiptSale) }}</p>
           </div>
+          <span class="status-chip mt-1 shrink-0" :class="statusOf(receiptSale).tone">
+            <i aria-hidden="true"></i>{{ statusOf(receiptSale).label }}
+          </span>
+        </div>
 
-          <div class="my-4 border-t border-dashed border-black"></div>
+        <div class="min-h-0 overflow-y-auto">
+          <div id="receiptArea" class="rounded-2xl bg-white p-5 text-black">
+            <div class="text-center">
+              <h2 class="text-2xl font-extrabold">10 FIVE 7 Hardware</h2>
+              <p class="text-sm">Inventory Management System</p>
+              <p class="mt-2 text-xs">Sales Receipt</p>
+            </div>
 
-          <div class="text-sm">
-            <p>
-              <strong>Sale No:</strong>
-              #{{ receiptSale.id }}
-            </p>
+            <div class="my-4 border-t border-dashed border-black"></div>
 
-            <p>
-              <strong>Date:</strong>
-              {{ formatDate(receiptSale.created_at) }}
-            </p>
+            <div class="text-sm">
+              <p><strong>Sale No:</strong> #{{ receiptSale.id }}</p>
+              <p><strong>Date:</strong> {{ fullDate(receiptSale.created_at) }}</p>
+              <p><strong>Cashier:</strong> {{ cashierName(receiptSale) }}</p>
+            </div>
 
-            <p>
-              <strong>Cashier:</strong>
-              {{ receiptSale.profiles?.full_name }}
-            </p>
-          </div>
+            <div class="my-4 border-t border-dashed border-black"></div>
 
-          <div class="my-4 border-t border-dashed border-black"></div>
-
-          <div class="space-y-3">
-            <div
-              v-for="item in receiptSale.sale_items"
-              :key="item.id"
-              class="text-sm"
-            >
-              <div class="flex justify-between">
-                <p class="font-bold">
-                  {{ item.product_name }}
-                </p>
-
-                <p>
-                  {{ peso(item.subtotal) }}
+            <div class="space-y-3">
+              <div v-for="item in receiptSale.sale_items" :key="item.id" class="text-sm">
+                <div class="flex justify-between gap-3">
+                  <p class="font-bold">{{ item.product_name }}</p>
+                  <p class="shrink-0">{{ peso(item.subtotal) }}</p>
+                </div>
+                <p class="text-xs">
+                  Qty: {{ count(item.quantity) }} × {{ peso(item.price) }}
+                  <template v-if="item.refunded_qty > 0"> · {{ count(item.refunded_qty) }} refunded</template>
                 </p>
               </div>
-
-              <p class="text-xs">
-                Qty: {{ count(item.quantity) }}
-                ×
-                {{ peso(item.price) }}
-                <template v-if="item.refunded_qty > 0"> · {{ count(item.refunded_qty) }} refunded</template>
-              </p>
             </div>
+
+            <div class="my-4 border-t border-dashed border-black"></div>
+
+            <div v-if="Number(receiptSale.refunded_amount) > 0" class="mb-1 flex justify-between text-sm">
+              <span>Refunded</span>
+              <span>−{{ peso(receiptSale.refunded_amount) }}</span>
+            </div>
+
+            <div class="flex justify-between text-lg font-extrabold">
+              <span>Total</span>
+              <span>{{ peso(receiptSale.total_amount) }}</span>
+            </div>
+
+            <p class="mt-5 text-center text-xs">Thank you for your purchase!</p>
           </div>
-
-          <div class="my-4 border-t border-dashed border-black"></div>
-
-          <div class="flex justify-between text-lg font-extrabold">
-            <span>Total</span>
-
-            <span>
-              {{ peso(receiptSale.total_amount) }}
-            </span>
-          </div>
-
-          <p class="mt-5 text-center text-xs">
-            Thank you for your purchase!
-          </p>
         </div>
 
         <div class="mt-4 grid grid-cols-2 gap-3">
-          <button
-            class="rounded-xl bg-zinc-800 py-3 font-bold text-white hover:bg-zinc-700"
-            @click="receiptSale = null"
-          >
+          <button class="rounded-xl bg-zinc-800 py-3 font-bold text-white hover:bg-zinc-700" @click="receiptSale = null">
             Close
           </button>
-
-          <button
-            class="rounded-xl bg-red-600 py-3 font-bold text-white hover:bg-red-700"
-            @click="printReceipt"
-          >
+          <button class="rounded-xl bg-red-600 py-3 font-bold text-white hover:bg-red-700" @click="printReceipt">
             Print
           </button>
         </div>
@@ -366,139 +389,201 @@ import TablePager from '../../components/TablePager.vue'
 import RefundApprovals from '../../components/RefundApprovals.vue'
 import { listAllRefunds } from '../../lib/refunds'
 import { useQueryParam } from '../../lib/useQueryParam'
-import { count, peso } from '../../lib/format'
+import { count, dayAndTime, peso } from '../../lib/format'
 
 const sales = ref([])
 const loading = ref(true) // until the first load is done
 const errorMessage = ref('')
 const receiptSale = ref(null)
 
-// The clicked cashier lives in the address (?cashier=<id>), so the browser's
-// Back button returns to all sales instead of leaving the page.
+/* ---- cashier: in the address (?cashier=<id>), so a link or a refresh keeps it ---- */
 const route = useRoute()
 const router = useRouter()
 
-const selectedCashier = computed(() => {
-  const key = route.query.cashier
-  if (!key) return null // show everyone
-  const sale = sales.value.find((s) => String(cashierKey(s)) === key)
-  if (sale) return { key, name: cashierName(sale), initials: initialsOf(cashierName(sale)) }
+const cashierFilter = computed(() => (typeof route.query.cashier === 'string' ? route.query.cashier : ''))
 
-  // still loading, or an old link to a cashier with no sales left
-  return { key, name: loading.value ? 'Loading…' : 'Unknown cashier', initials: '?' }
-})
+function setCashier(key) {
+  const query = { ...route.query }
+  if (key) query.cashier = key
+  else delete query.cashier
+  router.replace({ query })
+}
+
+function cashierName(sale) {
+  return sale.profiles?.full_name || sale.cashier_name || 'Unknown cashier'
+}
+
+// the cashier's id, so two cashiers with the same name are never mixed up
+function cashierKey(sale) {
+  return sale.cashier_id || sale.user_id || sale.created_by || sale.profiles?.id || cashierName(sale)
+}
 
 // "Maria Dela Cruz" → "MC"
 function initialsOf(name) {
-  const words = name.trim().split(/\s+/).filter(Boolean)
+  const words = String(name).trim().split(/\s+/).filter(Boolean)
   const letters = (words[0]?.[0] || '') + (words.length > 1 ? words[words.length - 1][0] : '')
   return letters.toUpperCase() || '?'
 }
 
-function openCashier(sale) {
-  router.push({ query: { ...route.query, cashier: String(cashierKey(sale)) } })
-}
-
-function showAllSales() {
-  // came here by clicking a name: go back, so Back/Forward stay in order
-  const back = window.history.state?.back
-  if (back && router.resolve(back).path === route.path && !router.resolve(back).query.cashier) {
-    router.back()
-  } else {
-    const query = { ...route.query }
-    delete query.cashier
-    router.replace({ query })
+// every cashier who has sales, A–Z
+const cashierOptions = computed(() => {
+  const seen = new Map()
+  for (const sale of sales.value) {
+    const key = String(cashierKey(sale))
+    if (!seen.has(key)) seen.set(key, { key, name: cashierName(sale) })
   }
-}
+  return [...seen.values()].sort((a, b) => a.name.localeCompare(b.name))
+})
 
+const selectedCashier = computed(() => {
+  if (!cashierFilter.value) return null
+  const option = cashierOptions.value.find((o) => o.key === cashierFilter.value)
+  const name = option?.name || (loading.value ? 'Loading…' : 'Unknown cashier')
+  return { key: cashierFilter.value, name, initials: option ? initialsOf(name) : '?' }
+})
+
+/* ---- period and search ---- */
 // { start, end } of the date filter (end not included); null = no limit
 const range = ref({ start: null, end: null })
+const search = ref('')
 
-// part of a cashier's name typed in the search box
-const cashierSearch = ref('')
-
-const cashierNames = computed(() =>
-  [...new Set(sales.value.map(cashierName))].sort((a, b) => a.localeCompare(b))
-)
-
-function inRange(sale) {
+function inWindow(sale, start, end) {
   const date = new Date(sale.created_at)
-  const { start, end } = range.value
   return (!start || date >= start) && (!end || date < end)
 }
 
-function cashierName(sale) {
-  return sale.profiles?.full_name || 'Unknown Cashier'
+function ofCashier(sale) {
+  return !cashierFilter.value || String(cashierKey(sale)) === cashierFilter.value
 }
 
-// Prefer the cashier's id so two cashiers with the same name are never mixed up.
-function cashierKey(sale) {
-  return (
-    sale.cashier_id ||
-    sale.user_id ||
-    sale.created_by ||
-    sale.profiles?.id ||
-    cashierName(sale)
-  )
+function matchesSearch(sale) {
+  const q = search.value.trim().toLowerCase().replace(/^#/, '')
+  if (!q) return true
+  if (String(sale.id) === q || String(sale.id).startsWith(q)) return true
+  if (cashierName(sale).toLowerCase().includes(q)) return true
+  return (sale.sale_items || []).some((item) => String(item.product_name || '').toLowerCase().includes(q))
 }
 
-// sales in the chosen period, of the chosen cashier (if any)
-const filteredSales = computed(() => {
-  const search = cashierSearch.value.trim().toLowerCase()
+// sales in the chosen period, of the chosen cashier, matching the search
+const filteredSales = computed(() =>
+  sales.value.filter((s) => ofCashier(s) && matchesSearch(s) && inWindow(s, range.value.start, range.value.end))
+)
 
-  return sales.value.filter(
-    (s) =>
-      (!selectedCashier.value || String(cashierKey(s)) === selectedCashier.value.key) &&
-      (selectedCashier.value || !search || cashierName(s).toLowerCase().includes(search)) &&
-      inRange(s)
-  )
+/* ---- sorting: date (newest first) or total ---- */
+const sortKey = ref('date')
+const sortDir = ref('desc')
+
+function sortBy(key) {
+  if (sortKey.value === key) sortDir.value = sortDir.value === 'desc' ? 'asc' : 'desc'
+  else {
+    sortKey.value = key
+    sortDir.value = 'desc'
+  }
+}
+
+function sortMark(key) {
+  if (sortKey.value !== key) return '↕'
+  return sortDir.value === 'desc' ? '↓' : '↑'
+}
+
+const sortedSales = computed(() => {
+  const list = [...filteredSales.value]
+  const sign = sortDir.value === 'desc' ? -1 : 1
+  if (sortKey.value === 'total') {
+    list.sort((a, b) => sign * (Number(a.total_amount || 0) - Number(b.total_amount || 0)))
+  } else {
+    list.sort((a, b) => sign * (new Date(a.created_at) - new Date(b.created_at)))
+  }
+  return list
 })
 
-const salesCountText = computed(
-  () => `${count(filteredSales.value.length)} sale${filteredSales.value.length === 1 ? '' : 's'}`
-)
+/* ---- summary ---- */
+function piecesOf(sale) {
+  return (sale.sale_items || []).reduce((n, item) => n + Number(item.quantity || 0), 0)
+}
 
-const summaryTotal = computed(() =>
-  filteredSales.value.reduce((sum, s) => sum + Number(s.total_amount || 0), 0)
-)
+function summarize(list) {
+  const net = list.reduce((sum, s) => sum + Number(s.total_amount || 0), 0)
+  const refunded = list.reduce((sum, s) => sum + Number(s.refunded_amount || 0), 0)
+  const products = new Set(list.flatMap((s) => (s.sale_items || []).map((i) => i.product_name)))
+  return {
+    net,
+    count: list.length,
+    average: list.length ? net / list.length : 0,
+    items: list.reduce((n, s) => n + piecesOf(s), 0),
+    products: products.size,
+    refunded,
+    refundedSales: list.filter((s) => Number(s.refunded_amount) > 0).length,
+  }
+}
 
-const summaryItems = computed(() =>
-  filteredSales.value.reduce(
-    (sum, s) =>
-      sum + (s.sale_items || []).reduce((n, i) => n + Number(i.quantity || 0), 0),
-    0
-  )
-)
+const summary = computed(() => summarize(filteredSales.value))
 
-// 10, 15 or all sales a page, with page buttons under the table. The choice
-// is remembered on this device.
+// against the period just before, of the same length ("↑ 12% vs previous 7 days")
+const change = computed(() => {
+  const { start, end } = range.value
+  if (!start) return null
+  const stop = end || new Date()
+  const length = stop - start
+  const previous = sales.value.filter((s) => ofCashier(s) && matchesSearch(s) && inWindow(s, new Date(start - length), start))
+  const before = summarize(previous).net
+  if (!before) return null
+  const pct = Math.round(((summary.value.net - before) / before) * 100)
+  const days = Math.max(1, Math.round(length / 86400000))
+  return {
+    up: pct >= 0,
+    text: `${pct >= 0 ? '+' : ''}${pct}% vs previous ${days === 1 ? 'day' : `${days} days`}`,
+  }
+})
+
+/* ---- a row ---- */
+function statusOf(sale) {
+  const refunded = Number(sale.refunded_amount || 0)
+  if (refunded > 0 && Number(sale.total_amount || 0) <= 0) return { label: 'Refunded', tone: 'is-red' }
+  if (refunded > 0) return { label: 'Part refunded', tone: 'is-amber' }
+  return { label: 'Paid', tone: 'is-green' }
+}
+
+function firstItem(sale) {
+  return sale.sale_items?.[0]?.product_name || 'No items'
+}
+
+function moreItems(sale) {
+  return Math.max(0, (sale.sale_items?.length || 0) - 1)
+}
+
+function itemNames(sale) {
+  return (sale.sale_items || []).map((i) => `${i.product_name} × ${i.quantity}`).join('\n')
+}
+
+function fullDate(date) {
+  return new Date(date).toLocaleString(undefined, {
+    month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit',
+  })
+}
+
+/* ---- pages: 10, 15 or all sales (the choice is remembered on this device) ---- */
 const tableTop = ref(null)
 const {
   page,
   pageSize,
   visible: visibleSales,
   reset: resetPage,
-} = usePagination(filteredSales, { storageKey: 'adminSales', scrollTarget: tableTop })
+} = usePagination(sortedSales, { storageKey: 'adminSales', scrollTarget: tableTop })
 
-// another period, cashier or search starts again at page 1
-watch([range, () => route.query.cashier, cashierSearch], resetPage)
+// another period, cashier, search or order starts again at page 1
+watch([range, cashierFilter, search, sortKey, sortDir], resetPage)
 
-// Downloads the sales shown (date filter + cashier):
-//   'pdf'    a table to read or print (lib/salesPdf.js)
-//   'excel'  every detail, in sheets Excel can add up and filter (lib/salesExcel.js)
-// Each library is downloaded only the first time its button is pressed.
+/* ---- downloads of what's shown (lib/salesPdf.js, lib/salesExcel.js) ---- */
 const exporting = ref('') // 'pdf' | 'excel' while a file is being made
 const exportError = ref('')
 
 // whose sales are shown, for the file's heading and name ('' = everyone)
 function cashiersShown() {
   if (selectedCashier.value) return selectedCashier.value.name
-  if (!cashierSearch.value.trim()) return ''
-
+  if (!search.value.trim()) return ''
   const names = [...new Set(filteredSales.value.map(cashierName))]
-  return names.length <= 3
-    ? names.join(', ')
-    : `${names.slice(0, 3).join(', ')} and ${names.length - 3} more`
+  return names.length <= 3 ? names.join(', ') : `${names.slice(0, 3).join(', ')} and ${names.length - 3} more`
 }
 
 async function exportFile(kind) {
@@ -508,7 +593,7 @@ async function exportFile(kind) {
   exportError.value = ''
 
   const options = {
-    sales: filteredSales.value,
+    sales: newestFirst(filteredSales.value),
     range: range.value,
     who: cashiersShown(),
     cashierOf: cashierName,
@@ -540,16 +625,11 @@ async function fetchSales() {
     return
   }
 
-  // the latest sale first, the same order as in the PDF and Excel file
   sales.value = newestFirst(data || [])
 }
 
 function openReceipt(sale) {
   receiptSale.value = sale
-}
-
-function formatDate(date) {
-  return new Date(date).toLocaleString()
 }
 
 function printReceipt() {
@@ -590,3 +670,143 @@ onMounted(() => {
   fetchRefunds()
 })
 </script>
+
+<style scoped src="../../styles/dashboard.css"></style>
+
+<style scoped>
+/* the PDF / Excel buttons in the page header */
+.head-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border-radius: 0.75rem;
+  border: 1px solid var(--hairline);
+  background: var(--surface-sunken);
+  padding: 0.5rem 0.85rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #fff;
+  transition: background-color 0.15s, border-color 0.15s;
+}
+
+.head-btn:hover:not(:disabled) {
+  border-color: rgba(224, 27, 50, 0.45);
+  background: rgba(224, 27, 50, 0.12);
+}
+
+.head-btn:disabled {
+  opacity: 0.5;
+}
+
+/* search and cashier, next to the period buttons */
+.filter-box {
+  border-radius: 999px;
+  border: 1px solid var(--hairline);
+  background: var(--color-zinc-900);
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  color: #fff;
+  outline: none;
+}
+
+.filter-box:focus {
+  border-color: rgba(224, 27, 50, 0.55);
+}
+
+.filter-box::placeholder {
+  color: var(--color-zinc-500);
+}
+
+/* initials in a red circle */
+.avatar {
+  display: grid;
+  flex: none;
+  place-items: center;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--brand) 22%, transparent);
+  font-weight: 800;
+  color: #fecaca;
+}
+
+.sale-row {
+  cursor: pointer;
+}
+
+.sale-row:focus-visible {
+  outline: 2px solid rgba(224, 27, 50, 0.6);
+  outline-offset: -2px;
+}
+
+/* Receipt button of a row */
+.view-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  white-space: nowrap;
+  border-radius: 0.6rem;
+  background: var(--color-zinc-800);
+  padding: 0.4rem 0.7rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--color-zinc-200);
+}
+
+.view-btn:hover {
+  background: var(--color-zinc-700);
+  color: #fff;
+}
+
+/* Date / Total headers: click to sort */
+.sort-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  color: inherit;
+}
+
+.sort-btn:hover {
+  color: #fff;
+}
+
+.sort-btn span {
+  font-size: 0.8rem;
+  letter-spacing: 0;
+}
+
+/* Paid / Part refunded / Refunded */
+.status-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  white-space: nowrap;
+  border-radius: 999px;
+  padding: 0.2rem 0.6rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.status-chip i {
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: 999px;
+  background: currentColor;
+}
+
+.status-chip.is-green {
+  background: rgba(16, 185, 129, 0.14);
+  color: #6ee7b7;
+}
+
+.status-chip.is-amber {
+  background: rgba(245, 158, 11, 0.14);
+  color: #fcd34d;
+}
+
+.status-chip.is-red {
+  background: rgba(239, 68, 68, 0.14);
+  color: #fca5a5;
+}
+</style>

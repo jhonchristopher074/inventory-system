@@ -103,7 +103,7 @@ watch([period, from, to], () => {
 
     <!-- e.g. the admin's cashier search: right end of the same row
          (its own line on phones) -->
-    <div v-if="$slots.end" class="w-full pb-1 sm:ml-auto sm:w-64">
+    <div v-if="$slots.end" class="w-full pb-1 sm:ml-auto sm:w-auto">
       <slot name="end" />
     </div>
     </div>
