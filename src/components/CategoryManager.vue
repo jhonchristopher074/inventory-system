@@ -334,6 +334,17 @@ function moveChecked(event) {
   checked.clear()
 }
 
+// "Remove" beside a product's menu: drops a pick not saved yet, or marks a
+// product to come out of its category (Uncategorized, on Save changes)
+function takeOutOfCategory(product) {
+  if (staged.has(product.id)) staged.delete(product.id)
+  else if (categoryOf(product) !== NO_CATEGORY) staged.set(product.id, NO_CATEGORY)
+}
+
+function canRemove(product) {
+  return staged.has(product.id) || categoryOf(product) !== NO_CATEGORY
+}
+
 function discardStaged() {
   staged.clear()
 }
@@ -935,7 +946,7 @@ onBeforeUnmount(() => {
                     <span class="min-w-0 flex-1">
                       <span class="block truncate text-sm text-zinc-200">{{ product.name }}</span>
                       <span v-if="staged.has(product.id)" class="block text-xs font-bold text-amber-300">
-                        → {{ staged.get(product.id) }} (not saved)
+                        {{ staged.get(product.id) === NO_CATEGORY ? 'Out of its category' : `→ ${staged.get(product.id)}` }} (not saved)
                       </span>
                     </span>
 
@@ -950,6 +961,17 @@ onBeforeUnmount(() => {
                       <option v-if="isUncategorized" value="">Select category</option>
                       <option v-for="name in categoryNames" :key="name" :value="name">{{ name }}</option>
                     </select>
+
+                    <!-- just a word: take the category off (or drop the pick) -->
+                    <button
+                      v-if="canRemove(product)"
+                      type="button"
+                      class="remove-link"
+                      :title="staged.has(product.id) ? 'Drop this pick' : 'Take it out of ' + categoryOf(product)"
+                      @click="takeOutOfCategory(product)"
+                    >
+                      Remove
+                    </button>
                   </li>
 
                   <li v-if="productsHere.length === 0" class="px-3 py-8 text-center text-sm text-zinc-500">
@@ -1137,6 +1159,21 @@ onBeforeUnmount(() => {
 .move-select:focus-visible {
   border-color: rgba(224, 27, 50, 0.45);
   color: #fff;
+}
+
+/* "Remove": a plain word beside the menu */
+.remove-link {
+  flex: none;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--color-zinc-400);
+}
+
+.remove-link:hover,
+.remove-link:focus-visible {
+  outline: none;
+  color: #ff6b7d;
+  text-decoration: underline;
 }
 
 /* picked, not saved yet */
