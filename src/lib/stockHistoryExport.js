@@ -1,8 +1,10 @@
-// Stock History → a file for the audit trail: Excel (.xlsx) or CSV.
+// Stock History → a file for the audit trail: PDF or Excel (.xlsx).
 // Every change given (the page passes the ones its search shows, all
 // pages), newest first, with who and why.
 //
-//   downloadStockHistory({ movements, product, madeBy, format: 'xlsx' | 'csv' })
+//   downloadStockHistory({ movements, product, madeBy, format: 'pdf' | 'xlsx' })
+//
+// The libraries (Excel, PDF) are downloaded only when a file is made.
 
 const SHOP = '10 FIVE 7 Hardware'
 const BRAND = 'FFE01B32'
@@ -57,19 +59,93 @@ function save(blob, name) {
   setTimeout(() => URL.revokeObjectURL(url), 10000)
 }
 
-/* ---------------- CSV ---------------- */
-function csvCell(value) {
-  const text = String(value ?? '')
-  // a leading = + - @ would run as a formula in Excel: keep it text
-  const safe = /^[=+\-@]/.test(text) && !/^-?\d+(\.\d+)?$/.test(text) ? `'${text}` : text
-  return /[",\n\r]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe
+/* ---------------- PDF ---------------- */
+// The PDF's built-in font has no ₱ and few symbols: Latin-1 only
+function pdfText(value) {
+  return String(value ?? '')
+    .replace(/\s+/g, ' ')
+    .replace(/[‘’′]/g, "'")
+    .replace(/[“”″]/g, '"')
+    .replace(/[–—]/g, '-')
+    .replace(/…/g, '...')
+    .replace(/[^\x20-\x7e\xa0-\xff]/g, '?')
+    .trim()
 }
 
-function toCsv(rows) {
-  const head = ['Date', 'Time', 'Product', 'Change', 'Before', 'After', 'Reason', 'By', 'Recorded as']
-  const lines = [head, ...rows.map((r) => [r.date, r.time, r.product, r.change, r.before, r.after, r.reason, r.by, r.recorded])]
-  // BOM: Excel opens it as UTF-8 (₱, ñ…)
-  return '﻿' + lines.map((line) => line.map(csvCell).join(',')).join('\r\n')
+async function toPdf(rows, { product, madeBy, made }) {
+  const [{ jsPDF }, { autoTable }] = await Promise.all([import('jspdf'), import('jspdf-autotable')])
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })
+  const pageWidth = doc.internal.pageSize.getWidth()
+  const pageHeight = doc.internal.pageSize.getHeight()
+  const margin = 12
+
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(16)
+  doc.setTextColor(20)
+  doc.text(SHOP, margin, 16)
+
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(11)
+  doc.setTextColor(90)
+  doc.text('Stock history (audit trail)', margin, 22)
+
+  doc.setFontSize(9)
+  doc.text(
+    [
+      `Product: ${pdfText(product ? product.name : 'All products')}`,
+      `Printed: ${dayText(made)}, ${timeText(made)}${madeBy ? ` by ${pdfText(madeBy)}` : ''}`,
+      `Changes: ${rows.length}`,
+    ].join('     '),
+    margin,
+    28
+  )
+
+  const right = (content) => ({ content, styles: { halign: 'right' } })
+  autoTable(doc, {
+    startY: 33,
+    head: [['Date', 'Time', 'Product', right('Change'), right('Before'), right('After'), 'Reason', 'By', 'Recorded as']],
+    body: rows.map((r) => [
+      r.date,
+      r.time,
+      pdfText(r.product),
+      `${r.change > 0 ? '+' : ''}${r.change}`,
+      String(r.before),
+      String(r.after),
+      pdfText(r.reason),
+      pdfText(r.by),
+      pdfText(r.recorded),
+    ]),
+    theme: 'grid',
+    margin: { left: margin, right: margin, top: 14, bottom: 16 },
+    styles: { font: 'helvetica', fontSize: 8.5, cellPadding: 1.8, textColor: 30, lineColor: [215, 215, 220], lineWidth: 0.1 },
+    headStyles: { fillColor: [224, 27, 50], textColor: 255, fontStyle: 'bold' },
+    alternateRowStyles: { fillColor: [248, 248, 250] },
+    columnStyles: {
+      0: { cellWidth: 24 },
+      1: { cellWidth: 18 },
+      3: { cellWidth: 16, halign: 'right', fontStyle: 'bold' },
+      4: { cellWidth: 16, halign: 'right' },
+      5: { cellWidth: 16, halign: 'right' },
+    },
+    // + green, - red
+    didParseCell(data) {
+      if (data.section === 'body' && data.column.index === 3) {
+        const n = Number(data.cell.raw)
+        data.cell.styles.textColor = n > 0 ? [5, 150, 105] : n < 0 ? [220, 38, 38] : [107, 107, 118]
+      }
+    },
+  })
+
+  const pages = doc.getNumberOfPages()
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(8)
+  doc.setTextColor(120)
+  for (let n = 1; n <= pages; n++) {
+    doc.setPage(n)
+    doc.text(`${SHOP} - Stock history`, margin, pageHeight - 8)
+    doc.text(`Page ${n} of ${pages}`, pageWidth - margin, pageHeight - 8, { align: 'right' })
+  }
+  return doc
 }
 
 /* ---------------- Excel ---------------- */
@@ -119,8 +195,9 @@ async function toXlsx(rows, { product, madeBy, made }) {
 export async function downloadStockHistory({ movements, product = null, madeBy = '', format = 'xlsx' }) {
   const made = new Date()
   const rows = movements.map(rowOf)
-  if (format === 'csv') {
-    save(new Blob([toCsv(rows)], { type: 'text/csv;charset=utf-8' }), fileNameFor(product, 'csv', made))
+  if (format === 'pdf') {
+    const doc = await toPdf(rows, { product, madeBy, made })
+    doc.save(fileNameFor(product, 'pdf', made))
     return
   }
   const buffer = await toXlsx(rows, { product, madeBy, made })

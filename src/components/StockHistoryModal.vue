@@ -129,34 +129,6 @@ onMounted(fetchMovements)
           </div>
 
           <div class="flex shrink-0 items-center gap-2">
-            <!-- download for the audit trail -->
-            <div v-if="movements.length > 0" class="relative">
-              <button
-                type="button"
-                class="inline-flex items-center gap-1.5 rounded-xl bg-white/10 px-3.5 py-2 text-sm font-bold text-white hover:bg-white/15 disabled:opacity-50"
-                :disabled="Boolean(exporting)"
-                :aria-expanded="exportOpen"
-                @click="exportOpen = !exportOpen"
-              >
-                <NavIcon name="download" class="h-4 w-4" />
-                {{ exporting ? 'Exporting…' : 'Export' }}
-              </button>
-              <div
-                v-if="exportOpen"
-                class="absolute right-0 top-full z-10 mt-1.5 w-56 overflow-hidden rounded-xl border border-white/10 bg-zinc-800 shadow-2xl"
-                role="menu"
-              >
-                <button type="button" role="menuitem" class="export-item" @click="exportAs('xlsx')">
-                  <b>Excel (.xlsx)</b>
-                  <span>Formatted, ready to print</span>
-                </button>
-                <button type="button" role="menuitem" class="export-item" @click="exportAs('csv')">
-                  <b>CSV (.csv)</b>
-                  <span>For other programs</span>
-                </button>
-              </div>
-            </div>
-
             <button
               class="rounded-full bg-zinc-800 px-4 py-2 font-bold text-white hover:bg-zinc-700"
               aria-label="Close"
@@ -247,7 +219,37 @@ onMounted(fetchMovements)
           :total="shown.length"
           noun="changes"
           class="mt-3"
-        />
+        >
+          <!-- download for the audit trail: every change the search shows -->
+          <template #actions>
+            <div class="relative">
+              <button
+                type="button"
+                class="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-zinc-900 px-3 py-1.5 text-sm font-bold text-white hover:bg-zinc-800 disabled:opacity-50"
+                :disabled="Boolean(exporting)"
+                :aria-expanded="exportOpen"
+                @click="exportOpen = !exportOpen"
+              >
+                <NavIcon name="download" class="h-4 w-4" />
+                {{ exporting ? 'Exporting…' : 'Export' }}
+              </button>
+              <div
+                v-if="exportOpen"
+                class="absolute bottom-full right-0 z-10 mb-1.5 w-52 overflow-hidden rounded-xl border border-white/10 bg-zinc-800 shadow-2xl"
+                role="menu"
+              >
+                <button type="button" role="menuitem" class="export-item" @click="exportAs('pdf')">
+                  <b>PDF</b>
+                  <span>Ready to print or send</span>
+                </button>
+                <button type="button" role="menuitem" class="export-item" @click="exportAs('xlsx')">
+                  <b>Excel (.xlsx)</b>
+                  <span>To sort and filter</span>
+                </button>
+              </div>
+            </div>
+          </template>
+        </TablePager>
       </div>
     </div>
   </Teleport>

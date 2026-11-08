@@ -60,6 +60,9 @@ function goTo(n) {
     </p>
 
     <div class="flex flex-wrap items-center gap-3">
+      <!-- e.g. Stock History's Export -->
+      <slot name="actions" />
+
       <label class="flex items-center gap-2 text-sm text-zinc-400">
         {{ label }}
         <select
