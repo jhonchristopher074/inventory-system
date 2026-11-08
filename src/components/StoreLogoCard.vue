@@ -3,20 +3,22 @@
        square, then type your password to put it up. Only the current logo
        is kept: the old file is deleted. (lib/storeLogo.js, and the SQL in
        supabase/migrations/20261101000002_store_logo.sql) -->
-  <div class="card p-4">
+  <!-- flat: a row inside another card (Profile: with the Backup) -->
+  <div :class="flat ? 'p-3.5' : 'card p-4'">
     <!-- one row, so the Profile page fits the screen; what's allowed is in
          the button's hint (and a wrong file is refused with a message) -->
     <div class="flex items-center gap-3">
       <img
         :src="logoUrl"
         alt="The store logo"
-        class="h-12 w-12 shrink-0 rounded-xl bg-black/30 object-contain p-1"
+        class="shrink-0 rounded-xl bg-black/30 object-contain p-1"
+        :class="flat ? 'h-10 w-10' : 'h-12 w-12'"
         @error="showDefaultLogo"
       />
       <div class="min-w-0 flex-1" title="Shown in the menu, on the login page and in the browser tab">
         <p class="font-bold text-white">Store logo</p>
         <p class="truncate text-xs text-zinc-500">{{ logoPath ? 'Your logo' : 'Built-in logo' }}</p>
-        <p class="truncate text-xs text-zinc-500">Pictures only (PNG, JPG, WebP) · up to 10 MB</p>
+        <p v-if="!flat" class="truncate text-xs text-zinc-500">Pictures only (PNG, JPG, WebP) · up to 10 MB</p>
       </div>
 
       <!-- a label, so the whole button opens the file picker -->
@@ -65,6 +67,8 @@
 </template>
 
 <script setup>
+defineProps({ flat: Boolean })
+
 import { ref } from 'vue'
 import { supabase } from '../lib/supabase'
 import {

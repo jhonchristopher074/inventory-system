@@ -1,21 +1,22 @@
 <template>
   <!-- The Owner's backup (Profile page): every table in one Excel file.
        lib/backup.js, and supabase/migrations/20261116000001. -->
-  <div class="card p-4">
+  <!-- flat: a row inside another card (Profile: with the Store logo) -->
+  <div :class="flat ? 'p-3.5' : 'card p-4'">
     <div class="flex items-center gap-3">
       <span
-        class="grid h-12 w-12 shrink-0 place-items-center rounded-xl"
-        :class="stale ? 'bg-amber-500/15 text-amber-300' : 'bg-emerald-500/15 text-emerald-300'"
+        class="grid shrink-0 place-items-center rounded-xl"
+        :class="[flat ? 'h-10 w-10' : 'h-12 w-12', stale ? 'bg-amber-500/15 text-amber-300' : 'bg-emerald-500/15 text-emerald-300']"
       >
         <NavIcon name="download" class="h-5 w-5" />
       </span>
 
-      <div class="min-w-0 flex-1">
+      <div class="min-w-0 flex-1" title="Every table, in one Excel file">
         <p class="font-bold text-white">Backup</p>
         <p class="truncate text-xs" :class="stale ? 'text-amber-300' : 'text-zinc-500'" :title="lastTitle">
           {{ lastText }}
         </p>
-        <p class="truncate text-xs text-zinc-500">Every table, one Excel file</p>
+        <p v-if="!flat" class="truncate text-xs text-zinc-500">Every table, one Excel file</p>
       </div>
 
       <button
@@ -38,6 +39,8 @@ import { currentUser } from '../lib/currentUser'
 import { count } from '../lib/format'
 import { toast } from '../lib/toast'
 import NavIcon from './NavIcon.vue'
+
+defineProps({ flat: Boolean })
 
 // a backup older than this is flagged
 const STALE_DAYS = 7

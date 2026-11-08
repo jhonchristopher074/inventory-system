@@ -48,10 +48,11 @@
         </template>
 
         <!-- the store's logo: change it (crop, then your password) -->
-        <StoreLogoCard class="mb-4 shrink-0" />
-
-        <!-- the Owner's backup: every table in one Excel file -->
-        <BackupCard v-if="isOwner" class="mb-4 shrink-0" />
+        <!-- the store: its logo, and (the Owner) the backup, one card -->
+        <div class="card mb-4 shrink-0 divide-y divide-white/10 !p-0">
+          <StoreLogoCard flat />
+          <BackupCard v-if="isOwner" flat />
+        </div>
 
         <button
           v-if="isOwner"
