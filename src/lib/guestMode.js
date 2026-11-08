@@ -9,12 +9,13 @@ const KEY = 'guestMode'
 
 export const GUEST_ROLES = [
   { role: 'admin', label: 'Owner', hint: 'Dashboard, inventory, approvals, sales' },
+  { role: 'manager', label: 'Manager', hint: 'Runs the store; accounts: disable / enable only' },
   { role: 'staff', label: 'Staff', hint: 'Inspections, deliveries, receipts' },
   { role: 'cashier', label: 'Cashier', hint: 'POS and sales' },
   { role: 'supplier', label: 'Supplier', hint: 'Upload receipts' },
 ]
 
-// 'admin' | 'staff' | 'cashier' | 'supplier', or '' when not a guest
+// 'admin' | 'manager' | 'staff' | 'cashier' | 'supplier', or '' when not a guest
 export function guestRole() {
   try {
     const role = sessionStorage.getItem(KEY) || ''

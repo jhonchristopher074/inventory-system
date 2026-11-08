@@ -12,7 +12,7 @@ const VIEW_ONLY = { message: GUEST_MESSAGE }
 const READS = /^(list_|get_|admin_list_|supplier_list_|supplier_take_|unread_|reset_email_|admin_receipt_notes|admin_reorder_candidates|my_)/
 
 export function createDemoClient(role) {
-  const label = { admin: 'Owner', staff: 'Staff', cashier: 'Cashier', supplier: 'Supplier' }[role] || 'Guest'
+  const label = { admin: 'Owner', manager: 'Manager', staff: 'Staff', cashier: 'Cashier', supplier: 'Supplier' }[role] || 'Guest'
   const day = 864e5
   const now = Date.now()
 
@@ -40,9 +40,51 @@ export function createDemoClient(role) {
     }
   }
 
+  // Stock history: a few changes per product, ending at today's stock
+  const STAFF = ['Guest Owner', 'Steve Cruz', 'Juan Dela Cruz', 'Ria Manager']
+  const STEPS = [
+    { reason: 'Sale', change: -2, by: 2 },
+    { reason: 'Receipt approved', change: 20, by: 0 },
+    { reason: 'Sale', change: -1, by: 2 },
+    { reason: 'Inspection return', change: -3, by: 1 },
+    { reason: 'Stock added', change: 12, by: 3 },
+    { reason: 'Quantity edited', change: 2, by: 0 },
+    { reason: 'Sale', change: -4, by: 2 },
+  ]
+  const movements = []
+  products.forEach((product, i) => {
+    let after = product.quantity
+    for (let k = 0; k < STEPS.length; k++) {
+      const step = STEPS[(i + k) % STEPS.length]
+      // never below zero: an addition bigger than the stock after it is
+      // shown as a sale instead (stock before = after + the pieces sold)
+      const tooBig = after - step.change < 0
+      const change = tooBig ? -2 : step.change
+      const reason = tooBig ? 'Sale' : step.reason
+      const before = after - change
+      movements.push({
+        id: movements.length + 1,
+        created_at: new Date(now - (i * 5 + k * 19 + 1) * 36e5).toISOString(),
+        product_id: product.id, product_name: product.name,
+        change, old_quantity: before, new_quantity: after, reason,
+        changed_by_name: STAFF[tooBig ? 2 : step.by], recorded_by_name: STAFF[tooBig ? 2 : step.by],
+      })
+      after = before
+    }
+    movements.push({
+      id: movements.length + 1,
+      created_at: new Date(now - (i * 5 + STEPS.length * 19 + 4) * 36e5).toISOString(),
+      product_id: product.id, product_name: product.name,
+      change: after, old_quantity: 0, new_quantity: after, reason: 'New product',
+      changed_by_name: STAFF[0], recorded_by_name: STAFF[0],
+    })
+  })
+  movements.sort((a, b) => b.created_at.localeCompare(a.created_at))
+
   const data = {
     get_my_profile: { id: 'guest', role, is_active: true, is_hidden: false, email: 'guest@example.com', full_name: `Guest ${label}` },
-    get_my_role: role,
+    // the server reads a Manager as the Owner (get_my_role)
+    get_my_role: role === 'manager' ? 'admin' : role,
     unread_notification_count: 3,
     list_products: products,
     list_all_sales: sales,
@@ -66,6 +108,7 @@ export function createDemoClient(role) {
     ],
     admin_list_users: [
       { id: 'u1', full_name: 'Guest Owner', email: 'owner@example.com', role: 'admin', is_active: true, account_no: '000000001' },
+      { id: 'u8', full_name: 'Ria Manager', email: 'ria@example.com', role: 'manager', is_active: true, account_no: '000000009' },
       { id: 'u2', full_name: 'Steve Cruz', email: 'steve@example.com', role: 'staff', is_active: true, account_no: '000000002' },
       { id: 'u3', full_name: 'Alex Reyes', email: 'alex@example.com', role: 'staff', is_active: true, account_no: '000000004' },
       { id: 'u4', full_name: 'Ian Santos', email: 'ian@example.com', role: 'cashier', is_active: true, account_no: '000000003' },
@@ -177,7 +220,11 @@ export function createDemoClient(role) {
       // logging out ends guest mode (the page asks lib/guestMode to)
       signOut: async () => ({ error: null }),
     },
-    rpc: async (name) => {
+    rpc: async (name, args = {}) => {
+      if (name === 'list_stock_movements') {
+        const rows = args.p_product_id ? movements.filter((m) => m.product_id === args.p_product_id) : movements
+        return { data: rows, error: null }
+      }
       if (name in data) return { data: data[name], error: null }
       if (READS.test(name)) return { data: name.startsWith('get_') || name.startsWith('unread_') ? null : [], error: null }
       return { data: null, error: VIEW_ONLY }
