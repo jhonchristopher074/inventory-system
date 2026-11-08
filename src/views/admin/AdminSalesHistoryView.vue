@@ -3,31 +3,7 @@
     <PageHeader
       title="Sales History"
       subtitle="Every sale, receipt and refund, by period and cashier."
-    >
-      <!-- download what's shown: a PDF to read or print, Excel with every detail -->
-      <div v-if="view === 'sales'" class="flex gap-2">
-        <button
-          type="button"
-          class="head-btn"
-          :disabled="filteredSales.length === 0 || exporting !== ''"
-          title="A table of the sales shown, easy to read and print"
-          @click="exportFile('pdf')"
-        >
-          <NavIcon name="download" class="h-4 w-4" />
-          {{ exporting === 'pdf' ? 'Making PDF…' : 'PDF' }}
-        </button>
-        <button
-          type="button"
-          class="head-btn"
-          :disabled="filteredSales.length === 0 || exporting !== ''"
-          title="The sales shown in Excel: totals, per cashier and per day, every sale, every product sold"
-          @click="exportFile('excel')"
-        >
-          <NavIcon name="download" class="h-4 w-4" />
-          {{ exporting === 'excel' ? 'Making Excel…' : 'Excel' }}
-        </button>
-      </div>
-    </PageHeader>
+    />
 
     <!-- Sales | Refunds (?view=refunds keeps it on a refresh, and the bell
          opens it). Refunds: components/RefundApprovals.vue -->
@@ -152,6 +128,26 @@
 
       <!-- CHART + TOP SELLING of what's shown -->
       <SalesInsights :sales="filteredSales" :range="range" />
+
+      <!-- download what's shown: a PDF to read or print, Excel with every detail -->
+      <div class="mb-3 flex flex-wrap items-center justify-end gap-2">
+        <button
+          class="rounded-xl bg-red-600 px-4 py-2 text-sm font-bold text-white transition hover:bg-red-700 disabled:opacity-50"
+          :disabled="filteredSales.length === 0 || exporting !== ''"
+          title="A table of the sales shown, easy to read and print"
+          @click="exportFile('pdf')"
+        >
+          {{ exporting === 'pdf' ? 'Making PDF…' : '⬇ PDF' }}
+        </button>
+        <button
+          class="rounded-xl border border-white/10 bg-zinc-900 px-4 py-2 text-sm font-bold text-white transition hover:bg-zinc-800 disabled:opacity-50"
+          :disabled="filteredSales.length === 0 || exporting !== ''"
+          title="The sales shown in Excel: totals, per cashier and per day, every sale, every product sold"
+          @click="exportFile('excel')"
+        >
+          {{ exporting === 'excel' ? 'Making Excel…' : '⬇ Excel' }}
+        </button>
+      </div>
 
       <p v-if="exportError" class="mb-3 rounded-xl bg-red-600/20 p-3 text-sm text-red-400" role="alert">
         {{ exportError }}
@@ -674,30 +670,6 @@ onMounted(() => {
 <style scoped src="../../styles/dashboard.css"></style>
 
 <style scoped>
-/* the PDF / Excel buttons in the page header */
-.head-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  border-radius: 0.75rem;
-  border: 1px solid var(--hairline);
-  background: var(--surface-sunken);
-  padding: 0.5rem 0.85rem;
-  font-size: 0.85rem;
-  font-weight: 700;
-  color: #fff;
-  transition: background-color 0.15s, border-color 0.15s;
-}
-
-.head-btn:hover:not(:disabled) {
-  border-color: rgba(224, 27, 50, 0.45);
-  background: rgba(224, 27, 50, 0.12);
-}
-
-.head-btn:disabled {
-  opacity: 0.5;
-}
-
 /* search and cashier, next to the period buttons */
 .filter-box {
   border-radius: 999px;
