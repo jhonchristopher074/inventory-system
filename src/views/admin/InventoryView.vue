@@ -385,13 +385,9 @@
             {{ selectedProduct.inspection_date ? 'Change the inspection date' : 'Schedule an inspection' }}
           </label>
           <div class="flex gap-2">
-            <input
-              id="detail-date"
-              v-model="inspectionDate"
-              type="date"
-              :min="todayYmd()"
-              class="min-w-0 flex-1 rounded-xl border border-white/10 bg-zinc-950 px-3 py-2.5 text-white outline-none focus:border-red-500 [color-scheme:dark]"
-            />
+            <div class="min-w-0 flex-1">
+              <DatePicker id="detail-date" v-model="inspectionDate" :min="todayYmd()" quick />
+            </div>
             <button
               type="button"
               class="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-red-600 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-red-700 disabled:opacity-50"
@@ -806,6 +802,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import PageHeader from '../../components/PageHeader.vue'
 import ZoomThumb from '../../components/ZoomThumb.vue'
+import DatePicker from '../../components/DatePicker.vue'
 import StockHistoryModal from '../../components/StockHistoryModal.vue'
 import ActionSheet from '../../components/ActionSheet.vue'
 import TablePager from '../../components/TablePager.vue'

@@ -6,6 +6,7 @@
 //   range = { start: Date | null, end: Date | null }   (end is exclusive)
 // Dates are by this computer's clock. Picking the dates opens the phone's
 // or browser's own calendar.
+import DatePicker from './DatePicker.vue'
 import { computed, ref, watch } from 'vue'
 
 const range = defineModel({ type: Object, default: () => ({ start: null, end: null }) })
@@ -111,27 +112,15 @@ watch([period, from, to], () => {
       v-if="period === 'custom'"
       class="mt-3 flex flex-wrap items-end gap-3 rounded-[20px] border border-white/10 bg-zinc-900 p-4"
     >
-      <label class="flex min-w-[9rem] flex-1 flex-col gap-1 text-xs font-bold text-zinc-400 sm:flex-none">
-        From
-        <input
-          v-model="from"
-          type="date"
-          :min="fromMin"
-          :max="fromMax"
-          class="rounded-xl border border-white/10 bg-black px-3 py-2 text-sm text-white [color-scheme:dark] focus:border-red-500 focus:outline-none"
-        />
-      </label>
+      <div class="flex min-w-[10rem] flex-1 flex-col gap-1 text-xs font-bold text-zinc-400 sm:flex-none">
+        <span id="period-from">From</span>
+        <DatePicker v-model="from" :min="fromMin" :max="fromMax" size="compact" placeholder="Start date" aria-labelledby="period-from" />
+      </div>
 
-      <label class="flex min-w-[9rem] flex-1 flex-col gap-1 text-xs font-bold text-zinc-400 sm:flex-none">
-        To
-        <input
-          v-model="to"
-          type="date"
-          :min="toMin"
-          :max="toMax"
-          class="rounded-xl border border-white/10 bg-black px-3 py-2 text-sm text-white [color-scheme:dark] focus:border-red-500 focus:outline-none"
-        />
-      </label>
+      <div class="flex min-w-[10rem] flex-1 flex-col gap-1 text-xs font-bold text-zinc-400 sm:flex-none">
+        <span id="period-to">To</span>
+        <DatePicker v-model="to" :min="toMin" :max="toMax" size="compact" placeholder="End date" aria-labelledby="period-to" />
+      </div>
 
       <p class="basis-full text-xs" :class="rangeError ? 'text-red-400' : 'text-zinc-500'">
         {{ rangeError || 'Up to one year at a time.' }}

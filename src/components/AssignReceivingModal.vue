@@ -35,14 +35,9 @@
         </select>
 
         <label class="mt-4 block text-sm font-bold text-zinc-200" for="assign-date">Expected delivery</label>
-        <input
-          id="assign-date"
-          v-model="expectedDate"
-          type="date"
-          :min="today"
-          class="mt-1.5 w-full rounded-xl border border-white/10 bg-black px-3 py-2.5 text-sm text-white outline-none focus:border-sky-400 [color-scheme:dark]"
-          :disabled="busy"
-        />
+        <div class="mt-1.5">
+          <DatePicker id="assign-date" v-model="expectedDate" :min="today" :disabled="busy" quick clearable placeholder="No date yet" />
+        </div>
 
         <template v-if="!reassign">
         <label class="mt-4 block text-sm font-bold text-zinc-200" for="assign-note">Note for the staff member <span class="font-normal text-zinc-500">(optional)</span></label>
@@ -88,6 +83,7 @@
 </template>
 
 <script setup>
+import DatePicker from './DatePicker.vue'
 import { computed, ref, watch } from 'vue'
 import { count } from '../lib/format'
 import { todayKey } from '../lib/receiving'

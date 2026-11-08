@@ -456,7 +456,7 @@
             <div>
               <label class="label">Schedule Date</label>
               <!-- today or later: a schedule in the past would be overdue at once -->
-              <input v-model="newSchedule.date" type="date" :min="getToday()" class="calendar-date-input" />
+              <DatePicker v-model="newSchedule.date" :min="getToday()" quick />
             </div>
           </div>
 
@@ -485,7 +485,7 @@
 
             <div>
               <label class="label">Delivery Date</label>
-              <input v-model="newSchedule.date" type="date" :min="getToday()" class="calendar-date-input" />
+              <DatePicker v-model="newSchedule.date" :min="getToday()" quick />
             </div>
           </div>
         </div>
@@ -627,6 +627,7 @@ import { RouterLink } from 'vue-router'
 import { useQueryParam } from '../../lib/useQueryParam'
 import { toast } from '../../lib/toast'
 import MonthCalendar from '../../components/MonthCalendar.vue'
+import DatePicker from '../../components/DatePicker.vue'
 import NavIcon from '../../components/NavIcon.vue'
 
 // in the address (?tab=delivery), like the Staff calendar, so the Dashboard
