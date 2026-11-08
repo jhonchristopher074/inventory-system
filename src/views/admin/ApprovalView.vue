@@ -78,16 +78,15 @@
                 <td class="cell-main">
                   <div class="flex min-w-0 items-center gap-3">
                     <!-- the receipt's picture (opens it), "PDF", or why it can't be shown -->
-                    <a
+                    <button
                       v-if="fileUrl(upload) && isImage(upload.file_name) && !brokenThumbs.has(upload.id)"
-                      :href="fileUrl(upload)"
-                      target="_blank"
-                      rel="noopener"
-                      class="shrink-0"
-                      :title="'Open ' + upload.file_name"
+                      type="button"
+                      class="shrink-0 cursor-zoom-in"
+                      :title="'See ' + upload.file_name"
+                      @click="openZoom(upload)"
                     >
                       <img :src="fileUrl(upload)" :alt="upload.file_name" class="thumb object-cover" @error="markBroken(upload)" />
-                    </a>
+                    </button>
                     <span
                       v-else
                       class="thumb text-[0.65rem] font-bold"
@@ -100,8 +99,17 @@
                     </span>
 
                     <div class="cell-text">
+                      <button
+                        v-if="fileUrl(upload) && isImage(upload.file_name)"
+                        type="button"
+                        class="row-name block max-w-full truncate text-left text-white hover:text-red-400"
+                        :title="'See ' + upload.file_name"
+                        @click="openZoom(upload)"
+                      >
+                        {{ upload.file_name }}
+                      </button>
                       <a
-                        v-if="fileUrl(upload)"
+                        v-else-if="fileUrl(upload)"
                         :href="fileUrl(upload)"
                         target="_blank"
                         rel="noopener"
@@ -361,8 +369,17 @@
             <tr v-for="upload in unsentVisible" :key="upload.id">
               <td class="cell-main">
                 <div class="cell-text">
+                  <button
+                    v-if="fileUrl(upload) && isImage(upload.file_name)"
+                    type="button"
+                    class="row-name block max-w-full truncate text-left text-white hover:text-red-400"
+                    :title="'See ' + upload.file_name"
+                    @click="openZoom(upload)"
+                  >
+                    {{ upload.file_name }}
+                  </button>
                   <a
-                    v-if="fileUrl(upload)"
+                    v-else-if="fileUrl(upload)"
                     :href="fileUrl(upload)"
                     target="_blank"
                     rel="noopener"
@@ -619,7 +636,7 @@
               type="button"
               class="group relative block w-full overflow-hidden rounded-xl bg-black"
               title="Click to zoom"
-              @click="openZoom"
+              @click="openZoom(review.upload)"
             >
               <img
                 :src="fileUrl(review.upload)"
@@ -735,11 +752,14 @@
 
       <!-- FULL-SCREEN ZOOM -->
       <div
-        v-if="review && zoomOpen"
+        v-if="zoomOpen && zoomTarget"
         class="fixed inset-0 z-[2100] flex flex-col bg-black/95"
+        role="dialog"
+        aria-modal="true"
+        :aria-label="zoomTarget.name"
       >
         <div class="flex items-center justify-between gap-2 p-3">
-          <div class="flex items-center gap-2">
+          <div class="flex min-w-0 items-center gap-2">
             <button
               class="rounded-xl bg-zinc-800 px-4 py-2 text-lg font-bold text-white hover:bg-zinc-700"
               title="Zoom out"
@@ -763,6 +783,7 @@
             >
               Reset
             </button>
+            <p class="ml-2 hidden min-w-0 truncate text-sm font-bold text-zinc-300 sm:block">{{ zoomTarget.name }}</p>
           </div>
 
           <button
@@ -776,8 +797,8 @@
         <!-- scroll to move around while zoomed in; click the picture to zoom in / out -->
         <div class="flex-1 overflow-auto p-2">
           <img
-            :src="fileUrl(review.upload)"
-            :alt="review.upload.file_name"
+            :src="zoomTarget.url"
+            :alt="zoomTarget.name"
             class="mx-auto block max-w-none cursor-zoom-in select-none"
             :class="zoom > 1 ? 'cursor-zoom-out' : ''"
             :style="{ width: zoom * 100 + '%' }"
@@ -1151,7 +1172,13 @@ function closeReview() {
   zoomOpen.value = false
 }
 
-function openZoom() {
+// the receipt shown big: from the list, or the Approve window's
+const zoomTarget = ref(null) // { url, name }
+
+function openZoom(upload) {
+  const url = fileUrl(upload)
+  if (!url) return
+  zoomTarget.value = { url, name: upload.file_name }
   zoom.value = 1
   zoomOpen.value = true
 }
@@ -1692,7 +1719,7 @@ const reviewGroups = computed(() => {
 // lock page scrolling behind the windows (placed after reviewGroups: the
 // watch reads priceWindow right away, which needs reviewGroups to exist)
 watch(
-  () => Boolean(review.value || priceWindow.value || ownUploadOpen.value),
+  () => Boolean(review.value || priceWindow.value || ownUploadOpen.value || zoomOpen.value),
   (open) => {
     document.body.style.overflow = open ? 'hidden' : ''
   }
