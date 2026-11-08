@@ -76,7 +76,7 @@
         </span>
       </div>
 
-      <div class="ml-auto flex items-center gap-2">
+      <div class="ml-auto flex flex-wrap items-center justify-end gap-2">
         <!-- List / Month, remembered in the address (?view=month) -->
         <div class="inline-flex gap-1 rounded-2xl border border-white/5 bg-zinc-900 p-1" role="group" aria-label="View">
           <button
@@ -100,7 +100,7 @@
           @click="openAddModal()"
         >
           <span class="text-base leading-none">+</span>
-          {{ view === 'month' ? 'Add schedule' : `Add ${activeTab === 'delivery' ? 'delivery' : 'inspection'}` }}
+          <span class="sm:hidden">Add</span><span class="hidden sm:inline">{{ view !== 'list' ? 'Add schedule' : `Add ${activeTab === 'delivery' ? 'delivery' : 'inspection'}` }}</span>
         </button>
       </div>
     </div>
@@ -113,6 +113,98 @@
       :today="getToday()"
       @pick="openDay"
     />
+
+    <!-- BOARD: every inspection and delivery as a card, in the column of
+         where it is. The column comes from what was done (an inspection
+         form, a receipt approved), so cards move by themselves. -->
+    <div v-if="view === 'board'" class="board" role="list" aria-label="Board">
+      <section
+        v-for="column in boardColumns"
+        :key="column.key"
+        class="board-col"
+        :class="`col-${column.key}`"
+        :aria-label="column.label"
+      >
+        <header class="board-col-head">
+          <span class="board-col-dot" aria-hidden="true"></span>
+          <h2 class="text-sm font-extrabold text-white">{{ column.label }}</h2>
+          <span class="board-col-count">{{ column.cards.length }}</span>
+        </header>
+        <p class="board-col-hint">{{ column.hint }}</p>
+
+        <div class="board-cards">
+          <p v-if="column.cards.length === 0" class="board-empty">Nothing here</p>
+
+          <article
+            v-for="card in column.cards"
+            :key="card.key"
+            class="board-card"
+            role="listitem"
+          >
+            <div class="flex items-start justify-between gap-2">
+              <p
+                class="flex items-center gap-1.5 text-[0.66rem] font-bold uppercase tracking-wider"
+                :class="card.kind === 'inspection' ? 'text-violet-300' : 'text-sky-300'"
+              >
+                <NavIcon :name="card.kind === 'inspection' ? 'approval' : 'inventory'" class="h-3.5 w-3.5" />
+                {{ card.kind === 'inspection' ? 'Inspection' : 'Delivery' }}
+              </p>
+              <span v-if="card.state === 'overdue'" class="rounded-full bg-red-600/20 px-2 py-0.5 text-[0.66rem] font-bold text-red-400">
+                Overdue
+              </span>
+            </div>
+
+            <p class="mt-1 line-clamp-2 font-bold leading-snug text-white" :title="card.title">{{ card.title }}</p>
+            <p class="mt-0.5 text-xs text-zinc-400">{{ shortDate(card.date) }} · {{ card.sub }}</p>
+
+            <!-- inspection: how far it is -->
+            <div v-if="card.kind === 'inspection'" class="mt-2.5">
+              <div class="flex h-1.5 overflow-hidden rounded-full bg-white/5">
+                <div class="h-full bg-emerald-500" :style="{ width: card.row.approvedPct + '%' }"></div>
+                <div class="h-full bg-sky-400" :style="{ width: card.row.savedPct + '%' }"></div>
+                <div class="h-full bg-yellow-400" :style="{ width: card.row.submittedPct + '%' }"></div>
+              </div>
+              <p class="mt-1 text-[0.7rem] text-zinc-500">
+                {{ card.row.totalPct }}% · {{ count(card.row.remaining) }} left<template v-if="card.row.waiting"> · {{ card.row.waiting }} to approve</template>
+              </p>
+            </div>
+
+            <div class="mt-3 flex flex-wrap justify-end gap-1.5">
+              <RouterLink
+                v-if="card.column === 'approve'"
+                :to="card.kind === 'inspection' ? { path: '/approval', query: { tab: 'inspections' } } : '/approval'"
+                class="rounded-lg bg-yellow-500 px-3 py-1.5 text-xs font-bold text-black hover:bg-yellow-400"
+              >
+                Approve
+              </RouterLink>
+              <RouterLink
+                v-if="card.kind === 'delivery' && card.item.receipt_state === 'waiting'"
+                :to="{ path: '/approval', query: { receiptFor: card.item.id } }"
+                class="rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-bold text-black hover:bg-amber-400"
+              >
+                Add receipt
+              </RouterLink>
+              <button
+                v-if="card.kind === 'inspection'"
+                type="button"
+                class="rounded-lg bg-white/10 px-3 py-1.5 text-xs font-bold text-white hover:bg-white/15"
+                @click="openPanel(card.item)"
+              >
+                Details
+              </button>
+              <button
+                v-else
+                type="button"
+                class="rounded-lg bg-white/10 px-3 py-1.5 text-xs font-bold text-white hover:bg-white/15"
+                @click="openDay(card.date)"
+              >
+                Open day
+              </button>
+            </div>
+          </article>
+        </div>
+      </section>
+    </div>
 
     <p v-if="loading && view === 'list' && activeTab === 'delivery'" class="text-sm text-zinc-400">Loading...</p>
     <p v-if="errorMessage" class="mb-4 rounded-xl bg-red-600/20 p-4 text-red-400">{{ errorMessage }}</p>
@@ -636,10 +728,11 @@ const activeTab = useQueryParam('tab', 'inspection', ['inspection', 'delivery'])
 
 // ----- List / Month -----
 // remembered in the address (?view=month), so a refresh keeps it
-const view = useQueryParam('view', 'list', ['list', 'month'])
+const view = useQueryParam('view', 'list', ['list', 'month', 'board'])
 const VIEWS = [
   { key: 'list', label: 'List', icon: 'docs' },
   { key: 'month', label: 'Month', icon: 'calendar' },
+  { key: 'board', label: 'Board', icon: 'dashboard' },
 ]
 const KINDS = [
   { key: 'inspection', label: 'Inspections' },
@@ -971,6 +1064,50 @@ const allEvents = computed(() => [
   }),
 ])
 
+// ----- Board: the column of each card -----
+//   todo      inspection not started · delivery not here yet
+//   progress  inspection being done · delivery here, its receipt to come
+//   approve   inspection counts submitted · delivery's receipt in Approval
+//   done      inspection fully approved
+const BOARD = [
+  { key: 'todo', label: 'To do', hint: 'Not started · not arrived yet' },
+  { key: 'progress', label: 'In progress', hint: 'Being inspected · arrived, receipt to come' },
+  { key: 'approve', label: 'Needs your approval', hint: 'Counts submitted · receipt in Approval' },
+  { key: 'done', label: 'Done', hint: 'Fully approved' },
+]
+
+const rowsById = computed(() => new Map(inspectionRows.value.map((row) => [row.item.id, row])))
+
+function columnOf(event) {
+  if (event.kind === 'inspection') {
+    const row = rowsById.value.get(event.item.id)
+    if (!row) return 'todo'
+    if (row.qty > 0 && row.approved >= row.qty) return 'done'
+    if (row.waiting > 0) return 'approve'
+    return row.started ? 'progress' : 'todo'
+  }
+  if (event.item.receipt_state === 'sent') return 'approve'
+  if (event.item.receipt_state === 'waiting') return 'progress'
+  return 'todo'
+}
+
+const boardColumns = computed(() => {
+  const cards = monthEvents.value
+    .map((event) => ({
+      ...event,
+      column: columnOf(event),
+      row: event.kind === 'inspection' ? rowsById.value.get(event.item.id) : null,
+    }))
+    // overdue first, then by date
+    .sort((a, b) => (b.state === 'overdue') - (a.state === 'overdue') || String(a.date).localeCompare(String(b.date)))
+  return BOARD.map((column) => ({ ...column, cards: cards.filter((card) => card.column === column.key) }))
+})
+
+function shortDate(date) {
+  if (!date) return 'No date'
+  return new Date(`${date}T00:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+}
+
 const kindCounts = computed(() => ({
   inspection: allEvents.value.filter((e) => e.kind === 'inspection').length,
   delivery: allEvents.value.filter((e) => e.kind === 'delivery').length,
@@ -1284,5 +1421,92 @@ onBeforeUnmount(() => {
 
 .kind-delivery .kind-dot {
   background: #38bdf8;
+}
+
+/* ---- Board view: four columns, side by side (scroll sideways on phones) ---- */
+.board {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(15rem, 1fr));
+  gap: 0.9rem;
+  overflow-x: auto;
+  padding-bottom: 0.5rem;
+  scroll-snap-type: x mandatory;
+}
+
+.board-col {
+  --col: #a1a1aa;
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  border-radius: 18px;
+  border: 1px solid var(--hairline);
+  background: rgba(255, 255, 255, 0.02);
+  padding: 0.75rem;
+  scroll-snap-align: start;
+}
+
+.col-todo { --col: #a1a1aa; }
+.col-progress { --col: #38bdf8; }
+.col-approve { --col: #fbbf24; }
+.col-done { --col: #34d399; }
+
+.board-col-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-bottom: 2px solid var(--col);
+  padding-bottom: 0.55rem;
+}
+
+.board-col-dot {
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 999px;
+  background: var(--col);
+}
+
+.board-col-count {
+  margin-left: auto;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  padding: 0.05rem 0.55rem;
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: var(--color-zinc-200);
+}
+
+.board-col-hint {
+  margin: 0.45rem 0 0.6rem;
+  font-size: 0.7rem;
+  color: var(--color-zinc-500);
+}
+
+.board-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.board-card {
+  border-radius: 14px;
+  border: 1px solid var(--hairline);
+  background: var(--surface);
+  padding: 0.75rem;
+  box-shadow: 0 4px 12px -8px rgba(0, 0, 0, 0.6);
+}
+
+.board-empty {
+  border-radius: 12px;
+  border: 1px dashed rgba(255, 255, 255, 0.1);
+  padding: 1rem;
+  text-align: center;
+  font-size: 0.78rem;
+  color: var(--color-zinc-500);
+}
+
+@media (max-width: 760px) {
+  .board {
+    grid-template-columns: repeat(4, 82vw);
+  }
 }
 </style>
