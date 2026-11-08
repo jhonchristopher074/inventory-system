@@ -246,7 +246,9 @@
 
         <div
           class="fixed z-50 w-48 rounded-xl border border-white/10 bg-zinc-900 p-1 shadow-2xl shadow-black/60"
-          :style="{ top: `${menu.top}px`, right: `${menu.right}px` }"
+          :style="menu.openUp
+            ? { bottom: `${menu.bottom}px`, right: `${menu.right}px` }
+            : { top: `${menu.top}px`, right: `${menu.right}px` }"
           role="menu"
         >
           <!-- a Manager: his own password, or disable / enable -->
@@ -455,12 +457,17 @@ function toggleMenu(user, event) {
   }
 
   const rect = event.currentTarget.getBoundingClientRect()
-  const menuHeight = user.role === 'admin' ? 120 : 168
+  // the Owner's menu is the tallest; a Manager's has one item
+  const menuHeight = !isOwner.value ? 48 : user.role === 'admin' ? 120 : 168
   const openUp = rect.bottom + menuHeight + 8 > window.innerHeight
 
+  // opening up: pin the menu's bottom to the button, so it sits right
+  // above it whatever its real height
   menu.value = {
     user,
-    top: openUp ? rect.top - menuHeight - 6 : rect.bottom + 6,
+    openUp,
+    top: rect.bottom + 6,
+    bottom: window.innerHeight - rect.top + 6,
     right: window.innerWidth - rect.right,
     openedAt: Date.now(),
   }
