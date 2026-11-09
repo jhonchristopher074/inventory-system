@@ -85,6 +85,10 @@
         {{ busy ? 'Checking…' : recovery ? 'Use recovery code' : 'Verify' }}
       </button>
 
+      <!-- both are on: the other way -->
+      <button v-if="hasBoth && !recovery" type="button" class="ts-link ts-link-strong" :disabled="busy" @click="switchMethod">
+        {{ method === 'app' ? 'Email me a code instead' : 'Use my authenticator app instead' }}
+      </button>
       <button v-if="method" type="button" class="ts-link" :disabled="busy" @click="toggleRecovery">
         {{ recovery ? 'Back to the 6-digit code' : method === 'email' ? "Can't get the email? Use a recovery code" : 'Lost your phone? Use a recovery code' }}
       </button>
@@ -111,6 +115,7 @@ const route = useRoute()
 const router = useRouter()
 
 const method = ref('') // 'email' | 'app' once known
+const hasBoth = ref(false) // email and the app are both on: either one works
 const code = ref('')
 const recoveryCode = ref('')
 const recovery = ref(false)
@@ -202,6 +207,17 @@ async function submit() {
   }
 }
 
+// both on: the app's code, or one by email (sent when first asked for)
+async function switchMethod() {
+  method.value = method.value === 'app' ? 'email' : 'app'
+  code.value = ''
+  error.value = ''
+  notice.value = ''
+  await nextTick()
+  codeInput.value?.focus()
+  if (method.value === 'email' && !sentTo.value) send()
+}
+
 async function toggleRecovery() {
   recovery.value = !recovery.value
   error.value = ''
@@ -218,7 +234,9 @@ async function logout() {
 onMounted(async () => {
   const state = await twoStepState()
   if (state.verified) return router.replace(next())
-  method.value = state.method === 'email' ? 'email' : 'app'
+  // the app first when there is one: no waiting for an email
+  hasBoth.value = Boolean(state.app && state.email)
+  method.value = state.app ? 'app' : 'email'
   await nextTick()
   codeInput.value?.focus()
   if (method.value === 'email') send()
@@ -380,5 +398,10 @@ h1 {
 
 .ts-link:hover:not(:disabled) {
   color: #f4f4f5;
+}
+
+.ts-link-strong {
+  font-weight: 700;
+  color: #fb7185;
 }
 </style>

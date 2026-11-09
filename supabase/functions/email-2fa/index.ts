@@ -214,13 +214,9 @@ Deno.serve(async (req) => {
 
   if (purpose === "enable") {
     await admin.from("two_step_email").upsert({ user_id: caller.id });
-    // this login counts as verified
+    // this login counts as verified (an authenticator app, if any, stays:
+    // either one works at login)
     await admin.from("two_step_sessions").upsert({ session_id: caller.sessionId, user_id: caller.id });
-    // one method at a time: an authenticator app is removed
-    const { data: factors } = await admin.auth.admin.mfa.listFactors({ userId: caller.id });
-    for (const factor of factors?.factors ?? []) {
-      await admin.auth.admin.mfa.deleteFactor({ id: factor.id, userId: caller.id });
-    }
     await logActivity(caller, {
       action: "updated", entity: "account", entity_id: caller.id, entity_name: profile.full_name || caller.email,
       details: { two_step: { from: "off", to: "on (email)" } },
@@ -228,10 +224,12 @@ Deno.serve(async (req) => {
     return json({ ok: true });
   }
 
-  // disable
+  // disable (the recovery codes stay while the authenticator app is on)
   await admin.from("two_step_email").delete().eq("user_id", caller.id);
   await admin.from("two_step_sessions").delete().eq("user_id", caller.id);
-  await admin.from("mfa_recovery_codes").delete().eq("user_id", caller.id);
+  const { data: factors } = await admin.auth.admin.mfa.listFactors({ userId: caller.id });
+  const appOn = (factors?.factors ?? []).some((factor) => factor.status === "verified");
+  if (!appOn) await admin.from("mfa_recovery_codes").delete().eq("user_id", caller.id);
   await logActivity(caller, {
     action: "updated", entity: "account", entity_id: caller.id, entity_name: profile.full_name || caller.email,
     details: { two_step: { from: "on (email)", to: "off" } },

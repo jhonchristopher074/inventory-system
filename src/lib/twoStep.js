@@ -1,7 +1,8 @@
 // Two-step verification: after the password, a 6-digit code by email (the
 // Owner's default) or from an authenticator app.
 //
-//   twoStepState()               { method: 'none' | 'email' | 'app', verified, codesLeft }
+//   twoStepState()               { email, app, method, verified, codesLeft }
+//                                (email and app can both be on: either one works)
 //   needsCode()                  this login still has to enter a code
 //   sendEmailCode(purpose)       { to, wait }: emails a code ('login' | 'enable' | 'disable')
 //   verifyEmailCode(purpose, c)  checks it (supabase/functions/email-2fa)
@@ -70,17 +71,21 @@ async function sessionId() {
 }
 
 export async function twoStepState() {
-  if (!mfa()) return { method: 'none', verified: true, codesLeft: 0 }
+  if (!mfa()) return { email: false, app: false, method: 'none', verified: true, codesLeft: 0 }
 
   const { data, error } = await supabase.rpc('get_two_step_state')
   if (!error && data) {
-    return { method: data.method || 'none', verified: Boolean(data.verified), codesLeft: Number(data.codes_left) || 0 }
+    const method = data.method || 'none'
+    // before 20261118000001 there were no email / app flags: the method says
+    const email = data.email ?? method === 'email'
+    const app = data.app ?? method === 'app'
+    return { email, app, method, verified: Boolean(data.verified), codesLeft: Number(data.codes_left) || 0 }
   }
 
   // before the SQL is run: only the authenticator app (Supabase's own)
   const { data: level } = await mfa().getAuthenticatorAssuranceLevel()
   const app = level?.nextLevel === 'aal2'
-  return { method: app ? 'app' : 'none', verified: !app || level.currentLevel === 'aal2', codesLeft: 0 }
+  return { email: false, app, method: app ? 'app' : 'none', verified: !app || level.currentLevel === 'aal2', codesLeft: 0 }
 }
 
 export async function needsCode() {
@@ -135,11 +140,12 @@ export async function startAppSetup() {
   return { factorId: data.id, qr: data.totp.qr_code, secret: data.totp.secret }
 }
 
+// the first code from the app turns it on (recovery codes: the window
+// makes them when this is the first method)
 export async function finishAppSetup(factorId, code) {
   const digits = sixDigits(code)
   const { error } = await mfa().challengeAndVerify({ factorId, code: digits })
   if (error) throw new Error(plain(error, "Couldn't check the code."))
-  return newRecoveryCodes()
 }
 
 export async function turnOffApp(code) {

@@ -85,8 +85,8 @@
             <template v-else>Sending a 6-digit code to your email…</template>
             {{ step === 'email-enable' ? 'Enter it to turn on two-step verification.' : 'Enter it to turn two-step verification off.' }}
           </p>
-          <p v-if="step === 'email-disable'" class="mt-2 text-xs text-amber-300">
-            Turning it off makes the Owner account easier to break into.
+          <p v-if="step === 'email-disable'" class="mt-2 text-xs" :class="status.app ? 'text-zinc-400' : 'text-amber-300'">
+            {{ status.app ? 'The authenticator app stays on.' : 'Turning it off makes the Owner account easier to break into.' }}
           </p>
 
           <input
@@ -153,7 +153,7 @@
             @input="onCode(confirmApp)"
           />
           <div class="mt-4 grid grid-cols-2 gap-2">
-            <button type="button" class="ts-secondary" :disabled="busy" @click="step = 'off'">Back</button>
+            <button type="button" class="ts-secondary" :disabled="busy" @click="step = isOn ? 'on' : 'off'">Back</button>
             <button type="button" class="ts-primary" :disabled="busy || code.length !== 6" @click="confirmApp">
               {{ busy ? 'Checking…' : 'Turn on' }}
             </button>
@@ -184,33 +184,58 @@
           <button type="button" class="ts-primary mt-4" :disabled="!saved" @click="finish">Done</button>
         </template>
 
-        <!-- ON: how, codes left, new codes, turn off -->
+        <!-- ON: each way to get the code, with Add / Turn off; codes left -->
         <template v-else-if="step === 'on'">
           <p class="flex items-center gap-2 rounded-xl bg-emerald-500/10 p-3 text-sm font-bold text-emerald-300">
             <span class="h-2 w-2 shrink-0 rounded-full bg-emerald-400" aria-hidden="true"></span>
-            {{ status.method === 'email'
-              ? `On: every Owner login asks for a code sent to ${myEmail || 'your email'}.`
-              : 'On: every Owner login asks for the code from your authenticator app.' }}
+            On: every Owner login asks for a 6-digit code{{ status.email && status.app ? ' (from either one below)' : '' }}.
           </p>
+
+          <ul class="mt-4 space-y-2">
+            <li class="method">
+              <span class="choice-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <rect x="3" y="5" width="18" height="14" rx="2" /><path d="M3 7l9 6 9-6" />
+                </svg>
+              </span>
+              <span class="min-w-0 flex-1">
+                <b>Code by email</b>
+                <span class="choice-sub truncate">{{ status.email ? `On · ${myEmail || 'your email'}` : 'Off' }}</span>
+              </span>
+              <button v-if="status.email" type="button" class="method-off" :disabled="busy" @click="beginEmailOff">Turn off</button>
+              <button v-else type="button" class="method-add" :disabled="busy" @click="beginEmail">Add</button>
+            </li>
+
+            <li class="method">
+              <span class="choice-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <rect x="7" y="2" width="10" height="20" rx="2" /><path d="M11 18h2" />
+                </svg>
+              </span>
+              <span class="min-w-0 flex-1">
+                <b>Authenticator app</b>
+                <span class="choice-sub">{{ status.app ? 'On' : 'Off' }}</span>
+              </span>
+              <button v-if="status.app" type="button" class="method-off" :disabled="busy" @click="beginAppOff">Turn off</button>
+              <button v-else type="button" class="method-add" :disabled="busy" @click="beginApp">Add</button>
+            </li>
+          </ul>
+
           <p class="mt-4 text-sm text-zinc-300">
             Recovery codes left:
             <b :class="status.codesLeft <= 2 ? 'text-amber-300' : 'text-white'">{{ status.codesLeft }} of 8</b>
           </p>
 
-          <div class="mt-5 grid gap-2">
-            <button type="button" class="ts-secondary" :disabled="busy" @click="makeNewCodes">
-              {{ busy ? 'Making…' : 'New recovery codes' }}
-            </button>
-            <button type="button" class="ts-danger" :disabled="busy" @click="beginOff">
-              Turn off two-step verification
-            </button>
-          </div>
+          <button type="button" class="ts-secondary mt-3" :disabled="busy" @click="makeNewCodes">
+            {{ busy ? 'Making…' : 'New recovery codes' }}
+          </button>
         </template>
 
         <!-- APP: turn off with the current code -->
         <template v-else-if="step === 'app-off'">
           <p class="text-sm text-zinc-300">
-            Turning it off makes the Owner account easier to break into. Enter the current 6-digit code from the app to confirm.
+            {{ status.email ? 'The email code stays on.' : 'Turning it off makes the Owner account easier to break into.' }}
+            Enter the current 6-digit code from the app to confirm.
           </p>
           <input
             ref="codeInput"
@@ -253,9 +278,12 @@ import {
 import { currentUser } from '../lib/currentUser'
 import { toast } from '../lib/toast'
 
-const status = ref({ method: 'none', verified: true, codesLeft: 0 })
+const status = ref({ email: false, app: false, method: 'none', verified: true, codesLeft: 0 })
 const loaded = ref(false)
-const isOn = computed(() => status.value.method !== 'none')
+const isOn = computed(() => status.value.email || status.value.app)
+
+// adding the first way makes the recovery codes; a second one keeps them
+let firstMethod = false
 const myEmail = computed(() => currentUser.value?.email || '')
 
 const open = ref(false)
@@ -348,6 +376,7 @@ async function sendCode() {
 }
 
 async function beginEmail() {
+  firstMethod = !isOn.value
   sentTo.value = ''
   step.value = 'email-enable'
   await focusCode()
@@ -362,16 +391,8 @@ async function confirmEmail() {
   try {
     await verifyEmailCode(turningOn ? 'enable' : 'disable', code.value)
     await refresh()
-    if (turningOn) {
-      codes.value = await newRecoveryCodes()
-      saved.value = false
-      copied.value = false
-      step.value = 'codes'
-      await refresh()
-    } else {
-      open.value = false
-      toast('Two-step verification is off.')
-    }
+    if (turningOn) await added('The email code is on.')
+    else removed('The email code is off.')
   } catch (err) {
     error.value = err.message
     await focusCode()
@@ -382,6 +403,7 @@ async function confirmEmail() {
 
 /* ---- authenticator app ---- */
 async function beginApp() {
+  firstMethod = !isOn.value
   busy.value = true
   error.value = ''
   try {
@@ -400,11 +422,9 @@ async function confirmApp() {
   busy.value = true
   error.value = ''
   try {
-    codes.value = await finishAppSetup(setup.value.factorId, code.value)
-    saved.value = false
-    copied.value = false
-    step.value = 'codes'
+    await finishAppSetup(setup.value.factorId, code.value)
     await refresh()
+    await added('The authenticator app is on.')
   } catch (err) {
     error.value = err.message
     await focusCode()
@@ -420,8 +440,7 @@ async function confirmAppOff() {
   try {
     await turnOffApp(code.value)
     await refresh()
-    open.value = false
-    toast('Two-step verification is off.')
+    removed('The authenticator app is off.')
   } catch (err) {
     error.value = err.message
     await focusCode()
@@ -430,18 +449,44 @@ async function confirmAppOff() {
   }
 }
 
-/* ---- on ---- */
-async function beginOff() {
-  error.value = ''
-  if (status.value.method === 'email') {
-    sentTo.value = ''
-    step.value = 'email-disable'
-    await focusCode()
-    sendCode()
+/* ---- on: add or turn off one way ---- */
+// the first way: show the recovery codes; a second one: back to the list
+async function added(text) {
+  if (firstMethod) {
+    codes.value = await newRecoveryCodes()
+    saved.value = false
+    copied.value = false
+    step.value = 'codes'
+    await refresh()
   } else {
-    step.value = 'app-off'
-    await focusCode()
+    step.value = 'on'
+    toast(text)
   }
+}
+
+// still on with the other way: back to the list; else done
+function removed(text) {
+  if (isOn.value) {
+    step.value = 'on'
+    toast(text)
+  } else {
+    open.value = false
+    toast('Two-step verification is off.')
+  }
+}
+
+async function beginEmailOff() {
+  error.value = ''
+  sentTo.value = ''
+  step.value = 'email-disable'
+  await focusCode()
+  sendCode()
+}
+
+async function beginAppOff() {
+  error.value = ''
+  step.value = 'app-off'
+  await focusCode()
 }
 
 async function makeNewCodes() {
@@ -582,6 +627,55 @@ onBeforeUnmount(() => clearInterval(ticker))
   font-style: normal;
   font-weight: 700;
   color: #6ee7b7;
+}
+
+/* a way to get the code, in the On list */
+.method {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  border-radius: 1rem;
+  border: 1px solid var(--hairline);
+  background: rgba(0, 0, 0, 0.25);
+  padding: 0.75rem 0.9rem;
+  color: #fff;
+}
+
+.method b {
+  font-size: 0.9rem;
+}
+
+.method-add,
+.method-off {
+  flex: none;
+  border-radius: 0.6rem;
+  padding: 0.4rem 0.75rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.method-add {
+  background: var(--brand);
+  color: #fff;
+}
+
+.method-add:hover:not(:disabled) {
+  background: var(--brand-bright);
+}
+
+.method-off {
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  color: #fca5a5;
+}
+
+.method-off:hover:not(:disabled) {
+  background: rgba(239, 68, 68, 0.12);
+  color: #fff;
+}
+
+.method-add:disabled,
+.method-off:disabled {
+  opacity: 0.5;
 }
 
 .choice-sub {
