@@ -261,6 +261,10 @@ button:not(:disabled):active {
   position: relative;
   min-width: 0;
   padding: 1.75rem;
+  /* the height of the bell + name row above the page (0 when they sit
+     inside the page's header, see .app-topbar.is-floating): pages sized to
+     the screen (Profile & Users, the POS cart) take it off */
+  --topbar-space: 4.75rem;
 }
 
 /* the store's logo, big and faint, centred in the page area (beside the
@@ -839,6 +843,10 @@ tbody tr:hover {
     right: calc(1.75rem + 1rem);
     z-index: 30;
     margin: 0;
+  }
+
+  .app-main:has(> .app-topbar.is-floating) {
+    --topbar-space: 0px;
   }
 
   .app-main:has(> .app-topbar.is-floating) .page-head {

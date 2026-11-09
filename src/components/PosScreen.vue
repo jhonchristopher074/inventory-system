@@ -763,7 +763,7 @@ onMounted(fetchProducts)
     position: sticky;
     top: 1rem;
     /* fits the window under the page title, so Charge is always on screen */
-    height: calc(100vh - 12rem);
+    height: calc(100vh - 8.9rem - var(--topbar-space, 0px));
     min-height: 26rem;
     max-height: 760px;
   }

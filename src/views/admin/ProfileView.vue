@@ -1,11 +1,11 @@
 <template>
-  <!-- Computers: exactly the height of the screen (the space under the top
-       bar: 100dvh minus the page's padding and the top bar), so the page
+  <!-- Computers: exactly the height of the screen (100dvh minus the page's
+       padding, and the bell + name row when it has one: --topbar-space), so the page
        itself never scrolls; the account list scrolls inside its card, and
        the Add employee form inside its own if the screen is short. Below
        460px of height it scrolls like any page. Phones: one column that
        scrolls. -->
-  <div class="lg:flex lg:h-[calc(100dvh-8.6rem)] lg:min-h-[460px] lg:flex-col">
+  <div class="lg:flex lg:h-[calc(100dvh-3.85rem-var(--topbar-space,0px))] lg:min-h-[460px] lg:flex-col">
     <PageHeader
       title="Profile & Users"
       subtitle="User accounts and access."
