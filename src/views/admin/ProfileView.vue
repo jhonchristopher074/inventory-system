@@ -54,7 +54,8 @@
         <!-- the store: its logo, and (the Owner) the backup, one card -->
         <div class="card mb-4 shrink-0 divide-y divide-white/10 !p-0">
           <StoreLogoCard flat />
-          <BackupCard v-if="isOwner" flat />
+          <!-- Backup: hidden for now (to come back as a JSON download).
+               The code stays: components/BackupCard.vue, lib/backup.js -->
         </div>
 
         <button
@@ -356,7 +357,6 @@ import AdminPasswordPrompt from '../../components/AdminPasswordPrompt.vue'
 import TempPasswordReveal from '../../components/TempPasswordReveal.vue'
 import ChangeOwnPasswordModal from '../../components/ChangeOwnPasswordModal.vue'
 import StoreLogoCard from '../../components/StoreLogoCard.vue'
-import BackupCard from '../../components/BackupCard.vue'
 import TwoStepButton from '../../components/TwoStepButton.vue'
 import NavIcon from '../../components/NavIcon.vue'
 
