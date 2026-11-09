@@ -138,7 +138,7 @@
         </div>
       </div>
 
-      <main class="app-main">
+      <main ref="mainArea" class="app-main">
         <!-- the store's logo, big and faint, in the middle behind every page -->
         <img :src="logoUrl" alt="" aria-hidden="true" class="app-watermark" @error="showDefaultLogo" />
 
@@ -151,8 +151,15 @@
           <button type="button" class="guest-banner-btn" @click="leaveGuest">Exit guest mode</button>
         </div>
 
-        <!-- top right: who is logged in (name, role), then the bell -->
-        <div class="app-topbar mb-5 flex items-center justify-end gap-3">
+        <!-- top right: who is logged in (name, role), then the bell. On a
+             computer it sits inside the top-right corner of the page's
+             header (page-head), which keeps room for it: no row of its own.
+             Phones and guest mode (the banner is on top): its own row. -->
+        <div
+          ref="topbar"
+          class="app-topbar mb-5 flex items-center justify-end gap-3"
+          :class="{ 'is-floating': !guest }"
+        >
           <!-- who is logged in: name, role and the role's colour -->
           <CurrentUserBadge
             :role="role"
@@ -452,6 +459,23 @@ NAV.manager = NAV.admin.map((group) => ({
 const navGroups = computed(() => NAV[role.value] || [])
 
 // the role's own Profile page (the top bar's name opens it)
+// the header's room for the name and bell: as wide as they are (a long
+// name is wider), kept in --topbar-w on the page area
+const topbar = ref(null)
+const mainArea = ref(null)
+let topbarWatch = null
+
+watch(topbar, (el) => {
+  topbarWatch?.disconnect()
+  if (!el || typeof ResizeObserver === 'undefined') return
+  topbarWatch = new ResizeObserver(() => {
+    mainArea.value?.style.setProperty('--topbar-w', `${Math.ceil(el.offsetWidth)}px`)
+  })
+  topbarWatch.observe(el)
+})
+
+onBeforeUnmount(() => topbarWatch?.disconnect())
+
 const profileLink = computed(
   () => navGroups.value.flatMap((group) => group.items).find((item) => item.icon === 'profile')?.to || '/'
 )

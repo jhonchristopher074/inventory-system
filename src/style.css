@@ -827,6 +827,24 @@ tbody tr:hover {
   }
 }
 
+/* The name and bell (App.vue) inside the page's header, top right, on a
+   computer: no row of their own above every page. The header keeps room
+   for them (--topbar-w: their width, measured), so its own buttons sit to
+   their left. Phones: their own row, as before. */
+@media (min-width: 761px) {
+  .app-topbar.is-floating {
+    position: absolute;
+    top: calc(1.75rem + 1rem);
+    right: calc(1.75rem + 1rem);
+    z-index: 30;
+    margin: 0;
+  }
+
+  .app-main:has(> .app-topbar.is-floating) .page-head {
+    padding-right: calc(var(--topbar-w, 15rem) + 2rem) !important;
+  }
+}
+
 /* Only on a touch screen (phones and tablets, any width): the "Take a
    photo" buttons. A computer's browser can't open its camera from a file
    chooser, so they're hidden where there's a mouse. */

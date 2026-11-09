@@ -3,7 +3,9 @@
        for its dashboard (Owner: Store overview, Staff: Inspection desk,
        Cashier: Sales counter), so you can tell at a glance whose it is.
        Buttons put inside it sit on the right. -->
-  <header class="hero" :class="`tone-${tone}`">
+  <!-- page-head: on a computer the name and bell (App.vue) sit in its
+       top-right corner -->
+  <header class="hero page-head" :class="`tone-${tone}`">
     <span class="hero-icon" aria-hidden="true">
       <NavIcon :name="icon" class="h-7 w-7" />
     </span>
