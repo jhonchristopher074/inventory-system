@@ -23,7 +23,7 @@
         <p v-if="method === 'email'" class="ts-sub">
           <template v-if="sentTo">We sent a 6-digit code to <b>{{ sentTo }}</b>.</template>
           <template v-else-if="sending">Sending a 6-digit code to your email…</template>
-          <template v-else>Send a 6-digit code to your email to finish logging in.</template>
+          <template v-else>Couldn't send a code yet. Use the button below when it's ready.</template>
         </p>
         <p v-else class="ts-sub">Open your authenticator app and enter the 6-digit code for <b>10 FIVE 7 Hardware</b>.</p>
 
@@ -50,7 +50,7 @@
             :disabled="sending || wait > 0"
             @click="send"
           >
-            {{ sending ? 'Sending…' : wait > 0 ? `Resend in ${wait}s` : sentTo ? 'Resend code' : 'Send code' }}
+            {{ sending ? 'Sending…' : wait > 0 ? `${sentTo ? 'Resend' : 'Try again'} in ${clock(wait)}` : sentTo ? 'Resend code' : 'Send code' }}
           </button>
         </p>
         <p v-else class="ts-hint">The code changes every 30 seconds.</p>
@@ -143,6 +143,12 @@ function next() {
   return target.startsWith('/') && !target.startsWith('//') ? target : '/'
 }
 
+// 45 → "45s", 2530 → "42:10"
+function clock(seconds) {
+  if (seconds < 60) return `${seconds}s`
+  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`
+}
+
 function countDown(seconds) {
   wait.value = seconds
   clearInterval(ticker)
@@ -164,9 +170,13 @@ async function send() {
     countDown(reply?.wait || 60)
   } catch (err) {
     // asked a moment ago (e.g. the page was reloaded): that code still works
-    if (err.wait) {
+    if (err.wait && err.wait <= 60) {
       countDown(err.wait)
       notice.value = 'A code was sent a moment ago: check your email (and the spam folder).'
+    } else if (err.wait) {
+      // the hourly limit: when it frees up
+      countDown(err.wait)
+      error.value = err.message
     } else {
       error.value = err.message
     }

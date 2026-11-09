@@ -82,7 +82,8 @@
         <template v-else-if="step === 'email-enable' || step === 'email-disable'">
           <p class="text-sm text-zinc-300">
             <template v-if="sentTo">We sent a 6-digit code to <b class="text-white">{{ sentTo }}</b>.</template>
-            <template v-else>Sending a 6-digit code to your email…</template>
+            <template v-else-if="sending">Sending a 6-digit code to your email…</template>
+            <template v-else>Couldn't send a code yet.</template>
             {{ step === 'email-enable' ? 'Enter it to turn on two-step verification.' : 'Enter it to turn two-step verification off.' }}
           </p>
           <p v-if="step === 'email-disable'" class="mt-2 text-xs" :class="status.app ? 'text-zinc-400' : 'text-amber-300'">
@@ -110,7 +111,7 @@
               :disabled="sending || wait > 0"
               @click="sendCode"
             >
-              {{ sending ? 'Sending…' : wait > 0 ? `Resend in ${wait}s` : 'Resend code' }}
+              {{ sending ? 'Sending…' : wait > 0 ? `${sentTo ? 'Resend' : 'Try again'} in ${clock(wait)}` : sentTo ? 'Resend code' : 'Send code' }}
             </button>
           </p>
 
@@ -346,6 +347,12 @@ function onCode(send) {
   code.value = code.value.replace(/\D/g, '').slice(0, 6)
   error.value = ''
   if (send && code.value.length === 6) send()
+}
+
+// 45 → "45s", 2530 → "42:10"
+function clock(seconds) {
+  if (seconds < 60) return `${seconds}s`
+  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`
 }
 
 function countDown(seconds) {

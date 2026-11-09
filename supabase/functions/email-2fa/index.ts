@@ -138,7 +138,13 @@ Deno.serve(async (req) => {
     const wait = Math.ceil((last + WAIT_SECONDS * 1000 - Date.now()) / 1000);
     if (wait > 0) return json({ error: `Wait ${wait} seconds before asking for a new code.`, wait }, 429);
     if ((recent?.length ?? 0) >= PER_HOUR) {
-      return json({ error: "Too many codes in one hour. Try again later, or use a recovery code." }, 429);
+      // free again one hour after the oldest of these codes
+      const oldest = new Date(recent![PER_HOUR - 1].created_at).getTime();
+      const free = Math.max(1, Math.ceil((oldest + 3600_000 - Date.now()) / 1000));
+      return json({
+        error: `${PER_HOUR} codes were sent in the last hour. Try again in ${Math.ceil(free / 60)} min, or use a recovery code.`,
+        wait: free,
+      }, 429);
     }
 
     // an older code of this login stops working
