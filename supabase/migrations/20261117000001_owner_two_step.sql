@@ -1,19 +1,24 @@
 -- =====================================================================
--- Two-step verification (authenticator app, 6-digit code)
+-- Two-step verification for the Owner: a 6-digit code by email (or from
+-- an authenticator app), after the password
 -- ---------------------------------------------------------------------
 -- Run after 20261116000001_activity_log_and_backup.sql.
--- Supabase > Authentication > Multi-Factor: "TOTP (App Authenticator)"
--- must be enabled (it is by default).
+-- Then deploy: npx supabase functions deploy email-2fa mfa-recovery admin-action create-employee
+-- The email is sent with Resend (the RESEND_API_KEY secret, the same one
+-- notify-owner-email uses).
 --
--- mfa_ok()          true unless the person has turned on two-step
---                   verification and this login hasn't passed it yet
+-- two_step_email      who has the email code turned on
+-- two_step_email_codes  the codes sent (hashed, 10 minutes, 5 tries)
+-- two_step_sessions   logins that entered the email code (by session id,
+--                     so it lasts until that login ends)
+-- mfa_ok()            true unless two-step verification is on and this
+--                     login hasn't passed it
 -- is_owner(), is_admin(), current_role(), get_my_role()
---                   as before, but only after the code was entered: a
---                   stolen password alone opens nothing, even if the
---                   code screen in the browser is skipped
--- mfa_recovery_codes, owner_new_recovery_codes(), mfa_recovery_codes_left()
---                   8 one-time codes for a lost phone (stored hashed; the
---                   mfa-recovery function checks one and turns 2FA off)
+--                     as before, only after the code: a stolen password
+--                     alone opens nothing, even if the code screen is skipped
+-- get_two_step_state()  { method: none | email | app, verified, codes_left }
+-- mfa_recovery_codes, owner_new_recovery_codes()
+--                     8 one-time codes for a lost phone / email
 --
 -- Safe to run more than once.
 -- =====================================================================
@@ -21,25 +26,73 @@
 begin;
 
 -- ---------------------------------------------------------------------
--- 1. Has this login passed two-step verification (when it's on)?
+-- 1. Email codes
+-- ---------------------------------------------------------------------
+create table if not exists public.two_step_email (
+  user_id    uuid primary key references auth.users (id) on delete cascade,
+  enabled_at timestamptz not null default now()
+);
+
+create table if not exists public.two_step_email_codes (
+  id          bigint generated always as identity primary key,
+  user_id     uuid not null references auth.users (id) on delete cascade,
+  session_id  uuid not null,
+  code_hash   text not null,
+  purpose     text not null default 'login' check (purpose in ('login', 'enable', 'disable')),
+  attempts    int not null default 0,
+  created_at  timestamptz not null default now(),
+  expires_at  timestamptz not null,
+  used_at     timestamptz
+);
+
+create index if not exists two_step_email_codes_user_idx on public.two_step_email_codes (user_id, created_at desc);
+
+create table if not exists public.two_step_sessions (
+  session_id  uuid primary key,
+  user_id     uuid not null references auth.users (id) on delete cascade,
+  verified_at timestamptz not null default now()
+);
+
+alter table public.two_step_email enable row level security;
+alter table public.two_step_email_codes enable row level security;
+alter table public.two_step_sessions enable row level security;
+revoke all on public.two_step_email, public.two_step_email_codes, public.two_step_sessions from anon, authenticated;
+
+-- ---------------------------------------------------------------------
+-- 2. Has this login passed two-step verification (when it's on)?
 -- ---------------------------------------------------------------------
 create or replace function public.mfa_ok()
  returns boolean
- language sql
+ language plpgsql
  stable security definer
  set search_path to 'public'
 as $function$
-  select coalesce(auth.jwt() ->> 'aal', 'aal1') = 'aal2'
-      or not exists (
-        select 1 from auth.mfa_factors
-         where user_id = auth.uid() and status = 'verified'
-      );
+declare
+  v_uid     uuid := auth.uid();
+  v_session text := auth.jwt() ->> 'session_id';
+  v_app     boolean;
+  v_email   boolean;
+begin
+  if v_uid is null then return false; end if;
+
+  v_app := exists (select 1 from auth.mfa_factors where user_id = v_uid and status = 'verified');
+  v_email := exists (select 1 from two_step_email where user_id = v_uid);
+
+  if not v_app and not v_email then return true; end if;
+  if v_app and coalesce(auth.jwt() ->> 'aal', 'aal1') = 'aal2' then return true; end if;
+  if v_email and v_session is not null and exists (
+       select 1 from two_step_sessions where session_id = v_session::uuid and user_id = v_uid
+     ) then
+    return true;
+  end if;
+  return false;
+end;
 $function$;
 
 grant execute on function public.mfa_ok() to authenticated;
 
 -- ---------------------------------------------------------------------
--- 2. The role checks, now also asking mfa_ok()
+-- 3. The role checks, now also asking mfa_ok()
 -- ---------------------------------------------------------------------
 create or replace function public.is_owner()
  returns boolean
@@ -86,7 +139,7 @@ as $function$
 $function$;
 
 -- ---------------------------------------------------------------------
--- 3. Recovery codes (a lost phone)
+-- 4. Recovery codes (lost phone / no access to the email)
 -- ---------------------------------------------------------------------
 create table if not exists public.mfa_recovery_codes (
   id         bigint generated always as identity primary key,
@@ -102,7 +155,7 @@ alter table public.mfa_recovery_codes enable row level security;
 revoke all on public.mfa_recovery_codes from anon, authenticated;
 
 -- 8 new codes ("A1B2C-3D4E5"), shown once; the old ones stop working.
--- Only right after the 6-digit code (aal2).
+-- Only with two-step verification on, and passed by this login.
 create or replace function public.owner_new_recovery_codes()
  returns text[]
  language plpgsql
@@ -115,7 +168,11 @@ declare
   i       int;
 begin
   perform public.require_auth();
-  if coalesce(auth.jwt() ->> 'aal', 'aal1') <> 'aal2' then
+  if not exists (select 1 from two_step_email where user_id = auth.uid())
+     and not exists (select 1 from auth.mfa_factors where user_id = auth.uid() and status = 'verified') then
+    raise exception 'Turn on two-step verification first.' using errcode = '42501';
+  end if;
+  if not public.mfa_ok() then
     raise exception 'Enter the 6-digit code first.' using errcode = '42501';
   end if;
 
@@ -135,18 +192,40 @@ $function$;
 revoke all on function public.owner_new_recovery_codes() from public, anon;
 grant execute on function public.owner_new_recovery_codes() to authenticated;
 
--- how many unused codes are left
-create or replace function public.mfa_recovery_codes_left()
- returns int
- language sql
+-- ---------------------------------------------------------------------
+-- 5. The state the app needs: which method, passed or not, codes left
+-- ---------------------------------------------------------------------
+create or replace function public.get_two_step_state()
+ returns jsonb
+ language plpgsql
  stable security definer
  set search_path to 'public'
 as $function$
-  select count(*)::int from mfa_recovery_codes where user_id = auth.uid() and used_at is null;
+declare
+  v_uid    uuid := auth.uid();
+  v_method text := 'none';
+begin
+  if v_uid is null then return null; end if;
+
+  if exists (select 1 from two_step_email where user_id = v_uid) then
+    v_method := 'email';
+  elsif exists (select 1 from auth.mfa_factors where user_id = v_uid and status = 'verified') then
+    v_method := 'app';
+  end if;
+
+  return jsonb_build_object(
+    'method', v_method,
+    'verified', public.mfa_ok(),
+    'codes_left', (select count(*) from mfa_recovery_codes where user_id = v_uid and used_at is null)
+  );
+end;
 $function$;
 
-revoke all on function public.mfa_recovery_codes_left() from public, anon;
-grant execute on function public.mfa_recovery_codes_left() to authenticated;
+revoke all on function public.get_two_step_state() from public, anon;
+grant execute on function public.get_two_step_state() to authenticated;
+
+-- (an earlier draft of this file had this one)
+drop function if exists public.mfa_recovery_codes_left();
 
 commit;
 

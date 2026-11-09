@@ -1,7 +1,7 @@
 // POST /functions/v1/mfa-recovery
 // Body: { code: string }   (one of the 8 recovery codes, e.g. "A1B2C-3D4E5")
 //
-// Lost phone: the password was already right (the login is at aal1), and a
+// Lost phone / no access to the email: the password was already right (the login is at aal1), and a
 // recovery code proves the rest. The code is used up, two-step verification
 // is turned off for the account (every authenticator removed, the other
 // codes deleted), and the app then asks to set it up again.
@@ -56,6 +56,9 @@ Deno.serve(async (req) => {
     if (error) return json({ error: "Could not turn off two-step verification" }, 500);
   }
   await admin.from("mfa_recovery_codes").delete().eq("user_id", caller.id);
+  // the email code too (supabase/migrations/20261117000001)
+  await admin.from("two_step_email").delete().eq("user_id", caller.id);
+  await admin.from("two_step_sessions").delete().eq("user_id", caller.id);
 
   await logActivity(caller, {
     action: "updated",
