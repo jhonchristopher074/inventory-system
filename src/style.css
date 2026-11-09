@@ -834,7 +834,8 @@ tbody tr:hover {
 @media (min-width: 761px) {
   .app-topbar.is-floating {
     position: absolute;
-    top: calc(1.75rem + 1rem);
+    /* the middle of the header's height (App.vue measures it) */
+    top: var(--topbar-top, calc(1.75rem + 1rem));
     right: calc(1.75rem + 1rem);
     z-index: 30;
     margin: 0;

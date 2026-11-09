@@ -151,7 +151,7 @@
           <button type="button" class="guest-banner-btn" @click="leaveGuest">Exit guest mode</button>
         </div>
 
-        <!-- top right: who is logged in (name, role), then the bell. On a
+        <!-- top right: the bell, then who is logged in (name, role). On a
              computer it sits inside the top-right corner of the page's
              header (page-head), which keeps room for it: no row of its own.
              Phones and guest mode (the banner is on top): its own row. -->
@@ -160,6 +160,8 @@
           class="app-topbar mb-5 flex items-center justify-end gap-3"
           :class="{ 'is-floating': !guest }"
         >
+          <NotificationBell class="shrink-0" />
+
           <!-- who is logged in: name, role and the role's colour -->
           <CurrentUserBadge
             :role="role"
@@ -167,8 +169,6 @@
             :email="currentUser.email"
             :to="profileLink"
           />
-
-          <NotificationBell class="shrink-0" />
         </div>
 
         <RouterView />
@@ -459,22 +459,60 @@ NAV.manager = NAV.admin.map((group) => ({
 const navGroups = computed(() => NAV[role.value] || [])
 
 // the role's own Profile page (the top bar's name opens it)
-// the header's room for the name and bell: as wide as they are (a long
-// name is wider), kept in --topbar-w on the page area
+// The bell and name inside the page's header (computers): the header keeps
+// room for them (--topbar-w: their width; a long name is wider), and they
+// sit in the middle of its height (--topbar-top), whatever page it is.
 const topbar = ref(null)
 const mainArea = ref(null)
-let topbarWatch = null
+let sizeWatch = null
+let watchedHead = null
+
+function placeTopbar() {
+  const bar = topbar.value
+  const main = mainArea.value
+  if (!bar || !main) return
+  main.style.setProperty('--topbar-w', `${Math.ceil(bar.offsetWidth)}px`)
+
+  const head = main.querySelector('.page-head')
+  if (head) {
+    const top = head.offsetTop + (head.offsetHeight - bar.offsetHeight) / 2
+    main.style.setProperty('--topbar-top', `${Math.max(0, Math.round(top))}px`)
+  }
+
+  // a new page: follow its header's size (a subtitle that wraps, …)
+  if (head !== watchedHead && sizeWatch) {
+    if (watchedHead) sizeWatch.unobserve(watchedHead)
+    if (head) sizeWatch.observe(head)
+    watchedHead = head
+  }
+}
 
 watch(topbar, (el) => {
-  topbarWatch?.disconnect()
+  sizeWatch?.disconnect()
+  watchedHead = null
   if (!el || typeof ResizeObserver === 'undefined') return
-  topbarWatch = new ResizeObserver(() => {
-    mainArea.value?.style.setProperty('--topbar-w', `${Math.ceil(el.offsetWidth)}px`)
-  })
-  topbarWatch.observe(el)
+  sizeWatch = new ResizeObserver(placeTopbar)
+  sizeWatch.observe(el)
+  placeTopbar()
 })
 
-onBeforeUnmount(() => topbarWatch?.disconnect())
+// pages load on demand: look for the new header for a moment after each change
+watch(
+  () => route.fullPath,
+  () => {
+    const before = watchedHead
+    let tries = 0
+    const look = () => {
+      placeTopbar()
+      // until the new page's header is there (half a second at most)
+      const found = watchedHead && watchedHead !== before && watchedHead.isConnected
+      if (!found && ++tries < 30) requestAnimationFrame(look)
+    }
+    nextTick(look)
+  }
+)
+
+onBeforeUnmount(() => sizeWatch?.disconnect())
 
 const profileLink = computed(
   () => navGroups.value.flatMap((group) => group.items).find((item) => item.icon === 'profile')?.to || '/'
