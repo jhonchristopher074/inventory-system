@@ -2,7 +2,6 @@
   <div>
     <PageHeader
       title="Sales History"
-      subtitle="Every sale, receipt and refund, by period and cashier."
     />
 
     <!-- ONE ROW: Sales | Refunds, the period (All, Today, …) and the

@@ -1,6 +1,6 @@
 <template>
   <div>
-    <PageHeader title="To-Do List" subtitle="Products scheduled for inspection and delivery." />
+    <PageHeader title="Calendar" />
 
     <!-- List: the Inspection / Delivery tabs. Month: both on a calendar,
          each shown or hidden with its toggle. The add button on the right. -->

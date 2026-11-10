@@ -3,7 +3,7 @@
        disabled product) and the Cashier. Products on the left, the current
        sale on the right (on phones: a sheet from the bar at the bottom). -->
   <div>
-    <PageHeader title="Point of Sale" subtitle="Cashier product sales and stock-out system." />
+    <PageHeader title="Point of Sale" />
 
     <!-- pb-24 on phones: room for the cart bar fixed at the bottom -->
     <div class="grid gap-6 pb-24 lg:grid-cols-[1fr_380px] lg:pb-0">

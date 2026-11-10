@@ -1,6 +1,6 @@
 <template>
   <div>
-    <PageHeader title="Supplier Profile" subtitle="Your account details and password." />
+    <PageHeader title="Profile" />
 
     <!-- same profile as staff and cashier (read-only details, password);
          uploads are on the Dashboard's My uploads tab -->

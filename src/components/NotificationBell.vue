@@ -28,13 +28,13 @@
 
     <div
       v-if="showList"
-      class="notif-panel absolute right-0 z-[9999] mt-3 w-[min(25rem,calc(100vw_-_5.5rem))]"
+      class="notif-panel absolute right-0 z-[9999] mt-2 w-[min(20rem,calc(100vw_-_5.5rem))]"
       role="dialog"
       aria-label="Notifications"
     >
-      <header class="flex items-center justify-between gap-3 border-b border-white/5 px-4 py-3.5">
+      <header class="flex items-center justify-between gap-2 border-b border-white/5 px-3 py-2.5">
         <div class="flex items-center gap-2">
-          <h2 class="text-base font-extrabold text-white">Notifications</h2>
+          <h2 class="text-sm font-extrabold text-white">Notifications</h2>
           <span v-if="unreadCount > 0" class="rounded-full bg-red-600 px-2 py-0.5 text-[11px] font-bold text-white">
             {{ unreadCount > 99 ? '99+' : unreadCount }} new
           </span>
@@ -61,13 +61,13 @@
         <p class="text-xs text-zinc-500">New notifications show up here.</p>
       </div>
 
-      <ul v-else class="notif-list max-h-[26rem] overflow-y-auto p-2">
+      <ul v-else class="notif-list max-h-[20rem] overflow-y-auto p-1.5">
         <!-- suppliers: the owner confirmed a receipt (lib/supplierNotices.js;
              gone after logout) -->
         <li v-for="notice in myNotices" :key="notice.id">
           <button type="button" class="notif-item" :class="{ 'is-unread': !notice.read }" @click="openNotice(notice)">
             <span class="notif-icon bg-emerald-500/20 text-emerald-400">
-              <NavIcon name="check" class="h-4 w-4" />
+              <NavIcon name="check" class="h-3.5 w-3.5" />
             </span>
             <span class="min-w-0 flex-1">
               <span class="flex items-baseline justify-between gap-2">
@@ -83,7 +83,7 @@
         <li v-for="notif in notifications" :key="notif.id">
           <button type="button" class="notif-item" :class="{ 'is-unread': !notif.is_read }" @click="openNotification(notif)">
             <span class="notif-icon" :class="badgeClass(notif.type)">
-              <NavIcon :name="iconFor(notif.type)" class="h-4 w-4" />
+              <NavIcon :name="iconFor(notif.type)" class="h-3.5 w-3.5" />
             </span>
             <span class="min-w-0 flex-1">
               <span class="flex items-baseline justify-between gap-2">
@@ -141,9 +141,9 @@
   display: flex;
   width: 100%;
   align-items: flex-start;
-  gap: 0.65rem;
-  border-radius: 0.75rem;
-  padding: 0.55rem 0.65rem;
+  gap: 0.55rem;
+  border-radius: 0.65rem;
+  padding: 0.45rem 0.55rem;
   text-align: left;
   transition: background-color 0.15s;
 }
@@ -164,8 +164,8 @@
 
 .notif-icon {
   display: grid;
-  width: 1.85rem;
-  height: 1.85rem;
+  width: 1.6rem;
+  height: 1.6rem;
   flex: none;
   place-items: center;
   border-radius: 0.55rem;
@@ -176,7 +176,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   font-weight: 700;
   color: var(--color-zinc-300);
 }
@@ -187,29 +187,19 @@
 
 .notif-time {
   flex: none;
-  font-size: 0.68rem;
+  font-size: 0.62rem;
   color: var(--color-zinc-500);
 }
 
 .notif-text {
   display: -webkit-box;
-  margin-top: 0.1rem;
+  margin-top: 0.05rem;
   overflow: hidden;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
-  font-size: 0.78rem;
+  font-size: 0.72rem;
   line-height: 1.35;
   color: var(--color-zinc-400);
-}
-
-.notif-type {
-  display: inline-block;
-  margin-top: 0.35rem;
-  font-size: 0.65rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--color-zinc-500);
 }
 
 /* unread: a red dot on the right */

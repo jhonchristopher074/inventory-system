@@ -2,7 +2,6 @@
   <div>
     <PageHeader
       title="Documentation"
-      subtitle="View receipts, inspection reports, product reports, staff documentation and refunds."
     />
 
     <!-- type tabs (a new page scrolls back up to here) -->

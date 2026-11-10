@@ -1,6 +1,6 @@
 <template>
   <div>
-    <PageHeader title="Inventory" subtitle="Manage and monitor all hardware products." />
+    <PageHeader title="Inventory" />
 
     <!-- TOP ACTIONS -->
     <!-- phones: search on its own line, the two buttons below it -->

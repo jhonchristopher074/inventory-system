@@ -2,7 +2,6 @@
   <div>
     <PageHeader
       title="Sales History"
-      subtitle="Company-style record of completed cashier transactions."
     />
 
     <!-- DATE FILTER (shared with the other Sales History page) -->

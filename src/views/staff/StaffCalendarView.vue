@@ -1,8 +1,7 @@
 <template>
   <div>
     <PageHeader
-      title="Staff Calendar"
-      subtitle="Inspect products and manage inspection submissions."
+      title="Inspection Calendar"
     />
 
     <!-- tabs like the Approval page's -->

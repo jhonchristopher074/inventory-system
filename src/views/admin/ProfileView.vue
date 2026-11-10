@@ -8,7 +8,6 @@
   <div class="lg:flex lg:h-[calc(100dvh-3.85rem-var(--topbar-space,0px))] lg:min-h-[460px] lg:flex-col">
     <PageHeader
       title="Profile & Users"
-      subtitle="User accounts and access."
     >
       <!-- the Owner's two-step verification (6-digit code at login) -->
       <TwoStepButton v-if="isOwner" />

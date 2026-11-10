@@ -13,7 +13,7 @@
     <div class="min-w-0 flex-1 basis-56">
       <p class="hero-eyebrow">{{ role }} · {{ place }}</p>
       <h1 class="hero-title">{{ greeting }}</h1>
-      <p class="hero-sub">{{ dateText }} · {{ subtitle }}</p>
+      <p class="hero-sub">{{ dateText }}</p>
     </div>
 
     <div class="hero-actions">

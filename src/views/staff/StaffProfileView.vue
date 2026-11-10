@@ -2,7 +2,6 @@
   <div>
     <PageHeader
       title="Profile"
-      subtitle="Your account details and password."
     />
 
     <MyProfile :stats="stats" />

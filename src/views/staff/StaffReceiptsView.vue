@@ -2,7 +2,6 @@
   <div>
     <PageHeader
       title="Receipts"
-      subtitle="A supplier handed you the paper receipt? Upload a photo of it: the owner checks it, then its stock is added."
     />
 
     <p v-if="!ready" class="mb-4 rounded-xl bg-amber-500/10 p-4 text-sm text-amber-300" role="alert">

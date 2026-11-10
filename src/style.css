@@ -831,6 +831,12 @@ tbody tr:hover {
   }
 }
 
+/* Room for the scrollbar is always kept, so going from a short page to a
+   long one doesn't shift everything (the header's right side) sideways */
+html {
+  scrollbar-gutter: stable;
+}
+
 /* The name and bell (App.vue) inside the page's header, top right, on a
    computer: no row of their own above every page. The header keeps room
    for them (--topbar-w: their width, measured), so its own buttons sit to
@@ -890,6 +896,21 @@ tbody tr:hover {
   .app-main:has(> .app-topbar.is-floating) .page-head {
     padding-right: calc(var(--topbar-w, 15rem) + 2rem) !important;
   }
+}
+
+/* "Show [10] rows": the bar a table's pager puts above the table
+   (components/TablePager.vue) */
+.pager-top {
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid var(--hairline);
+  padding: 0.55rem 1.1rem;
+}
+
+/* above a card grid (POS, Documentation): no line, a little room */
+.pager-top--card {
+  border-bottom: 0;
+  padding: 0 0 0.75rem;
 }
 
 /* Only on a touch screen (phones and tablets, any width): the "Take a

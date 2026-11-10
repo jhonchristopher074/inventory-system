@@ -1,8 +1,7 @@
 <template>
   <div>
     <PageHeader
-      title="Staff Inventory"
-      subtitle="View products and report inventory concerns."
+      title="Inventory"
     />
 
     <div class="mb-5 card p-5">

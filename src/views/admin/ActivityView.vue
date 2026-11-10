@@ -1,6 +1,6 @@
 <template>
   <div>
-    <PageHeader title="Activity Log" subtitle="Who changed what, and when.">
+    <PageHeader title="Activity Log">
       <button
         type="button"
         class="inline-flex items-center gap-2 rounded-xl bg-zinc-800 px-3 py-2 text-sm font-bold text-zinc-100 transition hover:bg-zinc-700 disabled:opacity-50"

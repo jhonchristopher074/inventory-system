@@ -1,14 +1,20 @@
 <script setup>
-// Footer of a data table: "Showing 11–20 of 57 products", rows per page
-// (10 / 15 / All) and the page buttons. Goes with lib/usePagination.js:
+// Footer of a data table: "Showing 11–20 of 57 products" and the page
+// buttons. The rows per page (10 / 15 / All) go ABOVE the table: a thin
+// bar put just before the table (the element right before this pager),
+// like most data tables. Goes with lib/usePagination.js:
 //
 //   <TablePager v-model:page="page" v-model:page-size="pageSize" :total="items.length" noun="products" />
 //
 // Under a card grid (POS, Documentation) it's a card of its own:
 //   <TablePager ... :sizes="GRID_PAGE_SIZES" label="Per page" card />
-import { computed } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { ALL, PAGE_SIZES, rowsPerPage } from '../lib/usePagination'
 import { count } from '../lib/format'
+
+// two parts (the bar above the table, this footer): the page's class and
+// attributes go on the footer
+defineOptions({ inheritAttrs: false })
 
 const props = defineProps({
   total: { type: Number, required: true },
@@ -44,10 +50,47 @@ const pageButtons = computed(() => {
 function goTo(n) {
   page.value = Math.min(Math.max(n, 1), pageCount.value)
 }
+
+// The bar above the table for the rows per page: a box put right before
+// the element this pager follows (the table). Without one (nothing before
+// it), the menu stays down here.
+const root = ref(null)
+const topBar = ref(null)
+
+onMounted(() => {
+  const table = root.value?.previousElementSibling
+  if (!table?.parentElement) return
+  const bar = document.createElement('div')
+  bar.className = props.card ? 'pager-top pager-top--card' : 'pager-top'
+  table.parentElement.insertBefore(bar, table)
+  topBar.value = bar
+})
+
+onBeforeUnmount(() => {
+  topBar.value?.remove()
+  topBar.value = null
+})
 </script>
 
 <template>
-  <div class="table-pager" :class="{ 'table-pager--card': card }">
+  <!-- rows per page: above the table -->
+  <Teleport v-if="topBar" :to="topBar">
+    <label class="flex items-center gap-2 text-sm text-zinc-400">
+      Show
+      <select
+        v-model.number="pageSize"
+        class="rounded-lg border border-white/10 bg-zinc-900 px-2 py-1 text-sm font-bold text-white outline-none focus:border-red-500"
+        :aria-label="`${label} ${noun}`"
+      >
+        <option v-for="size in sizes" :key="size" :value="size">
+          {{ size === ALL ? 'All' : size }}
+        </option>
+      </select>
+      {{ noun }}
+    </label>
+  </Teleport>
+
+  <div ref="root" v-bind="$attrs" class="table-pager" :class="{ 'table-pager--card': card }">
     <p class="text-sm text-zinc-400">
       <template v-if="pageSize === ALL">
         Showing all <b class="text-white">{{ count(total) }}</b> {{ noun }}
@@ -63,7 +106,8 @@ function goTo(n) {
       <!-- e.g. Stock History's Export -->
       <slot name="actions" />
 
-      <label class="flex items-center gap-2 text-sm text-zinc-400">
+      <!-- (no bar above: the menu stays here) -->
+      <label v-if="!topBar" class="flex items-center gap-2 text-sm text-zinc-400">
         {{ label }}
         <select
           v-model.number="pageSize"

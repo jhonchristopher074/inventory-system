@@ -8,7 +8,6 @@
       icon="approval"
       role="Staff"
       place="Inspection desk"
-      subtitle="Inspections, deliveries and stock to keep an eye on."
       :now="now"
     >
       <div class="flex flex-wrap items-center gap-2 sm:gap-3">

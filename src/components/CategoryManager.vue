@@ -22,6 +22,7 @@ import { supabase } from '../lib/supabase'
 import { count } from '../lib/format'
 import { NO_CATEGORY } from '../lib/categories'
 import NavIcon from './NavIcon.vue'
+import HelpTip from './HelpTip.vue'
 import TermSuggest from './TermSuggest.vue'
 
 const props = defineProps({
@@ -557,23 +558,25 @@ onBeforeUnmount(() => {
     @click.self="close"
   >
     <div
-      class="relative flex h-full w-full flex-col overflow-hidden bg-zinc-900 shadow-2xl sm:h-[min(720px,90vh)] sm:max-w-5xl sm:rounded-[24px] sm:border sm:border-white/10"
+      class="relative flex h-full w-full flex-col overflow-hidden bg-[var(--surface)] shadow-2xl sm:h-[min(720px,90vh)] sm:max-w-5xl sm:rounded-[24px] sm:border sm:border-white/10"
       role="dialog"
       aria-modal="true"
       aria-labelledby="categories-title"
     >
       <!-- TITLE -->
-      <header class="flex items-start justify-between gap-3 border-b border-white/5 px-5 py-4">
-        <div class="min-w-0">
-          <h2 id="categories-title" class="text-xl font-extrabold text-white">Categories</h2>
-          <p class="mt-0.5 text-sm text-zinc-400">
-            Group your products. New products from supplier receipts are sorted into these too.
-          </p>
+      <header class="flex items-center justify-between gap-3 border-b border-white/5 px-5 py-3.5">
+        <div class="flex min-w-0 items-center gap-2.5">
+          <span class="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-red-600/15 text-red-400">
+            <NavIcon name="tag" class="h-4 w-4" />
+          </span>
+          <h2 id="categories-title" class="text-lg font-extrabold text-white">Categories</h2>
+          <span class="count">{{ count(allCategories.length) }}</span>
+          <HelpTip text="Group your products. New products from supplier receipts are sorted into these too." />
         </div>
 
         <button
           type="button"
-          class="shrink-0 rounded-full bg-zinc-800 px-3 py-1.5 font-bold text-white hover:bg-zinc-700"
+          class="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white/5 text-zinc-300 hover:bg-white/10 hover:text-white"
           aria-label="Close"
           @click="close"
         >
@@ -589,17 +592,31 @@ onBeforeUnmount(() => {
           class="flex w-full min-w-0 flex-col border-white/5 sm:w-72 sm:shrink-0 sm:border-r"
           :class="detailOnPhone ? 'max-sm:hidden' : ''"
         >
-          <div class="p-3">
-            <input
-              maxlength="60"
-              ref="searchBox"
-              v-model="search"
-              type="search"
-              placeholder="Search categories"
-              aria-label="Search categories"
-              class="input"
-              @keydown.enter.prevent="onSearchEnter"
-            />
+          <div class="flex gap-2 p-3">
+            <div class="search-box min-w-0 flex-1">
+              <svg viewBox="0 0 24 24" class="h-4 w-4 shrink-0 text-zinc-500" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5" stroke-linecap="round" />
+              </svg>
+              <input
+                maxlength="60"
+                ref="searchBox"
+                v-model="search"
+                type="search"
+                placeholder="Search"
+                aria-label="Search categories"
+                class="min-w-0 flex-1 bg-transparent text-sm text-white outline-none placeholder:text-zinc-500"
+                @keydown.enter.prevent="onSearchEnter"
+              />
+            </div>
+            <button
+              type="button"
+              class="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-red-600 text-xl font-bold leading-none text-white hover:bg-red-700"
+              title="New category"
+              aria-label="New category"
+              @click="startCreate()"
+            >
+              +
+            </button>
           </div>
 
           <nav class="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 pb-2" aria-label="Categories">
@@ -650,8 +667,8 @@ onBeforeUnmount(() => {
             </p>
           </nav>
 
-          <!-- NEW CATEGORY -->
-          <div class="border-t border-white/5 p-3">
+          <!-- NEW CATEGORY (opened by +) -->
+          <div v-if="creating" class="border-t border-white/5 p-3">
             <form v-if="creating" class="space-y-2" @submit.prevent="create">
               <input
                 ref="newNameBox"
@@ -661,8 +678,8 @@ onBeforeUnmount(() => {
                 aria-label="Name of the new category"
                 class="input"
               />
-              <p v-if="newNameTaken" class="text-xs text-yellow-300">
-                "{{ newNameTaken.name }}" is already a category. Add opens it.
+              <p v-if="newNameTaken" class="text-xs text-amber-300">
+                "{{ newNameTaken.name }}" already exists.
               </p>
               <div class="flex gap-2">
                 <button
@@ -681,15 +698,6 @@ onBeforeUnmount(() => {
                 </button>
               </div>
             </form>
-
-            <button
-              v-else
-              type="button"
-              class="w-full rounded-xl border border-dashed border-white/15 py-2.5 text-sm font-bold text-zinc-300 hover:border-red-500/50 hover:text-white"
-              @click="startCreate()"
-            >
-              + New category
-            </button>
           </div>
         </aside>
 
@@ -752,42 +760,41 @@ onBeforeUnmount(() => {
                 >
                   Cancel
                 </button>
-                <p v-if="productsHere.length > 0" class="basis-full text-xs text-zinc-500">
-                  Its {{ productCount(productsHere.length) }} stay in it under the new name.
-                </p>
+
               </form>
 
               <div v-else class="flex flex-wrap items-center justify-between gap-3">
-                <div class="min-w-0">
+                <div class="flex min-w-0 items-center gap-2.5">
                   <h3 class="truncate text-lg font-extrabold text-white" :class="{ italic: isUncategorized }">
                     {{ selectedName }}
                   </h3>
-                  <p class="text-sm text-zinc-400">
-                    <template v-if="isUncategorized">
-                      {{
-                        productsHere.length > 0
-                          ? `${productCount(productsHere.length)} still need${productsHere.length === 1 ? 's' : ''} a category`
-                          : 'Every product has a category.'
-                      }}
-                    </template>
-                    <template v-else>{{ productCount(productsHere.length) }}</template>
-                  </p>
+                  <span class="count" :class="{ 'is-alert': isUncategorized && productsHere.length > 0 }">
+                    {{ count(productsHere.length) }}
+                  </span>
+                  <HelpTip
+                    v-if="isUncategorized"
+                    text="Products with no category yet. Pick one for each, or tick several and move them together."
+                  />
                 </div>
 
-                <div v-if="!isUncategorized" class="flex gap-2">
+                <div v-if="!isUncategorized" class="flex gap-1.5">
                   <button
                     type="button"
-                    class="rounded-lg bg-zinc-800 px-3 py-1.5 text-xs font-bold text-zinc-200 hover:bg-zinc-700"
+                    class="icon-btn"
+                    title="Rename (its products stay in it)"
+                    aria-label="Rename"
                     @click="startRename"
                   >
-                    Rename
+                    <NavIcon name="edit" class="h-4 w-4" />
                   </button>
                   <button
                     type="button"
-                    class="rounded-lg bg-red-600/15 px-3 py-1.5 text-xs font-bold text-red-300 hover:bg-red-600/30 hover:text-white"
+                    class="icon-btn is-danger"
+                    title="Delete"
+                    aria-label="Delete"
                     @click="closeEditors(); confirmingDelete = true"
                   >
-                    Delete
+                    <NavIcon name="trash" class="h-4 w-4" />
                   </button>
                 </div>
               </div>
@@ -831,7 +838,7 @@ onBeforeUnmount(() => {
             <div class="min-h-0 flex-1 space-y-6 overflow-y-auto overscroll-contain px-5 py-4">
               <!-- ADD PRODUCTS -->
               <div v-if="!isUncategorized">
-                <label class="field-label" for="add-products">Add products to {{ selectedName }}</label>
+                <label class="field-label" for="add-products">Add products</label>
                 <TermSuggest
                   id="add-products"
                   ref="addBox"
@@ -840,7 +847,7 @@ onBeforeUnmount(() => {
                   single
                   auto-highlight
                   :options="addOptions"
-                  placeholder="Type a product name, then Enter"
+                  placeholder="Product name, then Enter"
                   empty-text="No product matches."
                   class="input mt-2"
                   @pick="addPicked"
@@ -980,7 +987,7 @@ onBeforeUnmount(() => {
                       All products are sorted.
                     </template>
                     <template v-else>
-                      No products in {{ selectedName }} yet. Add some above<template v-if="uncategorizedCount > 0">, or pick them from the products that have no category yet</template>.
+                      No products yet.
                       <button
                         v-if="uncategorizedCount > 0"
                         type="button"
@@ -1005,13 +1012,12 @@ onBeforeUnmount(() => {
               <div v-if="!isUncategorized" class="rounded-xl border border-white/5 bg-black/20 p-4">
                 <div class="flex items-start justify-between gap-3">
                   <div class="min-w-0">
-                    <p class="field-label">
-                      Notes for the receipt scanner
-                      <span class="font-normal normal-case tracking-normal">(optional)</span>
-                    </p>
-                    <p class="mt-1 text-xs text-zinc-500">
-                      Its AI reads these when it sorts new products from receipts. Only needed if
-                      it puts things in the wrong category, e.g. "nails, screws, bolts".
+                    <p class="field-label flex items-center gap-2">
+                      Scanner notes
+                      <HelpTip
+                        side="right"
+                        text="Optional. The receipt scanner's AI reads these to sort new products. Only needed if it picks the wrong category, e.g. &quot;nails, screws, bolts&quot;."
+                      />
                     </p>
                   </div>
                   <button
@@ -1067,7 +1073,7 @@ onBeforeUnmount(() => {
                 <NavIcon name="tag" class="h-6 w-6" />
               </span>
               <p class="mt-3 font-bold text-white">No categories yet</p>
-              <p class="mt-1 text-sm text-zinc-400">Make the first one, e.g. Fasteners, Plumbing or Electrical.</p>
+
               <button
                 type="button"
                 class="mt-4 rounded-xl bg-red-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-red-700"
@@ -1085,6 +1091,43 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
+/* the search over the list */
+.search-box {
+  display: flex;
+  height: 2.5rem;
+  align-items: center;
+  gap: 0.5rem;
+  border-radius: 0.75rem;
+  border: 1px solid var(--hairline);
+  background: var(--surface-sunken);
+  padding: 0 0.75rem;
+}
+
+.search-box:focus-within {
+  border-color: rgba(224, 27, 50, 0.55);
+}
+
+/* Rename / Delete */
+.icon-btn {
+  display: grid;
+  width: 2rem;
+  height: 2rem;
+  place-items: center;
+  border-radius: 0.6rem;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--color-zinc-300);
+}
+
+.icon-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+.icon-btn.is-danger:hover {
+  background: rgba(239, 68, 68, 0.18);
+  color: #fca5a5;
+}
+
 .cat-item {
   display: flex;
   width: 100%;
@@ -1122,7 +1165,7 @@ onBeforeUnmount(() => {
 
 .count.is-alert {
   background: rgba(245, 158, 11, 0.15);
-  color: var(--color-yellow-400);
+  color: #fcd34d;
 }
 
 /* the small filter over a long product list */

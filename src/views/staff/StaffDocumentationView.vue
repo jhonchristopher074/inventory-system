@@ -1,8 +1,7 @@
 <template>
   <div class="min-h-screen text-white">
     <PageHeader
-      title="Employee Documentation"
-      subtitle="Create and view your own documentation records."
+      title="Documentation"
     >
       <button
         type="button"

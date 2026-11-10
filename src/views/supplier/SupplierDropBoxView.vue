@@ -1,6 +1,6 @@
 <template>
   <div>
-    <PageHeader title="Dashboard" subtitle="Upload your receipts and follow what happens to them." />
+    <PageHeader title="Dashboard" />
 
     <!-- NEWS, on both tabs: the owner's decision (until closed), and approved
          receipts counting down to the receipt scanner -->

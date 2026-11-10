@@ -2,7 +2,6 @@
   <div>
     <PageHeader
       title="Approval"
-      subtitle="Review receipts (from suppliers, staff and you) and staff inspection requests."
     />
 
     <!-- TABS: one list at a time; the number is what's waiting in each.

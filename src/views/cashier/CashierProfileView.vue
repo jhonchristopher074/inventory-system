@@ -1,6 +1,6 @@
 <template>
   <div>
-    <PageHeader title="Cashier Profile" subtitle="Your account details and password." />
+    <PageHeader title="Profile" />
 
     <!-- same profile as staff (read-only details, password); sales are on
          the Sales History page -->

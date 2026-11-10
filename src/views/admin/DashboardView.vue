@@ -7,7 +7,6 @@
       icon="dashboard"
       :role="roleLabel(currentUser.role) || 'Owner'"
       place="Store overview"
-      subtitle="Sales, stock and approvals for the whole store."
       :now="now"
     >
       <div class="flex items-center gap-3">

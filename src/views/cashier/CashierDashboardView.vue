@@ -9,7 +9,6 @@
       icon="pos"
       role="Cashier"
       place="Sales counter"
-      subtitle="Your sales at the counter, at a glance."
       :now="now"
     >
       <div class="flex flex-wrap items-center gap-2 sm:gap-3">

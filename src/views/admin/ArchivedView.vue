@@ -1,8 +1,7 @@
 <template>
   <div>
     <PageHeader
-      title="Archived Products"
-      subtitle="Products that were moved to the archive."
+      title="Archived"
     />
 
     <div class="mb-5 card p-5">
