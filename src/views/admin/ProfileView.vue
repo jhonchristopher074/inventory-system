@@ -88,7 +88,7 @@
           <div>
             <h2 class="text-xl font-extrabold text-white">User Accounts</h2>
             <p class="text-xs text-zinc-500">
-              {{ users.length }} accounts
+              {{ allAccounts }} accounts
             </p>
           </div>
 
@@ -111,8 +111,8 @@
             placeholder="Search by account number, name, or email..."
             class="input"
           />
-          <p v-if="userSearch" class="mt-1.5 text-xs text-zinc-500">
-            {{ filteredUsers.length }} of {{ users.length }} accounts
+          <p v-if="userSearch.trim()" class="mt-1.5 text-xs text-zinc-500">
+            {{ accountCount }} matching
           </p>
         </div>
 
@@ -137,9 +137,9 @@
           </button>
         </div>
 
-        <!-- USER LIST, GROUPED BY ROLE -->
+        <!-- THE ACCOUNTS: a table, one page at a time (25, 50 or 100) -->
         <div
-          class="users-scroll space-y-5 lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:pr-1"
+          class="users-scroll lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:pr-1"
           @scroll="closeMenu"
         >
           <p v-if="usersError" class="rounded-xl bg-red-600/20 p-3 text-sm text-red-400">
@@ -148,22 +148,27 @@
           <p v-else-if="loading && !users.length" class="py-6 text-center text-sm text-zinc-500">
             Loading accounts...
           </p>
-          <p v-else-if="!visibleGroups.length" class="py-6 text-center text-sm text-zinc-500">
+          <p v-else-if="!users.length" class="py-6 text-center text-sm text-zinc-500">
             No accounts found.
           </p>
 
-          <section v-for="group in visibleGroups" :key="group.key">
-            <div class="mb-2 flex items-center gap-2 px-1">
-              <h3 class="text-[11px] font-bold uppercase tracking-[0.14em] text-zinc-500">
-                {{ group.label }}
-              </h3>
-              <span class="text-[11px] font-semibold text-zinc-600">{{ group.users.length }}</span>
-              <div class="h-px flex-1 bg-white/5"></div>
+          <div
+            v-else
+            class="overflow-hidden rounded-2xl border border-white/5 bg-black/40 transition-opacity"
+            :class="{ 'opacity-60': loading }"
+          >
+            <!-- column titles (computers) -->
+            <div class="user-row user-head desktop-only" aria-hidden="true">
+              <span></span>
+              <span>Name</span>
+              <span>Role</span>
+              <span>Status</span>
+              <span></span>
             </div>
 
-            <div class="divide-y divide-white/5 overflow-hidden rounded-2xl border border-white/5 bg-black/40">
+            <div class="divide-y divide-white/5">
               <div
-                v-for="user in group.users"
+                v-for="user in users"
                 :key="user.id"
                 class="user-row transition hover:bg-white/[0.03]"
                 :class="menu?.user.id === user.id ? 'bg-white/[0.03]' : ''"
@@ -242,8 +247,18 @@
                 </button>
               </div>
             </div>
-          </section>
+          </div>
         </div>
+
+        <TablePager
+          v-if="!usersError && total > 0"
+          v-model:page="page"
+          v-model:page-size="pageSize"
+          :total="total"
+          :sizes="PAGE_SIZES"
+          noun="accounts"
+          class="-mx-5 -mb-5 mt-3 shrink-0"
+        />
       </div>
     </div>
 
@@ -346,7 +361,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import PageHeader from '../../components/PageHeader.vue'
 import { ROLE_LABELS } from '../../lib/roles'
 import { currentUser } from '../../lib/currentUser'
@@ -359,6 +374,7 @@ import ChangeOwnPasswordModal from '../../components/ChangeOwnPasswordModal.vue'
 import StoreLogoCard from '../../components/StoreLogoCard.vue'
 import TwoStepButton from '../../components/TwoStepButton.vue'
 import NavIcon from '../../components/NavIcon.vue'
+import TablePager from '../../components/TablePager.vue'
 
 const showOwnPassword = ref(false)
 
@@ -377,64 +393,150 @@ function canMenu(user) {
 // phones: the "Add employee" form opens from a button
 const showCreateForm = ref(false)
 
-const users = ref([])
+// The accounts, one page at a time (supabase/migrations/20261119000001:
+// list_accounts_page searches and filters in the database, so thousands of
+// accounts stay fast). Before that SQL is run: every account is loaded
+// (admin_list_users) and the same is done here.
+const PAGE_SIZES = [25, 50, 100]
+const users = ref([]) // this page
+const total = ref(0) // in this tab, after the search
+const counts = ref({}) // per tab, after the search
 const userSearch = ref('')
 const loading = ref(false)
 const usersError = ref('')
+const page = ref(1)
+const pageSize = ref(PAGE_SIZES[0])
+const serverPages = ref(true)
+const everyone = ref([]) // only before the SQL is run
 
-const filteredUsers = computed(() => {
-  const q = userSearch.value.trim().toLowerCase()
-  if (!q) return users.value
-
-  return users.value.filter((user) => {
-    const accountNo = (user.account_no || '').toLowerCase()
-    const name = (user.full_name || '').toLowerCase()
-    const email = (user.email || '').toLowerCase()
-
-    // "#000000009", "9", and "000000009" all match account_no 000000009
-    return (
-      accountNo.includes(q) ||
-      accountNo.includes(q.replace(/^#/, '')) ||
-      name.includes(q) ||
-      email.includes(q)
-    )
-  })
-})
-
-// Categories (tabs + grouped sections)
+// Tabs: All (accounts in use), each role, then Disabled
 const CATEGORIES = ['admin', 'manager', 'staff', 'cashier', 'supplier'].map((key) => ({
   key,
   label: ROLE_LABELS[key], // the 'admin' role is the Owner (lib/roles.js)
 }))
 const activeTab = ref('all')
 
-// Groups follow the search box, so search + category work together.
-// Disabled accounts get their own category (shown last) instead of staying under their role.
-const groups = computed(() => [
-  ...CATEGORIES.map((c) => ({
-    ...c,
-    users: filteredUsers.value.filter((u) => u.role === c.key && u.is_active !== false),
-  })),
-  {
-    key: 'disabled',
-    label: 'Disabled',
-    users: filteredUsers.value.filter((u) => u.is_active === false),
-  },
-])
-
 const tabs = computed(() => [
-  // All: the accounts in use (the disabled ones only under Disabled)
-  { key: 'all', label: 'All', count: filteredUsers.value.filter((u) => u.is_active !== false).length },
-  ...groups.value.map((g) => ({ key: g.key, label: g.label, count: g.users.length })),
+  { key: 'all', label: 'All', count: counts.value.all || 0 },
+  ...CATEGORIES.map((c) => ({ ...c, count: counts.value[c.key] || 0 })),
+  { key: 'disabled', label: 'Disabled', count: counts.value.disabled || 0 },
 ])
 
-const visibleGroups = computed(() =>
-  groups.value.filter(
-    (g) =>
-      g.users.length &&
-      (activeTab.value === g.key || (activeTab.value === 'all' && g.key !== 'disabled'))
-  )
-)
+// every account (in use and disabled) that matches the search
+const accountCount = computed(() => (counts.value.all || 0) + (counts.value.disabled || 0))
+
+// every account, whatever is searched (the header's number)
+const allAccounts = ref(0)
+watch(counts, () => {
+  if (!userSearch.value.trim()) allAccounts.value = accountCount.value
+})
+
+const ROLE_ORDER = { admin: 0, manager: 1, staff: 2, cashier: 3, supplier: 4 }
+
+// before the SQL: the same search, tabs and pages, here
+function pageHere() {
+  const q = userSearch.value.trim().toLowerCase()
+  const number = q.replace(/^#/, '')
+  const matched = everyone.value.filter((user) => {
+    if (!q) return true
+    // "#000000009", "9", and "000000009" all match account_no 000000009
+    return (
+      String(user.account_no || '').includes(number) ||
+      String(user.full_name || '').toLowerCase().includes(q) ||
+      String(user.email || '').toLowerCase().includes(q)
+    )
+  })
+  const inUse = matched.filter((u) => u.is_active !== false)
+  counts.value = {
+    all: inUse.length,
+    ...Object.fromEntries(CATEGORIES.map((c) => [c.key, inUse.filter((u) => u.role === c.key).length])),
+    disabled: matched.length - inUse.length,
+  }
+  const tab = activeTab.value
+  const rows = matched
+    .filter((u) => (tab === 'all' ? u.is_active !== false : tab === 'disabled' ? u.is_active === false : u.role === tab && u.is_active !== false))
+    .sort((a, b) =>
+      (ROLE_ORDER[a.role] ?? 5) - (ROLE_ORDER[b.role] ?? 5) ||
+      String(a.full_name || a.email || '').localeCompare(String(b.full_name || b.email || ''))
+    )
+  total.value = rows.length
+  users.value = rows.slice((page.value - 1) * pageSize.value, page.value * pageSize.value)
+}
+
+let loadTurn = 0
+
+async function fetchUsers() {
+  const turn = ++loadTurn
+  loading.value = true
+  usersError.value = ''
+
+  if (serverPages.value) {
+    const { data, error } = await supabase.rpc('list_accounts_page', {
+      p_search: userSearch.value.trim(),
+      p_tab: activeTab.value,
+      p_limit: pageSize.value,
+      p_offset: (page.value - 1) * pageSize.value,
+    })
+    if (turn !== loadTurn) return // a newer search or page is on its way
+    if (!error && data) {
+      users.value = data.rows || []
+      total.value = Number(data.total) || 0
+      counts.value = data.counts || {}
+      loading.value = false
+      // the last page emptied (e.g. an account was disabled): one page back
+      if (users.value.length === 0 && page.value > 1) {
+        page.value -= 1
+      }
+      return
+    }
+    // the SQL isn't run yet: load every account and page them here
+    if (error && !/list_accounts_page|schema cache|function/i.test(error.message)) {
+      loading.value = false
+      usersError.value = error.message
+      return
+    }
+    serverPages.value = false
+  }
+
+  const { data, error } = await supabase.rpc('admin_list_users')
+  if (turn !== loadTurn) return
+  loading.value = false
+  // a failed load used to look exactly like "No accounts found"
+  if (error) {
+    usersError.value = error.message
+    return
+  }
+  everyone.value = data || []
+  pageHere()
+}
+
+// typing: wait a moment, then search from page 1
+let searchTimer = null
+watch(userSearch, () => {
+  clearTimeout(searchTimer)
+  searchTimer = setTimeout(() => {
+    page.value = 1
+    if (serverPages.value) fetchUsers()
+    else pageHere()
+  }, 300)
+})
+
+watch(activeTab, () => {
+  if (page.value !== 1) page.value = 1 // the page watcher loads
+  else if (serverPages.value) fetchUsers()
+  else pageHere()
+})
+
+watch([page, pageSize], ([, size], [, oldSize]) => {
+  if (size !== oldSize && page.value !== 1) {
+    page.value = 1
+    return
+  }
+  if (serverPages.value) fetchUsers()
+  else pageHere()
+})
+
+onBeforeUnmount(() => clearTimeout(searchTimer))
 
 // ----- Look helpers -----
 // each role's colour, as on its dashboard and in the top bar
@@ -520,22 +622,6 @@ const promptBusy = ref(false)
 // One-time reveal of a new temporary password
 const reveal = ref(null)        // { email, password, expiresAt }
 
-async function fetchUsers() {
-  loading.value = true
-  usersError.value = ''
-
-  const { data, error } = await supabase.rpc('admin_list_users')
-
-  loading.value = false
-
-  // a failed load used to look exactly like "No accounts found"
-  if (error) {
-    usersError.value = error.message
-    return
-  }
-
-  users.value = data || []
-}
 
 function ask(config) {
   promptError.value = ''
@@ -750,6 +836,18 @@ onBeforeUnmount(() => {
 }
 
 /* One compact row: avatar | name/email | role | status | ⋯ */
+/* the column titles of the accounts table */
+.user-head {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  padding-top: 0.55rem;
+  padding-bottom: 0.55rem;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-zinc-500);
+}
+
 .user-row {
   display: grid;
   grid-template-columns: 36px minmax(0, 1fr) 116px 80px 32px;
