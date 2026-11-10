@@ -78,13 +78,14 @@ function closeReveal() {
 </template>
 
 <style scoped>
-.ce-form { display: grid; align-content: start; gap: 5px; max-width: 420px; background: #141417; border: 1px solid #26262b; border-radius: 16px; padding: 18px 20px; color: #f4f4f5; }
+/* the same colours as every other card (style.css tokens) */
+.ce-form { display: grid; align-content: start; gap: 5px; max-width: 420px; background: var(--surface); border: 1px solid var(--hairline); border-radius: var(--radius-lg); box-shadow: var(--shadow-card); padding: 18px 20px; color: #f4f4f5; }
 h2 { margin: 0 0 4px; font-size: 1.15rem; font-weight: 800; color: #fff; }
 label { font-size: .8rem; font-weight: 600; color: #d4d4d8; margin-top: 6px; }
-input, select { background: #0e0e11; border: 1px solid #2e2e34; border-radius: 10px; color: inherit; padding: 8px 12px; font-size: .95rem; }
-input:focus, select:focus { outline: none; border-color: #e11d48; }
+input, select { background: var(--surface-sunken); border: 1px solid var(--hairline); border-radius: 10px; color: inherit; padding: 8px 12px; font-size: .95rem; }
+input:focus, select:focus { outline: none; border-color: rgba(224, 27, 50, 0.6); }
 .ce-note { font-size: .8rem; color: #a1a1aa; margin: 8px 0 0; }
 .ce-error { font-size: .85rem; color: #fda4af; margin: 6px 0 0; }
-button { margin-top: 10px; padding: 10px; border: 0; border-radius: 10px; background: #e11d48; color: #fff; font-weight: 700; cursor: pointer; }
+button { margin-top: 10px; padding: 10px; border: 0; border-radius: 10px; background: var(--brand); color: #fff; font-weight: 700; cursor: pointer; }
 button:disabled { opacity: .45; cursor: not-allowed; }
 </style>

@@ -8,10 +8,10 @@
     >
       <NavIcon name="bell" class="h-6 w-6" />
 
-      <!-- unread: the count, with a red ring pulsing out of it -->
+      <!-- unread: the count -->
       <span
         v-if="unreadCount > 0"
-        class="unread-count absolute -right-1.5 -top-1.5 min-w-[1.35rem] rounded-full bg-red-600 px-1.5 py-[2px] text-center text-[11px] font-bold leading-none text-white"
+        class="absolute -right-1.5 -top-1.5 min-w-[1.35rem] rounded-full bg-red-600 px-1.5 py-[2px] text-center text-[11px] font-bold leading-none text-white"
       >
         {{ unreadCount > 99 ? '99+' : unreadCount }}
       </span>
@@ -28,68 +28,75 @@
 
     <div
       v-if="showList"
-      class="absolute right-0 z-[9999] mt-3 w-[min(24rem,calc(100vw_-_5.5rem))] rounded-2xl border border-white/10 bg-zinc-950 p-4 shadow-2xl"
+      class="notif-panel absolute right-0 z-[9999] mt-3 w-[min(25rem,calc(100vw_-_5.5rem))]"
+      role="dialog"
+      aria-label="Notifications"
     >
-      <div class="mb-3 flex items-center justify-between">
-        <h2 class="text-lg font-bold text-white">Notifications</h2>
+      <header class="flex items-center justify-between gap-3 border-b border-white/5 px-4 py-3.5">
+        <div class="flex items-center gap-2">
+          <h2 class="text-base font-extrabold text-white">Notifications</h2>
+          <span v-if="unreadCount > 0" class="rounded-full bg-red-600 px-2 py-0.5 text-[11px] font-bold text-white">
+            {{ unreadCount > 99 ? '99+' : unreadCount }} new
+          </span>
+        </div>
 
         <button
-          class="text-xs text-red-400 hover:text-red-300"
+          type="button"
+          class="rounded-lg px-2 py-1 text-xs font-bold text-white hover:bg-white/10 disabled:opacity-40"
+          :disabled="unreadCount === 0"
           @click.stop="markAllAsRead"
         >
           Mark all read
         </button>
+      </header>
+
+      <p v-if="loading && notifications.length === 0" class="px-4 py-6 text-center text-sm text-zinc-400">Loading…</p>
+
+      <!-- nothing yet -->
+      <div v-else-if="notifications.length === 0 && myNotices.length === 0" class="px-4 py-10 text-center">
+        <span class="mx-auto grid h-11 w-11 place-items-center rounded-full bg-white/5 text-zinc-500">
+          <NavIcon name="bell" class="h-5 w-5" />
+        </span>
+        <p class="mt-3 text-sm font-bold text-zinc-300">You're all caught up</p>
+        <p class="text-xs text-zinc-500">New notifications show up here.</p>
       </div>
 
-      <p v-if="loading" class="text-sm text-zinc-400">Loading...</p>
-
-      <p v-if="notifications.length === 0 && myNotices.length === 0 && !loading" class="text-sm text-zinc-500">
-        No notifications.
-      </p>
-
-      <div class="max-h-96 space-y-2 overflow-y-auto">
+      <ul v-else class="notif-list max-h-[26rem] overflow-y-auto p-2">
         <!-- suppliers: the owner confirmed a receipt (lib/supplierNotices.js;
              gone after logout) -->
-        <div
-          v-for="notice in myNotices"
-          :key="notice.id"
-          class="cursor-pointer rounded-xl border border-white/10 p-3 transition hover:-translate-y-1 hover:border-emerald-500/40"
-          :class="notice.read ? 'bg-zinc-900' : 'bg-emerald-600/10'"
-          @click="openNotice(notice)"
-        >
-          <div class="mb-1 flex items-center justify-between gap-2">
-            <h3 class="text-sm font-bold text-white">Receipt confirmed</h3>
-            <span class="rounded-full bg-emerald-500/20 px-2 py-[2px] text-[10px] font-bold text-emerald-400">added</span>
-          </div>
-          <p class="text-xs text-zinc-400">{{ noticeText(notice) }}</p>
-          <p class="mt-2 text-[10px] text-zinc-500">{{ formatDate(notice.confirmedAt) }}</p>
-        </div>
-
-        <div
-          v-for="notif in notifications"
-          :key="notif.id"
-          class="cursor-pointer rounded-xl border border-white/10 p-3 transition hover:-translate-y-1 hover:border-red-500/40"
-          :class="notif.is_read ? 'bg-zinc-900' : 'bg-red-600/10'"
-          @click="openNotification(notif)"
-        >
-          <div class="mb-1 flex items-center justify-between gap-2">
-            <h3 class="text-sm font-bold text-white">{{ notif.title }}</h3>
-
-            <span
-              class="rounded-full px-2 py-[2px] text-[10px] font-bold"
-              :class="badgeClass(notif.type)"
-            >
-              {{ notif.type }}
+        <li v-for="notice in myNotices" :key="notice.id">
+          <button type="button" class="notif-item" :class="{ 'is-unread': !notice.read }" @click="openNotice(notice)">
+            <span class="notif-icon bg-emerald-500/20 text-emerald-400">
+              <NavIcon name="check" class="h-4 w-4" />
             </span>
-          </div>
+            <span class="min-w-0 flex-1">
+              <span class="flex items-baseline justify-between gap-2">
+                <span class="notif-title">Receipt confirmed</span>
+                <span class="notif-time">{{ timeText(notice.confirmedAt) }}</span>
+              </span>
+              <span class="notif-text">{{ noticeText(notice) }}</span>
+            </span>
+            <i v-if="!notice.read" class="notif-dot" aria-label="Unread"></i>
+          </button>
+        </li>
 
-          <p class="text-xs text-zinc-400">{{ notif.message }}</p>
-
-          <p class="mt-2 text-[10px] text-zinc-500">
-            {{ formatDate(notif.created_at) }}
-          </p>
-        </div>
-      </div>
+        <li v-for="notif in notifications" :key="notif.id">
+          <button type="button" class="notif-item" :class="{ 'is-unread': !notif.is_read }" @click="openNotification(notif)">
+            <span class="notif-icon" :class="badgeClass(notif.type)">
+              <NavIcon :name="iconFor(notif.type)" class="h-4 w-4" />
+            </span>
+            <span class="min-w-0 flex-1">
+              <span class="flex items-baseline justify-between gap-2">
+                <span class="notif-title">{{ notif.title }}</span>
+                <span class="notif-time">{{ timeText(notif.created_at) }}</span>
+              </span>
+              <span class="notif-text">{{ notif.message }}</span>
+              <span class="notif-type">{{ typeLabel(notif.type) }}</span>
+            </span>
+            <i v-if="!notif.is_read" class="notif-dot" aria-label="Unread"></i>
+          </button>
+        </li>
+      </ul>
     </div>
 
     <!-- POP-UP: a new confirmation for a supplier; hides itself -->
@@ -116,33 +123,105 @@
 </template>
 
 <style scoped>
-/* the unread count: a red ring keeps pulsing out of it */
-.unread-count::after {
-  content: '';
+/* the list that opens under the bell */
+.notif-panel {
+  overflow: hidden;
+  border-radius: 1.1rem;
+  border: 1px solid var(--hairline);
+  background: var(--surface);
+  box-shadow: 0 24px 48px -16px rgba(0, 0, 0, 0.75);
+}
+
+.notif-list {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
+}
+
+.notif-item {
+  position: relative;
+  display: flex;
+  width: 100%;
+  align-items: flex-start;
+  gap: 0.75rem;
+  border-radius: 0.8rem;
+  padding: 0.7rem 0.75rem;
+  text-align: left;
+  transition: background-color 0.15s;
+}
+
+.notif-item:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.notif-item.is-unread {
+  /* room for the red dot on the right */
+  padding-right: 1.5rem;
+  background: rgba(224, 27, 50, 0.07);
+}
+
+.notif-item.is-unread:hover {
+  background: rgba(224, 27, 50, 0.12);
+}
+
+.notif-icon {
+  display: grid;
+  width: 2.1rem;
+  height: 2.1rem;
+  flex: none;
+  place-items: center;
+  border-radius: 0.65rem;
+}
+
+.notif-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--color-zinc-300);
+}
+
+.notif-item.is-unread .notif-title {
+  color: #fff;
+}
+
+.notif-time {
+  flex: none;
+  font-size: 0.68rem;
+  color: var(--color-zinc-500);
+}
+
+.notif-text {
+  display: -webkit-box;
+  margin-top: 0.1rem;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  font-size: 0.78rem;
+  line-height: 1.35;
+  color: var(--color-zinc-400);
+}
+
+.notif-type {
+  display: inline-block;
+  margin-top: 0.35rem;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-zinc-500);
+}
+
+/* unread: a red dot on the right */
+.notif-dot {
   position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  border: 2px solid #e01b32;
-  animation: unread-pulse 1.6s ease-out infinite;
-  pointer-events: none;
-}
-
-@keyframes unread-pulse {
-  from {
-    transform: scale(1);
-    opacity: 0.9;
-  }
-  to {
-    transform: scale(1.8);
-    opacity: 0;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .unread-count::after {
-    animation: none;
-    opacity: 0;
-  }
+  top: 1rem;
+  right: 0.6rem;
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 999px;
+  background: var(--brand-bright);
 }
 
 .notice-pop-enter-active,
@@ -160,6 +239,7 @@
 <script setup>
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import NavIcon from './NavIcon.vue'
+import { dayAndTime } from '../lib/format'
 import { refreshTasksSoon } from '../lib/taskCounts'
 import { announceChange } from '../lib/liveRefresh'
 import { useRoute, useRouter } from 'vue-router'
@@ -527,9 +607,40 @@ function badgeClass(type) {
   return BADGES[type] || 'bg-zinc-700 text-zinc-300'
 }
 
-function formatDate(date) {
-  if (!date) return ''
-  return new Date(date).toLocaleString()
+// "Today, 2:35 PM", "Yesterday, 9:05 AM", "Oct 27, 4:10 PM"
+function timeText(date) {
+  return date ? dayAndTime(date) : ''
+}
+
+// "low_stock" → "Low stock"
+function typeLabel(type) {
+  const text = String(type || 'notice').replace(/_/g, ' ')
+  return text.charAt(0).toUpperCase() + text.slice(1)
+}
+
+// each kind of notification's picture
+const ICONS = {
+  low_stock: 'alert',
+  overdue: 'alert',
+  report: 'flag',
+  return: 'restore',
+  inspection_approval: 'approval',
+  supplier_upload: 'upload',
+  inspection: 'calendar',
+  sale: 'sales',
+  documentation: 'docs',
+  restore: 'restore',
+  archive: 'archive',
+  disabled: 'lock',
+  receive: 'inventory',
+  received: 'check',
+  refund: 'tag',
+  receipt: 'docs',
+  delivery_receipt: 'docs',
+}
+
+function iconFor(type) {
+  return ICONS[type] || 'bell'
 }
 
 // set when the bell goes away (e.g. logout) while still loading, so the

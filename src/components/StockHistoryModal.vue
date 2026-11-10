@@ -254,11 +254,12 @@ onMounted(fetchMovements)
           No stock changes recorded yet. Changes are recorded from the day the stock history was switched on.
         </p>
 
-        <!-- keeps a full page's height on a shorter (last) page -->
+        <!-- keeps a full page's height on a shorter (last) page; the scrollbar's room is
+             always kept, so the columns don't move between pages -->
         <div
           v-if="movements.length > 0"
           ref="tableTop"
-          class="min-h-0 overflow-auto rounded-2xl border border-white/10"
+          class="min-h-0 overflow-auto rounded-2xl border border-white/10 [scrollbar-gutter:stable]"
           :style="fullPageHeight ? { minHeight: `${fullPageHeight}px` } : null"
         >
           <!-- fixed columns: the same widths on every page -->

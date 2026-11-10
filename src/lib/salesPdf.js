@@ -8,7 +8,7 @@
  * The PDF library (about 400 KB) is downloaded only when a PDF is made,
  * not with the page.
  */
-import { newestFirst, reportDay as day, reportFileName, reportPeriod, reportTime as time } from './salesReport'
+import { newestFirst, reportDay as day, reportFileName, reportPeriod, reportTime as time, topProducts } from './salesReport'
 
 const SHOP = '10 FIVE 7 Hardware'
 const BRAND_RED = [224, 27, 50]
@@ -87,9 +87,63 @@ export async function buildSalesPdf({ sales, range, who = '', cashierOf = null }
     34
   )
 
-  // ----- the table: one row per sale -----
   // (number columns are right-aligned, their titles and totals too)
   const right = (content) => ({ content, styles: { halign: 'right' } })
+
+  const tableStyles = {
+    theme: 'grid',
+    margin: { left: margin, right: margin, top: 14, bottom: 16 },
+    styles: {
+      font: 'helvetica',
+      fontSize: 9,
+      cellPadding: 2,
+      valign: 'top',
+      textColor: 30,
+      lineColor: [215, 215, 220],
+      lineWidth: 0.1,
+    },
+    headStyles: { fillColor: BRAND_RED, textColor: 255, fontStyle: 'bold' },
+    footStyles: { fillColor: [235, 235, 238], textColor: 20, fontStyle: 'bold' },
+    alternateRowStyles: { fillColor: [248, 248, 250] },
+  }
+
+  // ----- top selling products (the same top 5 as the page's card) -----
+  let nextY = 39
+  const top = topProducts(sales, 5)
+  if (top.length > 0) {
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(11)
+    doc.setTextColor(20)
+    doc.text('Top selling products', margin, 42)
+
+    autoTable(doc, {
+      ...tableStyles,
+      startY: 45,
+      tableWidth: 180,
+      head: [['#', 'Product', right('Quantity sold'), right('Sales (PHP)'), right('Share')]],
+      body: top.map((row, i) => [
+        String(i + 1),
+        pdfText(row.product),
+        String(row.quantity),
+        money(row.total),
+        `${Math.round(row.share * 100)}%`,
+      ]),
+      columnStyles: {
+        0: { cellWidth: 10 },
+        2: { cellWidth: 28, halign: 'right' },
+        3: { cellWidth: 32, halign: 'right' },
+        4: { cellWidth: 18, halign: 'right' },
+      },
+    })
+
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(11)
+    doc.setTextColor(20)
+    doc.text('All sales', margin, doc.lastAutoTable.finalY + 9)
+    nextY = doc.lastAutoTable.finalY + 12
+  }
+
+  // ----- the table: one row per sale -----
 
   const head = [
     'Sale ID',
@@ -130,25 +184,12 @@ export async function buildSalesPdf({ sales, range, who = '', cashierOf = null }
   const totalColumn = head.length - 1
 
   autoTable(doc, {
-    startY: 39,
+    ...tableStyles,
+    startY: nextY,
     head: [head],
     body,
     foot: [foot],
     showFoot: 'lastPage',
-    theme: 'grid',
-    margin: { left: margin, right: margin, top: 14, bottom: 16 },
-    styles: {
-      font: 'helvetica',
-      fontSize: 9,
-      cellPadding: 2,
-      valign: 'top',
-      textColor: 30,
-      lineColor: [215, 215, 220],
-      lineWidth: 0.1,
-    },
-    headStyles: { fillColor: BRAND_RED, textColor: 255, fontStyle: 'bold' },
-    footStyles: { fillColor: [235, 235, 238], textColor: 20, fontStyle: 'bold' },
-    alternateRowStyles: { fillColor: [248, 248, 250] },
     columnStyles: {
       0: { cellWidth: 20 },
       1: { cellWidth: 27 },

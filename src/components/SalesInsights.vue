@@ -29,9 +29,6 @@ watch(open, (value) => {
   }
 })
 
-// best sellers: top 5, or all 10 after 'Show top 10'
-const showAllProducts = ref(false)
-
 const MAX_DAY_POINTS = 62 // longer periods are shown per month
 
 function dayKey(date) {
@@ -117,15 +114,13 @@ const topProducts = computed(() => {
     }
   }
 
-  const list = [...products.values()].sort((a, b) => b.total - a.total).slice(0, 10)
+  // the top 5 (the same as the Dashboard and the PDF / Excel downloads)
+  const list = [...products.values()].sort((a, b) => b.total - a.total).slice(0, 5)
   const max = Math.max(...list.map((p) => p.total), 0)
 
   return list.map((p) => ({ ...p, share: max ? (p.total / max) * 100 : 0 }))
 })
 
-const shownProducts = computed(() =>
-  showAllProducts.value ? topProducts.value : topProducts.value.slice(0, 5)
-)
 </script>
 
 <template>
@@ -139,9 +134,10 @@ const shownProducts = computed(() =>
     <span class="text-xs text-zinc-400 transition" :class="open ? 'rotate-180' : ''" aria-hidden="true">▼</span>
   </button>
 
-  <div v-if="open" class="mt-3 grid items-start gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+  <!-- the two cards are the same height; the chart fills its card -->
+  <div v-if="open" class="mt-3 grid items-stretch gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
     <!-- SALES OVER TIME -->
-    <section class="min-w-0 rounded-[24px] border border-white/10 bg-zinc-900 p-5">
+    <section class="flex min-w-0 flex-col rounded-[24px] border border-white/10 bg-zinc-900 p-5">
       <div class="mb-4 flex flex-wrap items-baseline justify-between gap-2">
         <h2 class="text-lg font-bold text-white">
           Sales per {{ chart?.byMonth ? 'month' : 'day' }}
@@ -155,6 +151,7 @@ const shownProducts = computed(() =>
 
       <SalesLineChart
         v-else
+        class="min-h-0 flex-1"
         :points="chart.buckets"
         :name="`Sales per ${chart.byMonth ? 'month' : 'day'}`"
         empty-text="No sales in this period."
@@ -163,14 +160,14 @@ const shownProducts = computed(() =>
 
     <!-- BEST-SELLING PRODUCTS -->
     <section class="min-w-0 rounded-[24px] border border-white/10 bg-zinc-900 p-5">
-      <h2 class="mb-4 text-lg font-bold text-white">Best-selling products</h2>
+      <h2 class="mb-4 text-lg font-bold text-white">Top selling products</h2>
 
       <p v-if="topProducts.length === 0" class="py-10 text-center text-sm text-zinc-500">
         No products sold.
       </p>
 
       <ol v-else class="space-y-2.5">
-        <li v-for="(product, i) in shownProducts" :key="product.name" class="text-sm">
+        <li v-for="(product, i) in topProducts" :key="product.name" class="text-sm">
           <div class="flex items-baseline justify-between gap-3">
             <span class="min-w-0 truncate text-zinc-200">
               <span class="mr-1.5 text-zinc-500">{{ i + 1 }}.</span>{{ product.name }}
@@ -186,13 +183,6 @@ const shownProducts = computed(() =>
         </li>
       </ol>
 
-      <button
-        v-if="topProducts.length > 5"
-        class="mt-3 text-sm font-bold text-zinc-400 hover:text-white"
-        @click="showAllProducts = !showAllProducts"
-      >
-        {{ showAllProducts ? 'Show top 5' : 'Show top 10' }}
-      </button>
     </section>
   </div>
   </div>

@@ -51,3 +51,26 @@ export function reportFileName(range, who, extension) {
 
   return `sales_${periodPart}${whoPart}.${extension}`
 }
+
+// The best selling products of these sales, most money first (the same
+// top 5 as Sales History's card): { product, quantity, total, share }
+// (share: of all the money from these sales, 0..1).
+export function topProducts(sales, limit = 5) {
+  const perProduct = new Map()
+  let all = 0
+  for (const sale of sales) {
+    for (const item of sale.sale_items || []) {
+      const name = item.product_name || 'Unknown product'
+      const row = perProduct.get(name) || { product: name, quantity: 0, total: 0 }
+      const money = Number(item.subtotal ?? Number(item.price || 0) * Number(item.quantity || 0))
+      row.quantity += Number(item.quantity || 0)
+      row.total += money
+      all += money
+      perProduct.set(name, row)
+    }
+  }
+  return [...perProduct.values()]
+    .sort((a, b) => b.total - a.total)
+    .slice(0, limit)
+    .map((row) => ({ ...row, share: all ? row.total / all : 0 }))
+}

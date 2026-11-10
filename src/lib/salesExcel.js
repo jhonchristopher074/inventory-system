@@ -17,7 +17,7 @@
  * The Excel library (about 1 MB) is downloaded only when a file is made,
  * not with the page.
  */
-import { newestFirst, reportDay, reportFileName, reportPeriod, reportTime } from './salesReport'
+import { newestFirst, reportDay, reportFileName, reportPeriod, reportTime, topProducts } from './salesReport'
 
 const SHOP = '10 FIVE 7 Hardware'
 
@@ -246,6 +246,28 @@ export async function buildSalesWorkbook({ sales, range, who = '', cashierOf = n
       if (numFmt) totalRow.getCell(i + 1).numFmt = numFmt
     })
     styleTotal(totalRow, headers.length)
+  }
+
+  // the top selling products (the same top 5 as the page's card)
+  const top = topProducts(list, 5)
+  if (top.length > 0) {
+    summary.addRow([])
+    summary.addRow(['Top selling products']).font = { bold: true, size: 12 }
+    const headers = ['Product', 'Quantity sold', 'Sales', 'Share of sales']
+    const head = summary.addRow(headers)
+    headers.forEach((header, i) => {
+      const cell = head.getCell(i + 1)
+      cell.font = { bold: true, color: { argb: 'FFFFFFFF' } }
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: BRAND } }
+      cell.alignment = { horizontal: i === 0 ? 'left' : 'right' }
+    })
+    top.forEach((row, i) => {
+      const line = summary.addRow([`${i + 1}. ${row.product}`, row.quantity, row.total, row.share])
+      line.getCell(2).numFmt = COUNT
+      line.getCell(3).numFmt = PESO
+      line.getCell(4).numFmt = PERCENT
+      if (i === 0) line.font = { bold: true }
+    })
   }
 
   if (cashierOf && list.length > 0) {

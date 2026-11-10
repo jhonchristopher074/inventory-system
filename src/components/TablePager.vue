@@ -75,8 +75,9 @@ function goTo(n) {
         </select>
       </label>
 
-      <!-- no page buttons when everything fits on one page (e.g. "All") -->
-      <nav v-if="pageCount > 1" class="flex items-center gap-1" aria-label="Pages">
+      <!-- always there, even when everything fits on one page (e.g. "All"):
+           Prev / Next are then greyed out, so every table looks the same -->
+      <nav class="flex items-center gap-1" aria-label="Pages">
         <button
           type="button"
           class="pager-btn"

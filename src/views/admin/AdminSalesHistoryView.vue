@@ -5,9 +5,12 @@
       subtitle="Every sale, receipt and refund, by period and cashier."
     />
 
-    <!-- Sales | Refunds (?view=refunds keeps it on a refresh, and the bell
-         opens it). Refunds: components/RefundApprovals.vue -->
-    <div class="mb-4 inline-flex max-w-full gap-1 rounded-2xl border border-white/5 bg-zinc-900 p-1">
+    <!-- ONE ROW: Sales | Refunds, the period (All, Today, …) and the
+         PDF / Excel downloads, so the numbers start higher up.
+         ?view=refunds keeps Refunds on a refresh (the bell opens it).
+         Refunds: components/RefundApprovals.vue -->
+    <div class="mb-4 flex flex-wrap items-start gap-3">
+    <div class="inline-flex max-w-full shrink-0 gap-1 rounded-2xl border border-white/5 bg-zinc-900 p-1">
       <button
         v-for="tab in VIEW_TABS"
         :key="tab.key"
@@ -28,6 +31,35 @@
       </button>
     </div>
 
+      <template v-if="view === 'sales'">
+        <SalesPeriodFilter v-model="range" class="!mb-0 min-w-0 flex-1" />
+
+        <!-- download what's shown: a PDF to read or print, Excel with every detail -->
+        <div class="flex shrink-0 gap-2">
+          <button
+            type="button"
+            class="export-btn"
+            :disabled="filteredSales.length === 0 || exporting !== ''"
+            title="The sales shown, and the top selling products, easy to read and print"
+            @click="exportFile('pdf')"
+          >
+            <NavIcon name="download" class="h-4 w-4" />
+            {{ exporting === 'pdf' ? 'Making PDF…' : 'PDF' }}
+          </button>
+          <button
+            type="button"
+            class="export-btn"
+            :disabled="filteredSales.length === 0 || exporting !== ''"
+            title="The sales shown in Excel: totals, top selling products, per cashier and per day, every sale, every product sold"
+            @click="exportFile('excel')"
+          >
+            <NavIcon name="download" class="h-4 w-4" />
+            {{ exporting === 'excel' ? 'Making Excel…' : 'Excel' }}
+          </button>
+        </div>
+      </template>
+    </div>
+
     <RefundApprovals
       v-if="view === 'refunds'"
       :refunds="refunds"
@@ -36,33 +68,6 @@
     />
 
     <template v-else>
-      <!-- FILTERS: period, then search and cashier -->
-      <SalesPeriodFilter v-model="range">
-        <template #end>
-          <div class="flex w-full gap-2">
-            <input
-              v-model="search"
-              type="search"
-              maxlength="80"
-              placeholder="Search sale, cashier, product"
-              aria-label="Search sales"
-              class="filter-box min-w-0 flex-1 sm:w-64 sm:flex-none"
-            />
-            <select
-              :value="cashierFilter"
-              class="filter-box w-[8.5rem] shrink-0 sm:w-40"
-              aria-label="Cashier"
-              @change="setCashier($event.target.value)"
-            >
-              <option value="">All cashiers</option>
-              <option v-for="option in cashierOptions" :key="option.key" :value="option.key">
-                {{ option.name }}
-              </option>
-            </select>
-          </div>
-        </template>
-      </SalesPeriodFilter>
-
       <!-- one cashier picked: a chip to clear it -->
       <div v-if="selectedCashier" class="mb-4 flex flex-wrap items-center gap-2 text-sm text-zinc-400">
         Showing the sales of
@@ -129,30 +134,6 @@
       <!-- CHART + TOP SELLING of what's shown -->
       <SalesInsights :sales="filteredSales" :range="range" />
 
-      <!-- download what's shown: a PDF to read or print, Excel with every detail -->
-      <div class="mb-3 flex flex-wrap items-center justify-end gap-2">
-        <button
-          type="button"
-          class="export-btn"
-          :disabled="filteredSales.length === 0 || exporting !== ''"
-          title="A table of the sales shown, easy to read and print"
-          @click="exportFile('pdf')"
-        >
-          <NavIcon name="download" class="h-4 w-4" />
-          {{ exporting === 'pdf' ? 'Making PDF…' : 'PDF' }}
-        </button>
-        <button
-          type="button"
-          class="export-btn"
-          :disabled="filteredSales.length === 0 || exporting !== ''"
-          title="The sales shown in Excel: totals, per cashier and per day, every sale, every product sold"
-          @click="exportFile('excel')"
-        >
-          <NavIcon name="download" class="h-4 w-4" />
-          {{ exporting === 'excel' ? 'Making Excel…' : 'Excel' }}
-        </button>
-      </div>
-
       <p v-if="exportError" class="mb-3 rounded-xl bg-red-600/20 p-3 text-sm text-red-400" role="alert">
         {{ exportError }}
       </p>
@@ -164,7 +145,28 @@
             Transactions
             <span class="ml-1 text-sm font-semibold text-zinc-500">{{ count(filteredSales.length) }}</span>
           </h2>
-          <p class="text-xs text-zinc-500">Click a sale to see its receipt.</p>
+          <!-- search and cashier: the table's own tools -->
+          <div class="flex w-full gap-2 sm:w-auto">
+            <input
+              v-model="search"
+              type="search"
+              maxlength="80"
+              placeholder="Search sale, cashier, product"
+              aria-label="Search sales"
+              class="filter-box min-w-0 flex-1 sm:w-64 sm:flex-none"
+            />
+            <select
+              :value="cashierFilter"
+              class="filter-box w-[8.5rem] shrink-0 sm:w-40"
+              aria-label="Cashier"
+              @change="setCashier($event.target.value)"
+            >
+              <option value="">All cashiers</option>
+              <option v-for="option in cashierOptions" :key="option.key" :value="option.key">
+                {{ option.name }}
+              </option>
+            </select>
+          </div>
         </div>
 
         <div class="overflow-x-auto">

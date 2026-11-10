@@ -57,24 +57,39 @@
         </span>
       </button>
 
-      <div v-else class="flex flex-wrap items-center gap-2" role="group" aria-label="Show on the calendar">
-        <button
-          v-for="kind in KINDS"
-          :key="kind.key"
-          type="button"
-          class="kind-toggle"
-          :class="[`kind-${kind.key}`, { 'is-off': !showKinds[kind.key] }]"
-          :aria-pressed="showKinds[kind.key]"
-          @click="showKinds[kind.key] = !showKinds[kind.key]"
+      <!-- Month / Board: the same look as the List's tabs, but each one shows
+           or hides its kind (both can be on); the dot is its colour there -->
+      <template v-else>
+        <div class="inline-flex max-w-full gap-1 overflow-x-auto rounded-2xl border border-white/5 bg-zinc-900 p-1" role="group" aria-label="Show on the calendar">
+          <button
+            v-for="kind in KINDS"
+            :key="kind.key"
+            type="button"
+            class="flex shrink-0 items-center gap-2 whitespace-nowrap rounded-xl px-3.5 py-2 text-sm font-bold transition"
+            :class="[`kind-${kind.key}`, showKinds[kind.key] ? 'bg-red-600 text-white' : 'text-zinc-400 hover:bg-white/5 hover:text-white']"
+            :aria-pressed="showKinds[kind.key]"
+            :title="showKinds[kind.key] ? `Hide ${kind.label.toLowerCase()}` : `Show ${kind.label.toLowerCase()}`"
+            @click="showKinds[kind.key] = !showKinds[kind.key]"
+          >
+            <span class="kind-dot" aria-hidden="true"></span>
+            {{ kind.label }}
+            <span
+              class="grid h-5 min-w-5 place-items-center rounded-full px-1.5 text-[0.7rem] font-extrabold"
+              :class="showKinds[kind.key] ? 'bg-white text-red-600' : 'bg-white/10 text-zinc-300'"
+            >{{ kindCounts[kind.key] }}</span>
+          </button>
+        </div>
+
+        <!-- what's late is marked on the calendar / board (same look as the List's Overdue) -->
+        <span
+          class="flex shrink-0 cursor-default items-center gap-2 rounded-full border border-red-500/40 bg-zinc-900 px-3.5 py-2 text-sm font-bold text-red-400"
+          title="Overdue items are marked in orange"
         >
-          <span class="kind-dot" aria-hidden="true"></span>
-          {{ kind.label }}
-          <span class="text-xs opacity-70">{{ kindCounts[kind.key] }}</span>
-        </button>
-        <span class="flex items-center gap-1.5 text-xs text-zinc-400">
-          <span class="h-2 w-2 rounded-full bg-[#ff9500]" aria-hidden="true"></span> Overdue
+          <NavIcon name="alert" class="h-4 w-4" />
+          Overdue
+          <span class="rounded-full bg-red-600/15 px-1.5 text-xs">{{ overdueInspectionCount + overdueDeliveries.length }}</span>
         </span>
-      </div>
+      </template>
 
       <div class="ml-auto flex flex-wrap items-center justify-end gap-2">
         <!-- List / Month, remembered in the address (?view=month) -->
@@ -1406,25 +1421,7 @@ onBeforeUnmount(() => {
   cursor: pointer;
 }
 
-/* Month view: show / hide inspections or deliveries */
-.kind-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.45rem;
-  border-radius: 999px;
-  border: 1px solid var(--hairline);
-  background: var(--surface);
-  padding: 0.4rem 0.8rem;
-  font-size: 0.82rem;
-  font-weight: 700;
-  color: #fff;
-  transition: opacity 0.15s;
-}
-
-.kind-toggle.is-off {
-  opacity: 0.45;
-}
-
+/* Month / Board: each kind's colour on the calendar */
 .kind-dot {
   width: 0.55rem;
   height: 0.55rem;

@@ -127,6 +127,14 @@ a.kpi:focus-visible {
   box-shadow: 0 4px 12px -4px color-mix(in srgb, var(--tone, var(--brand)) 60%, transparent);
 }
 
+/* light squares (green, amber, blue): a dark icon, or it's hard to see
+   (like the amber caution sign) */
+.tone-green .kpi-icon,
+.tone-amber .kpi-icon,
+.tone-blue .kpi-icon {
+  color: #0d1117;
+}
+
 /* the one big number of the page */
 .kpi-hero {
   margin-top: 0.35rem;
