@@ -38,13 +38,48 @@
   background: var(--tone, var(--brand));
 }
 
-/* only a tile that opens a page lifts under the mouse */
+/* under the mouse a tile glows in its colour; one that opens a page also
+   lifts */
+.kpi:hover,
+.kpi:focus-visible {
+  outline: none;
+  border-color: color-mix(in srgb, var(--tone, var(--brand)) 55%, transparent);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--tone, var(--brand)) 30%, transparent),
+    0 10px 32px -10px color-mix(in srgb, var(--tone, var(--brand)) 60%, transparent);
+}
+
 a.kpi:hover,
 a.kpi:focus-visible {
-  outline: none;
-  border-color: color-mix(in srgb, var(--tone, var(--brand)) 40%, transparent);
   transform: translateY(-2px);
-  box-shadow: 0 6px 18px -8px rgba(0, 0, 0, 0.5);
+}
+
+/* the cards below glow too, in the colour of their heading (.eyebrow) */
+.card {
+  --glow: var(--color-zinc-400);
+  transition:
+    border-color 0.18s var(--ease),
+    box-shadow 0.18s var(--ease);
+}
+
+.card:has(.eyebrow.tone-red) { --glow: var(--brand-bright); }
+.card:has(.eyebrow.tone-green) { --glow: var(--tone-green); }
+.card:has(.eyebrow.tone-amber) { --glow: var(--tone-amber); }
+.card:has(.eyebrow.tone-blue) { --glow: var(--tone-blue); }
+.card:has(.eyebrow.tone-violet) { --glow: var(--tone-violet); }
+
+.card:hover {
+  border-color: color-mix(in srgb, var(--glow) 45%, transparent);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--glow) 22%, transparent),
+    0 12px 36px -14px color-mix(in srgb, var(--glow) 55%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kpi,
+  .card {
+    transition: none;
+  }
 }
 
 /* a tile showing a problem (e.g. something out of stock): its border and
