@@ -204,13 +204,9 @@
               <tr
                 v-for="sale in visibleSales"
                 :key="sale.id"
-                class="sale-row"
-                tabindex="0"
-                @click="openReceipt(sale)"
-                @keydown.enter="openReceipt(sale)"
               >
                 <td class="cell-main">
-                  <span class="font-mono text-sm font-bold text-white">#{{ sale.id }}</span>
+                  <span class="text-sm font-semibold text-white">#{{ sale.id }}</span>
                 </td>
 
                 <td data-label="Date" class="whitespace-nowrap text-sm text-zinc-300" :title="fullDate(sale.created_at)">
@@ -728,15 +724,6 @@ onMounted(() => {
   background: color-mix(in srgb, var(--brand) 22%, transparent);
   font-weight: 800;
   color: #fecaca;
-}
-
-.sale-row {
-  cursor: pointer;
-}
-
-.sale-row:focus-visible {
-  outline: 2px solid rgba(224, 27, 50, 0.6);
-  outline-offset: -2px;
 }
 
 /* Receipt button of a row */

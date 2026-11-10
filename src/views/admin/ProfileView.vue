@@ -423,13 +423,16 @@ const groups = computed(() => [
 ])
 
 const tabs = computed(() => [
-  { key: 'all', label: 'All', count: filteredUsers.value.length },
+  // All: the accounts in use (the disabled ones only under Disabled)
+  { key: 'all', label: 'All', count: filteredUsers.value.filter((u) => u.is_active !== false).length },
   ...groups.value.map((g) => ({ key: g.key, label: g.label, count: g.users.length })),
 ])
 
 const visibleGroups = computed(() =>
   groups.value.filter(
-    (g) => g.users.length && (activeTab.value === 'all' || activeTab.value === g.key)
+    (g) =>
+      g.users.length &&
+      (activeTab.value === g.key || (activeTab.value === 'all' && g.key !== 'disabled'))
   )
 )
 

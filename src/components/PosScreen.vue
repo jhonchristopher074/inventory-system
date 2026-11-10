@@ -9,13 +9,14 @@
     <div class="grid gap-6 pb-24 lg:grid-cols-[1fr_380px] lg:pb-0">
       <!-- PRODUCTS (a new page scrolls back up to the search box) -->
       <div ref="productsTop" class="min-w-0 scroll-mt-4">
-        <div class="mb-5 flex gap-2">
+        <!-- phones: the search on its own line, Refund / Out of stock under it -->
+        <div class="mb-5 flex flex-wrap gap-2 sm:flex-nowrap">
           <input
             maxlength="80"
             v-model="searchQuery"
             type="text"
             placeholder="Search product..."
-            class="min-w-0 flex-1 rounded-2xl border border-white/10 bg-zinc-900 px-4 py-3 text-white outline-none focus:border-red-600"
+            class="min-w-0 basis-full rounded-2xl border border-white/10 bg-zinc-900 px-4 py-3 text-white outline-none focus:border-red-600 sm:flex-1 sm:basis-0"
           />
           <!-- a customer brings something back: refund it (the Owner's is applied at once) -->
           <button
@@ -25,6 +26,21 @@
             @click="refundOpen = true"
           >
             Refund
+          </button>
+
+          <!-- only the products with nothing left (to reorder or check) -->
+          <button
+            type="button"
+            class="flex shrink-0 items-center gap-2 rounded-2xl border px-4 py-3 font-bold transition"
+            :class="outOnly
+              ? 'border-red-500 bg-red-600 text-white'
+              : 'border-red-500/40 text-red-400 hover:bg-red-600/10 hover:text-white'"
+            :aria-pressed="outOnly"
+            :title="outOnly ? 'Show every product again' : 'Only the products that are out of stock'"
+            @click="outOnly = !outOnly"
+          >
+            Out of stock
+            <span class="rounded-full px-1.5 text-xs" :class="outOnly ? 'bg-black/20' : 'bg-red-600/15'">{{ count(outOfStockCount) }}</span>
           </button>
         </div>
 
@@ -472,12 +488,17 @@ watch(categoryTabs, (tabs) => {
   if (!tabs.some((tab) => tab.name === selectedCategory.value)) selectedCategory.value = ALL_CATEGORIES
 })
 
+// "Out of stock": only the products with nothing left
+const outOnly = ref(false)
+const outOfStockCount = computed(() => products.value.filter((product) => stockOf(product) <= 0).length)
+
 const filteredProducts = computed(() => {
   const search = searchQuery.value.toLowerCase().trim()
+  const shown = outOnly.value ? products.value.filter((product) => stockOf(product) <= 0) : products.value
   const inCategory =
     selectedCategory.value === ALL_CATEGORIES
-      ? products.value
-      : products.value.filter((product) => categoryOf(product) === selectedCategory.value)
+      ? shown
+      : shown.filter((product) => categoryOf(product) === selectedCategory.value)
 
   if (!search) return inCategory
 
@@ -496,7 +517,7 @@ const {
 } = usePagination(filteredProducts, { storageKey: 'pos', scrollTarget: productsTop, sizes: GRID_PAGE_SIZES })
 
 // a new search or category starts again at page 1
-watch([searchQuery, selectedCategory], resetPage)
+watch([searchQuery, selectedCategory, outOnly], resetPage)
 
 const totalAmount = computed(() =>
   cart.value.reduce((total, item) => total + Number(item.price || 0) * Number(item.cartQty || 0), 0)

@@ -4,29 +4,13 @@
 // (date filter + cashier), so everything on the page agrees.
 //
 //   <SalesInsights :sales="filteredSales" :range="range" />
-import { computed, ref, watch } from 'vue'
+import { computed } from 'vue'
 import { count, peso } from '../lib/format'
 import SalesLineChart from './SalesLineChart.vue'
 
 const props = defineProps({
   sales: { type: Array, required: true },
   range: { type: Object, default: () => ({ start: null, end: null }) },
-})
-
-// Hidden until opened (it takes a lot of room); the choice is remembered.
-const STORAGE_KEY = 'salesInsightsOpen'
-const open = ref(false)
-try {
-  open.value = localStorage.getItem(STORAGE_KEY) === '1'
-} catch {
-  // storage off: starts closed
-}
-watch(open, (value) => {
-  try {
-    localStorage.setItem(STORAGE_KEY, value ? '1' : '0')
-  } catch {
-    // ignore
-  }
 })
 
 const MAX_DAY_POINTS = 62 // longer periods are shown per month
@@ -125,17 +109,8 @@ const topProducts = computed(() => {
 
 <template>
   <div class="mb-6">
-  <button
-    class="flex items-center gap-2 rounded-full border border-white/10 bg-zinc-900 px-4 py-2 text-sm font-bold text-white transition hover:bg-zinc-800"
-    :aria-expanded="open"
-    @click="open = !open"
-  >
-    {{ open ? 'Hide chart & top selling' : 'Show chart & top selling' }}
-    <span class="text-xs text-zinc-400 transition" :class="open ? 'rotate-180' : ''" aria-hidden="true">▼</span>
-  </button>
-
   <!-- the two cards are the same height; the chart fills its card -->
-  <div v-if="open" class="mt-3 grid items-stretch gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+  <div class="grid items-stretch gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
     <!-- SALES OVER TIME -->
     <section class="flex min-w-0 flex-col rounded-[24px] border border-white/10 bg-zinc-900 p-5">
       <div class="mb-4 flex flex-wrap items-baseline justify-between gap-2">
