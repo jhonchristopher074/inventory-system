@@ -231,6 +231,7 @@ onMounted(fetchMovements)
 
         <p v-if="exportError" class="mb-3 rounded-xl bg-red-600/20 p-3 text-sm text-red-400" role="alert">{{ exportError }}</p>
 
+        <div class="mb-3 flex gap-2">
         <input
           v-if="movements.length > 10"
           v-model="search"
@@ -238,8 +239,11 @@ onMounted(fetchMovements)
           maxlength="80"
           :placeholder="product ? 'Search reason or person…' : 'Search product, reason or person…'"
           aria-label="Search the stock history"
-          class="mb-3 w-full rounded-xl border border-white/10 bg-zinc-950 px-4 py-2.5 text-sm text-white outline-none placeholder:text-zinc-500 focus:border-red-500"
+          class="min-w-0 flex-1 rounded-xl border border-white/10 bg-zinc-950 px-4 py-2.5 text-sm text-white outline-none placeholder:text-zinc-500 focus:border-red-500"
         />
+        <span v-else class="flex-1"></span>
+        <span id="stock-history-rows" class="contents"></span>
+        </div>
 
         <p v-if="loading" class="py-6 text-sm text-zinc-400">Loading history...</p>
 
@@ -324,6 +328,7 @@ onMounted(fetchMovements)
           v-model:page-size="pageSize"
           :total="shown.length"
           noun="changes"
+          rows-to="#stock-history-rows"
           class="mt-3"
         >
           <!-- download for the audit trail: every change the search shows -->

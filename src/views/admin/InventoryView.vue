@@ -12,6 +12,7 @@
         placeholder="Search product or category..."
         class="min-w-0 basis-full rounded-2xl border border-white/10 bg-zinc-900 px-4 py-3 text-sm text-white outline-none placeholder:text-zinc-500 focus:border-red-500 sm:basis-0 sm:flex-1"
       />
+      <span id="inventory-rows" class="contents"></span>
 
       <button
         class="flex-1 rounded-2xl border border-white/10 bg-zinc-900 px-5 py-3 font-bold text-zinc-200 hover:bg-zinc-800 sm:flex-none"
@@ -294,6 +295,7 @@
         v-model:page-size="pageSize"
         :total="filteredProducts.length"
         noun="products"
+          rows-to="#inventory-rows"
       />
     </div>
 

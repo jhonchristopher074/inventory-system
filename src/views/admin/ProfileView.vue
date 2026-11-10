@@ -103,13 +103,16 @@
 
         <!-- SEARCH -->
         <div class="mb-3">
-          <input
-            maxlength="80"
-            v-model="userSearch"
-            type="text"
-            placeholder="Search by account number, name, or email..."
-            class="input"
-          />
+          <div class="flex gap-2">
+            <input
+              maxlength="80"
+              v-model="userSearch"
+              type="text"
+              placeholder="Search by account number, name, or email..."
+              class="input min-w-0 flex-1"
+            />
+            <span id="accounts-rows" class="contents"></span>
+          </div>
           <p v-if="userSearch.trim()" class="mt-1.5 text-xs text-zinc-500">
             {{ accountCount }} matching
           </p>
@@ -256,6 +259,7 @@
           :total="total"
           :sizes="PAGE_SIZES"
           noun="accounts"
+          rows-to="#accounts-rows"
           class="-mx-5 -mb-5 mt-3 shrink-0"
         />
       </div>

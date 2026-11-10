@@ -5,7 +5,7 @@
     />
 
     <div class="mb-5 card p-5">
-      <div class="grid gap-4 md:grid-cols-[1fr_220px]">
+      <div class="grid gap-4 md:grid-cols-[1fr_220px_auto]">
         <input
           maxlength="80"
           v-model="search"
@@ -24,6 +24,7 @@
             {{ category }}
           </option>
         </select>
+        <span id="archived-rows" class="contents"></span>
       </div>
     </div>
 
@@ -138,6 +139,7 @@
         v-model:page-size="pageSize"
         :total="filteredProducts.length"
         noun="products"
+          rows-to="#archived-rows"
       />
     </div>
 

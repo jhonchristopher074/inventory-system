@@ -98,14 +98,17 @@ function formatDate(date) {
         </span>
       </div>
 
+      <div class="flex w-full gap-2 sm:w-auto">
+      <span id="inspection-rows" class="contents"></span>
       <input
         maxlength="80"
         v-model="search"
         type="search"
         placeholder="Search product..."
         aria-label="Search product"
-        class="w-full rounded-full border border-white/10 bg-zinc-900 px-4 py-2 text-sm text-white outline-none placeholder:text-zinc-500 focus:border-red-500 sm:w-64"
+        class="min-w-0 flex-1 rounded-full border border-white/10 bg-zinc-900 px-4 py-2 text-sm text-white outline-none placeholder:text-zinc-500 focus:border-red-500 sm:w-64 sm:flex-none"
       />
+      </div>
     </div>
 
     <div ref="tableTop" class="card overflow-hidden">
@@ -209,6 +212,7 @@ function formatDate(date) {
         v-model:page-size="pageSize"
         :total="shownRows.length"
         noun="inspections"
+          rows-to="#inspection-rows"
       />
     </div>
   </div>

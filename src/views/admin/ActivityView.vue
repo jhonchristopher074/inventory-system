@@ -13,7 +13,7 @@
     </PageHeader>
 
     <div class="mb-5 card p-4">
-      <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-[1fr_180px_180px_180px]">
+      <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-[1fr_170px_170px_170px_auto]">
         <input
           v-model="search"
           type="search"
@@ -35,6 +35,7 @@
           <option value="">All types</option>
           <option v-for="t in types" :key="t" :value="t">{{ entityLabel(t) }}</option>
         </select>
+        <span id="activity-rows" class="contents"></span>
       </div>
     </div>
 
@@ -111,6 +112,7 @@
         v-model:page-size="pageSize"
         :total="filtered.length"
         noun="entries"
+          rows-to="#activity-rows"
       />
     </div>
   </div>

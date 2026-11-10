@@ -1,8 +1,8 @@
 <script setup>
-// Footer of a data table: "Showing 11–20 of 57 products" and the page
-// buttons. The rows per page (10 / 15 / All) go ABOVE the table: a thin
-// bar put just before the table (the element right before this pager),
-// like most data tables. Goes with lib/usePagination.js:
+// Footer of a data table: "Showing 11–20 of 57 products", the rows per
+// page (10 / 15 / All) and the page buttons. A table with a search line
+// puts the rows menu on that line instead: rows-to="#its-spot" (an empty
+// <span id="its-spot" class="contents"> there). Goes with lib/usePagination.js:
 //
 //   <TablePager v-model:page="page" v-model:page-size="pageSize" :total="items.length" noun="products" />
 //
@@ -25,6 +25,8 @@ const props = defineProps({
   label: { type: String, default: 'Rows' },
   // a card of its own (under a card grid) instead of the foot of a table card
   card: { type: Boolean, default: false },
+  // where the rows menu goes, e.g. '#sales-rows' (on the search line)
+  rowsTo: { type: String, default: '' },
 })
 
 const page = defineModel('page', { type: Number, default: 1 })
@@ -51,43 +53,36 @@ function goTo(n) {
   page.value = Math.min(Math.max(n, 1), pageCount.value)
 }
 
-// The bar above the table for the rows per page: a box put right before
-// the element this pager follows (the table). Without one (nothing before
-// it), the menu stays down here.
+// The rows menu on the table's search line (rows-to), found in the page
+// this pager is in (the page may not be on screen yet when it's made)
 const root = ref(null)
 const topBar = ref(null)
 
 onMounted(() => {
-  const table = root.value?.previousElementSibling
-  if (!table?.parentElement) return
-  const bar = document.createElement('div')
-  bar.className = props.card ? 'pager-top pager-top--card' : 'pager-top'
-  table.parentElement.insertBefore(bar, table)
-  topBar.value = bar
+  if (!props.rowsTo || !root.value) return
+  let top = root.value
+  while (top.parentElement) top = top.parentElement
+  topBar.value = top.querySelector(props.rowsTo) || document.querySelector(props.rowsTo)
 })
 
 onBeforeUnmount(() => {
-  topBar.value?.remove()
   topBar.value = null
 })
 </script>
 
 <template>
-  <!-- rows per page: above the table -->
+  <!-- rows per page, on the table's search line (rows-to) -->
   <Teleport v-if="topBar" :to="topBar">
-    <label class="flex items-center gap-2 text-sm text-zinc-400">
-      Show
-      <select
-        v-model.number="pageSize"
-        class="rounded-lg border border-white/10 bg-zinc-900 px-2 py-1 text-sm font-bold text-white outline-none focus:border-red-500"
-        :aria-label="`${label} ${noun}`"
-      >
-        <option v-for="size in sizes" :key="size" :value="size">
-          {{ size === ALL ? 'All' : size }}
-        </option>
-      </select>
-      {{ noun }}
-    </label>
+    <select
+      v-model.number="pageSize"
+      class="rows-menu"
+      :aria-label="`${noun} per page`"
+      :title="`${noun} per page`"
+    >
+      <option v-for="size in sizes" :key="size" :value="size">
+        {{ size === ALL ? 'All rows' : `${size} rows` }}
+      </option>
+    </select>
   </Teleport>
 
   <div ref="root" v-bind="$attrs" class="table-pager" :class="{ 'table-pager--card': card }">
@@ -106,7 +101,7 @@ onBeforeUnmount(() => {
       <!-- e.g. Stock History's Export -->
       <slot name="actions" />
 
-      <!-- (no bar above: the menu stays here) -->
+      <!-- (no search line: the menu stays here) -->
       <label v-if="!topBar" class="flex items-center gap-2 text-sm text-zinc-400">
         {{ label }}
         <select
@@ -178,6 +173,24 @@ onBeforeUnmount(() => {
   border-radius: var(--radius-lg);
   background: var(--surface);
   box-shadow: var(--shadow-card);
+}
+
+.rows-menu {
+  flex: none;
+  align-self: stretch;
+  cursor: pointer;
+  border-radius: 0.9rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--color-zinc-900);
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: #fff;
+  outline: none;
+}
+
+.rows-menu:focus {
+  border-color: rgba(224, 27, 50, 0.55);
 }
 
 .pager-btn {

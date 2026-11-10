@@ -898,21 +898,6 @@ html {
   }
 }
 
-/* "Show [10] rows": the bar a table's pager puts above the table
-   (components/TablePager.vue) */
-.pager-top {
-  display: flex;
-  align-items: center;
-  border-bottom: 1px solid var(--hairline);
-  padding: 0.55rem 1.1rem;
-}
-
-/* above a card grid (POS, Documentation): no line, a little room */
-.pager-top--card {
-  border-bottom: 0;
-  padding: 0 0 0.75rem;
-}
-
 /* Only on a touch screen (phones and tablets, any width): the "Take a
    photo" buttons. A computer's browser can't open its camera from a file
    chooser, so they're hidden where there's a mouse. */

@@ -161,6 +161,7 @@
           </h2>
           <!-- search and cashier: the table's own tools -->
           <div class="flex w-full gap-2 sm:w-auto">
+            <span id="sales-rows" class="contents"></span>
             <input
               v-model="search"
               type="search"
@@ -298,6 +299,7 @@
           v-model:page-size="pageSize"
           :total="filteredSales.length"
           noun="sales"
+          rows-to="#sales-rows"
         />
       </div>
     </template>
