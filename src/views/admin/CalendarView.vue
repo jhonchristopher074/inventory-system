@@ -57,26 +57,27 @@
         </span>
       </button>
 
-      <!-- Month / Board: the same look as the List's tabs, but each one shows
-           or hides its kind (both can be on); the dot is its colour there -->
+      <!-- Month / Board: both kinds can show at once, so these are check
+           boxes (in the same bar as the List's tabs), each in its colour on
+           the calendar: ticked = shown -->
       <template v-else>
         <div class="inline-flex max-w-full gap-1 overflow-x-auto rounded-2xl border border-white/5 bg-zinc-900 p-1" role="group" aria-label="Show on the calendar">
           <button
             v-for="kind in KINDS"
             :key="kind.key"
             type="button"
-            class="flex shrink-0 items-center gap-2 whitespace-nowrap rounded-xl px-3.5 py-2 text-sm font-bold transition"
-            :class="[`kind-${kind.key}`, showKinds[kind.key] ? 'bg-red-600 text-white' : 'text-zinc-400 hover:bg-white/5 hover:text-white']"
-            :aria-pressed="showKinds[kind.key]"
+            role="checkbox"
+            class="kind-check"
+            :class="[`kind-${kind.key}`, { 'is-on': showKinds[kind.key] }]"
+            :aria-checked="showKinds[kind.key]"
             :title="showKinds[kind.key] ? `Hide ${kind.label.toLowerCase()}` : `Show ${kind.label.toLowerCase()}`"
             @click="showKinds[kind.key] = !showKinds[kind.key]"
           >
-            <span class="kind-dot" aria-hidden="true"></span>
+            <span class="kind-box" aria-hidden="true">
+              <svg v-if="showKinds[kind.key]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>
+            </span>
             {{ kind.label }}
-            <span
-              class="grid h-5 min-w-5 place-items-center rounded-full px-1.5 text-[0.7rem] font-extrabold"
-              :class="showKinds[kind.key] ? 'bg-white text-red-600' : 'bg-white/10 text-zinc-300'"
-            >{{ kindCounts[kind.key] }}</span>
+            <span class="kind-count">{{ kindCounts[kind.key] }}</span>
           </button>
         </div>
 
@@ -1421,7 +1422,71 @@ onBeforeUnmount(() => {
   cursor: pointer;
 }
 
-/* Month / Board: each kind's colour on the calendar */
+/* Month / Board: show / hide a kind (a check box in its colour) */
+.kind-check {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 0.55rem;
+  white-space: nowrap;
+  border-radius: 0.75rem;
+  padding: 0.5rem 0.85rem;
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--color-zinc-500);
+  transition: background-color 0.15s, color 0.15s;
+}
+
+.kind-check:hover {
+  color: #fff;
+}
+
+.kind-check.is-on {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+
+.kind-box {
+  display: grid;
+  width: 1.1rem;
+  height: 1.1rem;
+  place-items: center;
+  border-radius: 0.3rem;
+  border: 2px solid var(--kind);
+  color: #0d1117;
+}
+
+.kind-box svg {
+  width: 0.8rem;
+  height: 0.8rem;
+}
+
+.kind-check.is-on .kind-box {
+  background: var(--kind);
+}
+
+.kind-check:not(.is-on) .kind-box {
+  border-color: var(--color-zinc-600, #52525b);
+}
+
+.kind-inspection {
+  --kind: #a78bfa;
+}
+
+.kind-delivery {
+  --kind: #38bdf8;
+}
+
+.kind-count {
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+  padding: 0.05rem 0.45rem;
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: var(--color-zinc-300);
+}
+
+/* each kind's colour on the calendar */
 .kind-dot {
   width: 0.55rem;
   height: 0.55rem;

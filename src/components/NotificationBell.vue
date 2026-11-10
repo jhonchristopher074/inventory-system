@@ -1,7 +1,7 @@
 <template>
   <div ref="root" class="relative">
     <button
-      class="relative flex h-[3.8rem] w-[3.8rem] items-center justify-center rounded-2xl border border-white/10 bg-zinc-900 text-white transition hover:bg-zinc-800"
+      class="bell-btn relative flex h-[3.8rem] w-[3.8rem] items-center justify-center rounded-2xl border border-white/10 bg-zinc-900 text-white transition hover:bg-zinc-800"
       :class="unreadCount > 0 ? 'text-white' : 'text-zinc-300'"
       :aria-label="unreadCount > 0 ? `Notifications, ${unreadCount} unread` : 'Notifications'"
       @click="toggleList"
@@ -90,8 +90,7 @@
                 <span class="notif-title">{{ notif.title }}</span>
                 <span class="notif-time">{{ timeText(notif.created_at) }}</span>
               </span>
-              <span class="notif-text">{{ notif.message }}</span>
-              <span class="notif-type">{{ typeLabel(notif.type) }}</span>
+              <span class="notif-text" :title="typeLabel(notif.type)">{{ notif.message }}</span>
             </span>
             <i v-if="!notif.is_read" class="notif-dot" aria-label="Unread"></i>
           </button>
@@ -142,9 +141,9 @@
   display: flex;
   width: 100%;
   align-items: flex-start;
-  gap: 0.75rem;
-  border-radius: 0.8rem;
-  padding: 0.7rem 0.75rem;
+  gap: 0.65rem;
+  border-radius: 0.75rem;
+  padding: 0.55rem 0.65rem;
   text-align: left;
   transition: background-color 0.15s;
 }
@@ -165,11 +164,11 @@
 
 .notif-icon {
   display: grid;
-  width: 2.1rem;
-  height: 2.1rem;
+  width: 1.85rem;
+  height: 1.85rem;
   flex: none;
   place-items: center;
-  border-radius: 0.65rem;
+  border-radius: 0.55rem;
 }
 
 .notif-title {

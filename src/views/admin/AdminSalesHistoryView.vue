@@ -60,6 +60,31 @@
       </template>
     </div>
 
+    <!-- REFUNDS: how much went back, then the list -->
+    <div v-if="view === 'refunds'" class="mb-4 grid gap-3 sm:grid-cols-2">
+      <div class="kpi tone-amber">
+        <div class="kpi-top">
+          <p class="kpi-label">Refunded · last 7 days</p>
+          <span class="kpi-icon"><NavIcon name="restore" class="h-4 w-4" /></span>
+        </div>
+        <p class="kpi-value" :title="peso(refundsWeek.amount)">{{ peso(refundsWeek.amount) }}</p>
+        <p class="kpi-sub">
+          {{ refundsWeek.count ? `${count(refundsWeek.count)} refund${refundsWeek.count === 1 ? '' : 's'}` : 'No refunds' }}
+        </p>
+      </div>
+
+      <div class="kpi tone-amber">
+        <div class="kpi-top">
+          <p class="kpi-label">Refunded · all time</p>
+          <span class="kpi-icon"><NavIcon name="restore" class="h-4 w-4" /></span>
+        </div>
+        <p class="kpi-value" :title="peso(refundsAll.amount)">{{ peso(refundsAll.amount) }}</p>
+        <p class="kpi-sub">
+          {{ refundsAll.sales ? `on ${count(refundsAll.sales)} sale${refundsAll.sales === 1 ? '' : 's'}` : 'No refunds' }}
+        </p>
+      </div>
+    </div>
+
     <RefundApprovals
       v-if="view === 'refunds'"
       :refunds="refunds"
@@ -69,14 +94,14 @@
 
     <template v-else>
       <!-- one cashier picked: a chip to clear it -->
-      <div v-if="selectedCashier" class="mb-4 flex flex-wrap items-center gap-2 text-sm text-zinc-400">
+      <div v-if="selectedCashier" class="mb-4 flex flex-wrap items-center gap-2.5 text-sm font-semibold text-zinc-300">
         Showing the sales of
-        <span class="inline-flex items-center gap-2 rounded-full border border-red-500/40 bg-red-600/10 py-1 pl-1 pr-1.5">
-          <span class="avatar h-6 w-6 text-[0.6rem]" aria-hidden="true">{{ selectedCashier.initials }}</span>
-          <b class="text-white">{{ selectedCashier.name }}</b>
+        <span class="inline-flex items-center gap-2 rounded-full border border-red-500 bg-red-600/25 py-1 pl-1 pr-1.5 shadow-[0_0_0_3px_rgba(224,27,50,0.15)]">
+          <span class="grid h-7 w-7 place-items-center rounded-full bg-red-600 text-[0.65rem] font-extrabold text-white" aria-hidden="true">{{ selectedCashier.initials }}</span>
+          <b class="text-base text-white">{{ selectedCashier.name }}</b>
           <button
             type="button"
-            class="grid h-5 w-5 place-items-center rounded-full text-zinc-300 hover:bg-white/10 hover:text-white"
+            class="grid h-6 w-6 place-items-center rounded-full bg-black/25 text-white hover:bg-red-600"
             aria-label="Show every cashier"
             title="Show every cashier"
             @click="setCashier('')"
@@ -86,8 +111,8 @@
         </span>
       </div>
 
-      <!-- SUMMARY of what's shown -->
-      <div class="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <!-- SUMMARY of what's shown (refunds: on the Refunds tab) -->
+      <div class="mb-4 grid gap-3 sm:grid-cols-3">
         <div class="kpi tone-red">
           <div class="kpi-top">
             <p class="kpi-label">Net sales</p>
@@ -119,16 +144,6 @@
           <p class="kpi-sub">{{ count(summary.products) }} different products</p>
         </div>
 
-        <div class="kpi tone-amber">
-          <div class="kpi-top">
-            <p class="kpi-label">Refunded</p>
-            <span class="kpi-icon"><NavIcon name="restore" class="h-4 w-4" /></span>
-          </div>
-          <p class="kpi-value" :title="peso(summary.refunded)">{{ peso(summary.refunded) }}</p>
-          <p class="kpi-sub">
-            {{ summary.refundedSales ? `${count(summary.refundedSales)} sale${summary.refundedSales === 1 ? '' : 's'}` : 'No refunds' }}
-          </p>
-        </div>
       </div>
 
       <!-- CHART + TOP SELLING of what's shown -->
@@ -158,6 +173,7 @@
             <select
               :value="cashierFilter"
               class="filter-box w-[8.5rem] shrink-0 sm:w-40"
+              :class="{ 'is-picked': cashierFilter }"
               aria-label="Cashier"
               @change="setCashier($event.target.value)"
             >
@@ -644,6 +660,17 @@ const view = useQueryParam('view', 'sales', ['sales', 'refunds'])
 // the refunds of the last 7 days (lib/refunds.js)
 const refunds = ref([])
 const refundsReady = ref(true)
+// the Refunds tab's tiles: the last 7 days (the list below), and every sale
+const refundsWeek = computed(() => {
+  const done = refunds.value.filter((request) => request.status === 'approved')
+  return { amount: done.reduce((sum, r) => sum + Number(r.amount || 0), 0), count: done.length }
+})
+
+const refundsAll = computed(() => {
+  const refunded = sales.value.filter((sale) => Number(sale.refunded_amount) > 0)
+  return { amount: refunded.reduce((sum, sale) => sum + Number(sale.refunded_amount || 0), 0), sales: refunded.length }
+})
+
 // a request left from before refunds needed no approval
 const refundsWaiting = computed(() => refunds.value.filter((request) => request.status === 'pending').length)
 
@@ -705,6 +732,13 @@ onMounted(() => {
   font-size: 0.875rem;
   color: #fff;
   outline: none;
+}
+
+/* a cashier is picked: the box says so */
+.filter-box.is-picked {
+  border-color: var(--brand);
+  background: rgba(224, 27, 50, 0.15);
+  font-weight: 700;
 }
 
 .filter-box:focus {
