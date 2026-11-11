@@ -82,6 +82,18 @@
         </span>
       </button>
 
+      <!-- with Low stock on: what to order, by supplier (a suggestion only) -->
+      <button
+        v-if="lowOnly && lowCount > 0"
+        type="button"
+        class="flex shrink-0 items-center gap-2 rounded-full border border-yellow-500/40 bg-zinc-900 px-4 py-2 text-sm font-bold text-yellow-300 transition hover:bg-yellow-500/10"
+        title="The low products by supplier, with how many to order"
+        @click="showReorder = true"
+      >
+        <NavIcon name="tag" class="h-4 w-4" />
+        Reorder list
+      </button>
+
       <span class="h-6 w-px shrink-0 bg-white/10" aria-hidden="true"></span>
 
       <button
@@ -312,6 +324,13 @@
       v-if="showHistory"
       :product="historyProduct"
       @close="showHistory = false"
+    />
+
+    <!-- what to order, by supplier: copy or email it (nothing is sent from here) -->
+    <ReorderListModal
+      v-if="showReorder"
+      :fallback="products.filter(isLowStock)"
+      @close="showReorder = false"
     />
 
     <ActionSheet
@@ -820,6 +839,7 @@ import TablePager from '../../components/TablePager.vue'
 import NavIcon from '../../components/NavIcon.vue'
 import StockLevel from '../../components/StockLevel.vue'
 import CategoryManager from '../../components/CategoryManager.vue'
+import ReorderListModal from '../../components/ReorderListModal.vue'
 import { NO_CATEGORY, fetchCategories } from '../../lib/categories'
 import { supabase } from '../../lib/supabase'
 import { heldProductIds, withoutHeld } from '../../lib/heldProducts'
@@ -951,6 +971,7 @@ async function changeCategory(product, value) {
 // "Low stock" button: ?stock=low in the address
 const stockFilter = useQueryParam('stock', 'all', ['all', 'low'])
 const lowOnly = computed(() => stockFilter.value === 'low')
+const showReorder = ref(false)
 
 // the category and the search
 const shownProducts = computed(() => {
