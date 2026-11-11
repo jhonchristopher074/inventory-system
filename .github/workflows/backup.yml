@@ -105,11 +105,23 @@ jobs:
             exit 0
           fi
           mkdir -p backup/storage
-          supabase storage ls ss:/// --remote="$PROJECT_REF" | sed 's:/$::' | while IFS= read -r bucket; do
+          # the storage commands are "experimental" in CLI 3; the bucket list
+          # comes as JSON (python reads it, as the CLI may print more than one)
+          supabase storage ls ss:/// --remote="$PROJECT_REF" --experimental --output-format json > buckets.json
+          python3 -c '
+          import json, sys
+          raw, dec, i = open(sys.argv[1]).read(), json.JSONDecoder(), 0
+          while (i := raw.find("{", i)) >= 0:
+              obj, i = dec.raw_decode(raw, i)
+              for path in obj.get("paths", []): print(path)
+          ' buckets.json | sed 's:/$::' | while IFS= read -r bucket; do
             [ -n "$bucket" ] || continue
             echo "Bucket: $bucket"
-            supabase storage cp -r "ss:///$bucket" "backup/storage/$bucket" --remote="$PROJECT_REF" -j 4 > /dev/null
+            # the "/" at the end copies the bucket's files into the folder itself
+            supabase storage cp -r "ss:///$bucket/" "backup/storage/$bucket" --remote="$PROJECT_REF" --experimental -j 4 > /dev/null
           done
+          rm buckets.json
+          find backup/storage -type f | wc -l | xargs echo "Files copied:"
           du -sh backup/storage
 
       # remove the short-lived login (it would also expire by itself)
@@ -159,8 +171,13 @@ jobs:
           supabase db query --remote="$target" --read-only -o json -f scripts/data-checks.sql > checks.json
           python3 - <<'PY'
           import json, os, sys
+          # the CLI may print more than one JSON object: take the one with rows
           raw = open('checks.json', encoding='utf-8').read()
-          rows = json.loads(raw[raw.index('{'):])['rows']
+          dec, i, rows = json.JSONDecoder(), 0, None
+          while rows is None:
+              i = raw.index('{', i)
+              obj, i = dec.raw_decode(raw, i)
+              rows = obj.get('rows')
           bad = [r for r in rows if int(r['problems']) > 0]
           with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as out:
               out.write('### Money and stock checks\n\n')
