@@ -34,6 +34,8 @@ permissions:
 
 env:
   PROJECT_REF: dvtnrfhsxabtcmpgojnn
+  # the project's connection pooler (Supabase > Connect > Session pooler)
+  POOLER_HOST: aws-1-ap-northeast-1.pooler.supabase.com
 
 jobs:
   backup:
@@ -64,8 +66,25 @@ jobs:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           DB_URL: ${{ secrets.SUPABASE_DB_URL }}
         run: |
-          # the access token if there is one, else the connection string
-          if [ -n "$SUPABASE_ACCESS_TOKEN" ]; then target="$PROJECT_REF"; else target="$DB_URL"; fi
+          if [ -n "$DB_URL" ]; then
+            target="$DB_URL"
+          else
+            # GitHub's machines have no IPv6, and the database's own address
+            # is IPv6 only, so connect through the pooler (IPv4). The token
+            # makes a short-lived login for it (the same one the CLI makes
+            # for itself); its password is hidden from this public log.
+            curl -fsS -X POST "https://api.supabase.com/v1/projects/$PROJECT_REF/cli/login-role" \
+              -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" -H "Content-Type: application/json" \
+              -d '{"read_only": false}' -o login.json
+            role=$(jq -r .role login.json)
+            password=$(jq -r .password login.json)
+            rm login.json
+            echo "::add-mask::$password"
+            password=$(python3 -c 'import sys, urllib.parse; print(urllib.parse.quote(sys.argv[1], safe=""))' "$password")
+            echo "::add-mask::$password"
+            echo "LOGIN_ROLE_MADE=1" >> "$GITHUB_ENV"
+            target="postgresql://$role.$PROJECT_REF:$password@$POOLER_HOST:5432/postgres"
+          fi
           mkdir backup
           supabase db dump --remote="$target" --yes -f backup/roles.sql --role-only
           supabase db dump --remote="$target" --yes -f backup/schema.sql
@@ -92,6 +111,16 @@ jobs:
             supabase storage cp -r "ss:///$bucket" "backup/storage/$bucket" --remote="$PROJECT_REF" -j 4 > /dev/null
           done
           du -sh backup/storage
+
+      # remove the short-lived login (it would also expire by itself)
+      - name: Remove the backup login
+        if: always() && env.LOGIN_ROLE_MADE == '1'
+        continue-on-error: true
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          curl -fsS -o /dev/null -X DELETE "https://api.supabase.com/v1/projects/$PROJECT_REF/cli/login-role" \
+            -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN"
 
       - name: Encrypt it
         if: env.SKIP_BACKUP != '1'
