@@ -313,6 +313,7 @@ import {
 } from '../../lib/dashboardStats'
 import { isDelivered } from '../../lib/deliveries'
 import { roleLabel } from '../../lib/roles'
+import { listSales } from '../../lib/salesQuery'
 import { currentUser } from '../../lib/currentUser'
 
 // Inventory showing only the products running low (emptiest first)
@@ -345,13 +346,23 @@ async function rpc(name, params) {
   return data || []
 }
 
+// The earliest sale the numbers use: 30 days back (best sellers) or the
+// 1st of the month, whichever is earlier. Not every sale ever made.
+function dashboardSince() {
+  const today = new Date()
+  const back30 = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 30)
+  const monthStart = new Date(today.getFullYear(), today.getMonth(), 1)
+  return back30 < monthStart ? back30 : monthStart
+}
+
 async function load() {
   if (refreshing.value) return
   refreshing.value = true
 
   const [productsResult, salesResult, uploads, inspectionList, review, unsent, deliveryList, receivingList, heldResult, refundList] = await Promise.allSettled([
     rpc('list_products', { p_filter: 'active', p_order_by: 'id_asc' }),
-    rpc('list_all_sales'),
+    // the last 30 days and this month: all the numbers here need
+    listSales({ from: dashboardSince() }),
     rpc('admin_list_supplier_uploads', { p_status: 'pending' }),
     rpc('list_submitted_approvals'),
     rpc('admin_list_receipt_review'),

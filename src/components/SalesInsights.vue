@@ -1,15 +1,21 @@
 <script setup>
-// Sales History (admin): a chart of sales over the chosen period and the
-// best-selling products. Both use exactly the sales shown in the list
-// (date filter + cashier), so everything on the page agrees.
+// Sales History: a chart of sales over the chosen period and the
+// best-selling products, of exactly the sales shown in the list (period,
+// cashier, search), so everything on the page agrees. The numbers come
+// worked out (lib/salesQuery.js salesSummary), not as every sale:
 //
-//   <SalesInsights :sales="filteredSales" :range="range" />
+//   <SalesInsights :days="summary.days" :top="summary.top" :first-sale="summary.firstSale" :range="range" />
 import { computed } from 'vue'
 import { count, peso } from '../lib/format'
 import SalesLineChart from './SalesLineChart.vue'
 
 const props = defineProps({
-  sales: { type: Array, required: true },
+  // [{ day: 'YYYY-MM-DD', total, count }]: the days with sales
+  days: { type: Array, required: true },
+  // the 5 best selling: [{ name, quantity, total }]
+  top: { type: Array, required: true },
+  // the first sale shown: where an "All" chart starts
+  firstSale: { type: Date, default: null },
   range: { type: Object, default: () => ({ start: null, end: null }) },
 })
 
@@ -29,10 +35,9 @@ function money(value) {
 
 // ----- Chart: one point per day (or per month for long periods) -----
 const chart = computed(() => {
-  if (props.sales.length === 0) return null
+  if (props.days.length === 0) return null
 
-  const dates = props.sales.map((s) => new Date(s.created_at))
-  const first = props.range.start || new Date(Math.min(...dates))
+  const first = props.range.start || props.firstSale || new Date()
   const lastDay = props.range.end
     ? new Date(props.range.end.getFullYear(), props.range.end.getMonth(), props.range.end.getDate() - 1)
     : new Date()
@@ -71,12 +76,11 @@ const chart = computed(() => {
   }
 
   const index = new Map(buckets.map((b, i) => [b.key, i]))
-  for (const sale of props.sales) {
-    const d = new Date(sale.created_at)
-    const i = index.get(byMonth ? monthKey(d) : dayKey(d))
+  for (const day of props.days) {
+    const i = index.get(byMonth ? day.day.slice(0, 7) : day.day)
     if (i === undefined) continue
-    buckets[i].total += Number(sale.total_amount || 0)
-    buckets[i].count += 1
+    buckets[i].total += Number(day.total || 0)
+    buckets[i].count += Number(day.count || 0)
   }
 
   const best = buckets.reduce((a, b) => (b.total > a.total ? b : a), buckets[0])
@@ -86,20 +90,8 @@ const chart = computed(() => {
 
 // ----- Best-selling products -----
 const topProducts = computed(() => {
-  const products = new Map()
-
-  for (const sale of props.sales) {
-    for (const item of sale.sale_items || []) {
-      const name = item.product_name || 'Unknown product'
-      const row = products.get(name) || { name, quantity: 0, total: 0 }
-      row.quantity += Number(item.quantity || 0)
-      row.total += Number(item.subtotal ?? Number(item.price || 0) * Number(item.quantity || 0))
-      products.set(name, row)
-    }
-  }
-
   // the top 5 (the same as the Dashboard and the PDF / Excel downloads)
-  const list = [...products.values()].sort((a, b) => b.total - a.total).slice(0, 5)
+  const list = props.top.slice(0, 5)
   const max = Math.max(...list.map((p) => p.total), 0)
 
   return list.map((p) => ({ ...p, share: max ? (p.total / max) * 100 : 0 }))

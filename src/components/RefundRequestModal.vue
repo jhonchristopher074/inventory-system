@@ -162,6 +162,7 @@
 <script setup>
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { supabase } from '../lib/supabase'
+import { listSales } from '../lib/salesQuery'
 import { count, dayAndTime, peso } from '../lib/format'
 import { STATUS, isToday, listAllRefunds, listMyRefunds, pendingBySaleItem, recent, refundNow } from '../lib/refunds'
 
@@ -279,7 +280,7 @@ onMounted(async () => {
       props.sale
         ? Promise.resolve({ data: [] })
         : props.owner
-          ? supabase.rpc('list_all_sales')
+          ? listSales({ from: new Date(since) }).then((data) => ({ data }))
           : supabase.rpc('list_my_sales_since', { p_since: since }),
     ])
     requests.value = recent(mine.list)

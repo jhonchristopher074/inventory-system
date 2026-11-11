@@ -38,7 +38,7 @@
           <button
             type="button"
             class="export-btn"
-            :disabled="filteredSales.length === 0 || exporting !== ''"
+            :disabled="total === 0 || exporting !== ''"
             title="The sales shown, and the top selling products, easy to read and print"
             @click="exportFile('pdf')"
           >
@@ -48,7 +48,7 @@
           <button
             type="button"
             class="export-btn"
-            :disabled="filteredSales.length === 0 || exporting !== ''"
+            :disabled="total === 0 || exporting !== ''"
             title="The sales shown in Excel: totals, top selling products, per cashier and per day, every sale, every product sold"
             @click="exportFile('excel')"
           >
@@ -117,7 +117,7 @@
             <p class="kpi-label">Net sales</p>
             <span class="kpi-icon"><NavIcon name="sales" class="h-4 w-4" /></span>
           </div>
-          <p class="kpi-value" :title="peso(summary.net)">{{ peso(summary.net) }}</p>
+          <p class="kpi-value" :title="peso(tiles.net)">{{ peso(tiles.net) }}</p>
           <p v-if="change" class="kpi-change" :class="change.up ? 'text-emerald-400' : 'text-red-400'">
             <NavIcon :name="change.up ? 'up' : 'down'" class="h-3.5 w-3.5" />
             {{ change.text }}
@@ -130,8 +130,8 @@
             <p class="kpi-label">Transactions</p>
             <span class="kpi-icon"><NavIcon name="pos" class="h-4 w-4" /></span>
           </div>
-          <p class="kpi-value">{{ count(summary.count) }}</p>
-          <p class="kpi-sub">Avg. {{ peso(summary.average) }} a sale</p>
+          <p class="kpi-value">{{ count(tiles.count) }}</p>
+          <p class="kpi-sub">Avg. {{ peso(tiles.average) }} a sale</p>
         </div>
 
         <div class="kpi tone-green">
@@ -139,14 +139,14 @@
             <p class="kpi-label">Items sold</p>
             <span class="kpi-icon"><NavIcon name="inventory" class="h-4 w-4" /></span>
           </div>
-          <p class="kpi-value">{{ count(summary.items) }}<span class="kpi-unit"> pcs</span></p>
-          <p class="kpi-sub">{{ count(summary.products) }} different products</p>
+          <p class="kpi-value">{{ count(tiles.items) }}<span class="kpi-unit"> pcs</span></p>
+          <p class="kpi-sub">{{ count(tiles.products) }} different products</p>
         </div>
 
       </div>
 
       <!-- CHART + TOP SELLING of what's shown -->
-      <SalesInsights :sales="filteredSales" :range="range" />
+      <SalesInsights :days="summary.days" :top="summary.top" :first-sale="summary.firstSale" :range="range" />
 
       <p v-if="exportError" class="mb-3 rounded-xl bg-red-600/20 p-3 text-sm text-red-400" role="alert">
         {{ exportError }}
@@ -157,7 +157,7 @@
         <div class="flex flex-wrap items-center justify-between gap-2 border-b border-white/5 px-4 py-3">
           <h2 class="font-bold text-white">
             Transactions
-            <span class="ml-1 text-sm font-semibold text-zinc-500">{{ count(filteredSales.length) }}</span>
+            <span class="ml-1 text-sm font-semibold text-zinc-500">{{ count(total) }}</span>
           </h2>
           <!-- search and cashier: the table's own tools -->
           <div class="flex w-full gap-2 sm:w-auto">
@@ -280,16 +280,16 @@
           </table>
         </div>
 
-        <p v-if="loading && sales.length === 0" class="p-8 text-center text-zinc-500">
+        <p v-if="loading && visibleSales.length === 0" class="p-8 text-center text-zinc-500">
           Loading sales…
         </p>
         <p v-else-if="errorMessage" class="p-8 text-center text-red-400">
           Couldn't load the sales: {{ errorMessage }}
         </p>
-        <div v-else-if="filteredSales.length === 0" class="p-10 text-center">
-          <p class="font-bold text-white">{{ sales.length === 0 ? 'No sales yet' : 'No sales match' }}</p>
+        <div v-else-if="total === 0" class="p-10 text-center">
+          <p class="font-bold text-white">{{ noSalesYet ? 'No sales yet' : 'No sales match' }}</p>
           <p class="mt-1 text-sm text-zinc-500">
-            {{ sales.length === 0 ? 'Sales from the POS show up here.' : 'Try another period, cashier or search.' }}
+            {{ noSalesYet ? 'Sales from the POS show up here.' : 'Try another period, cashier or search.' }}
           </p>
         </div>
 
@@ -297,7 +297,7 @@
           v-else
           v-model:page="page"
           v-model:page-size="pageSize"
-          :total="filteredSales.length"
+          :total="total"
           noun="sales"
           rows-to="#sales-rows"
         />
@@ -392,7 +392,8 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { supabase } from '../../lib/supabase'
 import { printElement } from '../../lib/printReceipt'
-import { usePagination } from '../../lib/usePagination'
+import { useServerPagination } from '../../lib/usePagination'
+import { cashierName, cashierKey, listSales, salesPage, salesSummary } from '../../lib/salesQuery'
 import { downloadSalesPdf } from '../../lib/salesPdf'
 import { downloadSalesExcel } from '../../lib/salesExcel'
 import { newestFirst } from '../../lib/salesReport'
@@ -406,10 +407,22 @@ import { listAllRefunds } from '../../lib/refunds'
 import { useQueryParam } from '../../lib/useQueryParam'
 import { count, dayAndTime, peso } from '../../lib/format'
 
-const sales = ref([])
-const loading = ref(true) // until the first load is done
+/* ---- the page of sales shown, and the totals of all of them ----
+   Worked out by the database (lib/salesQuery.js), so the page never loads
+   every sale ever made. */
+const visibleSales = ref([]) // this page of the table
+const total = ref(0)         // sales that match (every page)
+const summary = ref(emptySummary())
+const loading = ref(true)
 const errorMessage = ref('')
 const receiptSale = ref(null)
+
+function emptySummary() {
+  return {
+    net: 0, count: 0, items: 0, products: 0, refunded: 0, refundedSales: 0,
+    firstSale: null, previousNet: null, days: [], top: [], cashiers: [],
+  }
+}
 
 /* ---- cashier: in the address (?cashier=<id>), so a link or a refresh keeps it ---- */
 const route = useRoute()
@@ -424,15 +437,6 @@ function setCashier(key) {
   router.replace({ query })
 }
 
-function cashierName(sale) {
-  return sale.profiles?.full_name || sale.cashier_name || 'Unknown cashier'
-}
-
-// the cashier's id, so two cashiers with the same name are never mixed up
-function cashierKey(sale) {
-  return sale.cashier_id || sale.user_id || sale.created_by || sale.profiles?.id || cashierName(sale)
-}
-
 // "Maria Dela Cruz" → "MC"
 function initialsOf(name) {
   const words = String(name).trim().split(/\s+/).filter(Boolean)
@@ -441,14 +445,10 @@ function initialsOf(name) {
 }
 
 // every cashier who has sales, A–Z
-const cashierOptions = computed(() => {
-  const seen = new Map()
-  for (const sale of sales.value) {
-    const key = String(cashierKey(sale))
-    if (!seen.has(key)) seen.set(key, { key, name: cashierName(sale) })
-  }
-  return [...seen.values()].sort((a, b) => a.name.localeCompare(b.name))
-})
+const cashierOptions = computed(() => summary.value.cashiers)
+
+// no sale was ever made (not just none that match)
+const noSalesYet = computed(() => !loading.value && cashierOptions.value.length === 0)
 
 const selectedCashier = computed(() => {
   if (!cashierFilter.value) return null
@@ -461,28 +461,20 @@ const selectedCashier = computed(() => {
 // { start, end } of the date filter (end not included); null = no limit
 const range = ref({ start: null, end: null })
 const search = ref('')
+// the search, a moment after the typing stops (not a load per key)
+const searchNow = ref('')
+let searchTimer = null
+watch(search, (text) => {
+  clearTimeout(searchTimer)
+  searchTimer = setTimeout(() => (searchNow.value = text.trim()), 300)
+})
 
-function inWindow(sale, start, end) {
-  const date = new Date(sale.created_at)
-  return (!start || date >= start) && (!end || date < end)
-}
-
-function ofCashier(sale) {
-  return !cashierFilter.value || String(cashierKey(sale)) === cashierFilter.value
-}
-
-function matchesSearch(sale) {
-  const q = search.value.trim().toLowerCase().replace(/^#/, '')
-  if (!q) return true
-  if (String(sale.id) === q || String(sale.id).startsWith(q)) return true
-  if (cashierName(sale).toLowerCase().includes(q)) return true
-  return (sale.sale_items || []).some((item) => String(item.product_name || '').toLowerCase().includes(q))
-}
-
-// sales in the chosen period, of the chosen cashier, matching the search
-const filteredSales = computed(() =>
-  sales.value.filter((s) => ofCashier(s) && matchesSearch(s) && inWindow(s, range.value.start, range.value.end))
-)
+const filters = computed(() => ({
+  from: range.value.start,
+  to: range.value.end,
+  cashier: cashierFilter.value,
+  search: searchNow.value,
+}))
 
 /* ---- sorting: date (newest first) or total ---- */
 const sortKey = ref('date')
@@ -501,48 +493,23 @@ function sortMark(key) {
   return sortDir.value === 'desc' ? '↓' : '↑'
 }
 
-const sortedSales = computed(() => {
-  const list = [...filteredSales.value]
-  const sign = sortDir.value === 'desc' ? -1 : 1
-  if (sortKey.value === 'total') {
-    list.sort((a, b) => sign * (Number(a.total_amount || 0) - Number(b.total_amount || 0)))
-  } else {
-    list.sort((a, b) => sign * (new Date(a.created_at) - new Date(b.created_at)))
-  }
-  return list
-})
-
 /* ---- summary ---- */
 function piecesOf(sale) {
   return (sale.sale_items || []).reduce((n, item) => n + Number(item.quantity || 0), 0)
 }
 
-function summarize(list) {
-  const net = list.reduce((sum, s) => sum + Number(s.total_amount || 0), 0)
-  const refunded = list.reduce((sum, s) => sum + Number(s.refunded_amount || 0), 0)
-  const products = new Set(list.flatMap((s) => (s.sale_items || []).map((i) => i.product_name)))
-  return {
-    net,
-    count: list.length,
-    average: list.length ? net / list.length : 0,
-    items: list.reduce((n, s) => n + piecesOf(s), 0),
-    products: products.size,
-    refunded,
-    refundedSales: list.filter((s) => Number(s.refunded_amount) > 0).length,
-  }
-}
-
-const summary = computed(() => summarize(filteredSales.value))
+// the tiles: net sales, transactions, items sold
+const tiles = computed(() => ({
+  ...summary.value,
+  average: summary.value.count ? summary.value.net / summary.value.count : 0,
+}))
 
 // against the period just before, of the same length ("↑ 12% vs previous 7 days")
 const change = computed(() => {
   const { start, end } = range.value
-  if (!start) return null
-  const stop = end || new Date()
-  const length = stop - start
-  const previous = sales.value.filter((s) => ofCashier(s) && matchesSearch(s) && inWindow(s, new Date(start - length), start))
-  const before = summarize(previous).net
-  if (!before) return null
+  const before = summary.value.previousNet
+  if (!start || !before) return null
+  const length = (end || new Date()) - start
   const pct = Math.round(((summary.value.net - before) / before) * 100)
   const days = Math.max(1, Math.round(length / 86400000))
   return {
@@ -579,42 +546,93 @@ function fullDate(date) {
 
 /* ---- pages: 10, 15 or all sales (the choice is remembered on this device) ---- */
 const tableTop = ref(null)
-const {
-  page,
-  pageSize,
-  visible: visibleSales,
-  reset: resetPage,
-} = usePagination(sortedSales, { storageKey: 'adminSales', scrollTarget: tableTop })
+const { page, pageSize, limit, offset, reset: resetPage } = useServerPagination({
+  storageKey: 'adminSales',
+  scrollTarget: tableTop,
+})
 
-// another period, cashier, search or order starts again at page 1
-watch([range, cashierFilter, search, sortKey, sortDir], resetPage)
+/* ---- loading ----
+   Another period, cashier or search: the totals and page 1. Another page
+   or order: only the rows. An answer that comes after a newer question is
+   dropped. */
+let rowsAsked = 0
+let totalsAsked = 0
+
+async function loadRows() {
+  const asked = ++rowsAsked
+  try {
+    const result = await salesPage(filters.value, {
+      sort: sortKey.value,
+      dir: sortDir.value,
+      limit: limit.value,
+      offset: offset.value,
+    })
+    if (asked !== rowsAsked) return
+    visibleSales.value = result.rows
+    total.value = result.total
+    errorMessage.value = ''
+    // the last page got emptier (e.g. a refund): back to the last one with rows
+    if (result.rows.length === 0 && result.total > 0 && page.value > 1) {
+      page.value = Math.max(1, Math.ceil(result.total / (limit.value || result.total)))
+    }
+  } catch (err) {
+    if (asked !== rowsAsked) return
+    // a failed load used to look exactly like "No sales records found"
+    errorMessage.value = err.message
+  }
+}
+
+async function loadTotals() {
+  const asked = ++totalsAsked
+  try {
+    const result = await salesSummary(filters.value)
+    if (asked === totalsAsked) summary.value = result
+  } catch (err) {
+    if (asked === totalsAsked) errorMessage.value = err.message
+  }
+}
+
+async function fetchSales() {
+  loading.value = true
+  await Promise.all([loadRows(), loadTotals()])
+  loading.value = false
+}
+
+watch(filters, () => {
+  // page 1 (its change loads the rows), and the new totals
+  if (page.value !== 1) resetPage()
+  else loadRows()
+  loadTotals()
+})
+watch([page, pageSize, sortKey, sortDir], loadRows)
 
 /* ---- downloads of what's shown (lib/salesPdf.js, lib/salesExcel.js) ---- */
 const exporting = ref('') // 'pdf' | 'excel' while a file is being made
 const exportError = ref('')
 
 // whose sales are shown, for the file's heading and name ('' = everyone)
-function cashiersShown() {
+function cashiersShown(sales) {
   if (selectedCashier.value) return selectedCashier.value.name
   if (!search.value.trim()) return ''
-  const names = [...new Set(filteredSales.value.map(cashierName))]
+  const names = [...new Set(sales.map(cashierName))]
   return names.length <= 3 ? names.join(', ') : `${names.slice(0, 3).join(', ')} and ${names.length - 3} more`
 }
 
 async function exportFile(kind) {
-  if (exporting.value || filteredSales.value.length === 0) return
+  if (exporting.value || total.value === 0) return
 
   exporting.value = kind
   exportError.value = ''
 
-  const options = {
-    sales: newestFirst(filteredSales.value),
-    range: range.value,
-    who: cashiersShown(),
-    cashierOf: cashierName,
-  }
-
   try {
+    // every sale shown (all pages), only now
+    const sales = newestFirst(await listSales(filters.value))
+    const options = {
+      sales,
+      range: range.value,
+      who: cashiersShown(sales),
+      cashierOf: cashierName,
+    }
     if (kind === 'excel') await downloadSalesExcel(options)
     else await downloadSalesPdf(options)
   } catch (err) {
@@ -624,23 +642,6 @@ async function exportFile(kind) {
   } finally {
     exporting.value = ''
   }
-}
-
-async function fetchSales() {
-  loading.value = true
-  errorMessage.value = ''
-
-  const { data, error } = await supabase.rpc('list_all_sales')
-
-  loading.value = false
-
-  // a failed load used to look exactly like "No sales records found"
-  if (error) {
-    errorMessage.value = error.message
-    return
-  }
-
-  sales.value = newestFirst(data || [])
 }
 
 function openReceipt(sale) {
@@ -667,10 +668,16 @@ const refundsWeek = computed(() => {
   return { amount: done.reduce((sum, r) => sum + Number(r.amount || 0), 0), count: done.length }
 })
 
-const refundsAll = computed(() => {
-  const refunded = sales.value.filter((sale) => Number(sale.refunded_amount) > 0)
-  return { amount: refunded.reduce((sum, sale) => sum + Number(sale.refunded_amount || 0), 0), sales: refunded.length }
-})
+const refundsAll = ref({ amount: 0, sales: 0 })
+
+async function fetchRefundsAll() {
+  try {
+    const all = await salesSummary({})
+    refundsAll.value = { amount: all.refunded, sales: all.refundedSales }
+  } catch (err) {
+    console.error(err)
+  }
+}
 
 // a request left from before refunds needed no approval
 const refundsWaiting = computed(() => refunds.value.filter((request) => request.status === 'pending').length)
@@ -687,13 +694,16 @@ async function fetchRefunds() {
 
 // a refund lowers a sale: the list and totals follow
 watch(view, (next) => {
-  if (next === 'refunds') fetchRefunds()
-  else fetchSales()
+  if (next === 'refunds') {
+    fetchRefunds()
+    fetchRefundsAll()
+  } else fetchSales()
 })
 
 onMounted(() => {
   fetchSales()
   fetchRefunds()
+  if (view.value === 'refunds') fetchRefundsAll()
 })
 </script>
 

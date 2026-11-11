@@ -11,22 +11,22 @@
     <div class="mb-6 grid gap-4 sm:grid-cols-3">
       <div class="rounded-[24px] border border-white/10 bg-zinc-900 p-5">
         <p class="text-sm text-zinc-400">Total sales</p>
-        <p class="mt-1 text-2xl font-extrabold text-red-400">{{ peso(summaryTotal) }}</p>
+        <p class="mt-1 text-2xl font-extrabold text-red-400">{{ peso(summary.net) }}</p>
       </div>
 
       <div class="rounded-[24px] border border-white/10 bg-zinc-900 p-5">
         <p class="text-sm text-zinc-400">Transactions</p>
-        <p class="mt-1 text-2xl font-extrabold text-white">{{ count(filteredSales.length) }}</p>
+        <p class="mt-1 text-2xl font-extrabold text-white">{{ count(total) }}</p>
       </div>
 
       <div class="rounded-[24px] border border-white/10 bg-zinc-900 p-5">
         <p class="text-sm text-zinc-400">Items sold</p>
-        <p class="mt-1 text-2xl font-extrabold text-white">{{ count(summaryItems) }}</p>
+        <p class="mt-1 text-2xl font-extrabold text-white">{{ count(summary.items) }}</p>
       </div>
     </div>
 
     <!-- CHART + BEST SELLERS of your sales shown (opens with its button) -->
-    <SalesInsights :sales="filteredSales" :range="range" />
+    <SalesInsights :days="summary.days" :top="summary.top" :first-sale="summary.firstSale" :range="range" />
 
     <!-- TABLE: 10, 15 or all sales a page. No report download here: sales
          reports (PDF, Excel) are made by the owner, in their Sales History. -->
@@ -78,21 +78,21 @@
         </tbody>
       </table>
 
-      <p v-if="loading && sales.length === 0" class="p-6 text-center text-zinc-500">
+      <p v-if="loading && visibleSales.length === 0" class="p-6 text-center text-zinc-500">
         Loading sales...
       </p>
       <p v-else-if="errorMessage" class="p-6 text-center text-red-400">
         Couldn't load your sales: {{ errorMessage }}
       </p>
-      <p v-else-if="filteredSales.length === 0" class="p-6 text-center text-zinc-500">
-        {{ sales.length === 0 ? 'No sales found.' : 'No sales in this period.' }}
+      <p v-else-if="total === 0" class="p-6 text-center text-zinc-500">
+        {{ range.start ? 'No sales in this period.' : 'No sales found.' }}
       </p>
 
       <TablePager
         v-else
         v-model:page="page"
         v-model:page-size="pageSize"
-        :total="filteredSales.length"
+        :total="total"
         noun="sales"
       />
     </div>
@@ -245,10 +245,9 @@
 
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue'
-import { supabase } from '../../lib/supabase'
 import { printElement } from '../../lib/printReceipt'
-import { usePagination } from '../../lib/usePagination'
-import { newestFirst } from '../../lib/salesReport'
+import { useServerPagination } from '../../lib/usePagination'
+import { salesPage, salesSummary } from '../../lib/salesQuery'
 import SalesPeriodFilter from '../../components/SalesPeriodFilter.vue'
 import SalesInsights from '../../components/SalesInsights.vue'
 import TablePager from '../../components/TablePager.vue'
@@ -257,7 +256,11 @@ import { count, peso } from '../../lib/format'
 import RefundRequestModal from '../../components/RefundRequestModal.vue'
 import { isToday } from '../../lib/refunds'
 
-const sales = ref([])
+// this page of your sales, and the totals of all of them in the period,
+// worked out by the database (lib/salesQuery.js): never every sale at once
+const visibleSales = ref([])
+const total = ref(0)
+const summary = ref({ net: 0, count: 0, items: 0, days: [], top: [], firstSale: null })
 const loading = ref(false)
 const errorMessage = ref('')
 const selectedSale = ref(null)
@@ -265,56 +268,54 @@ const receiptSale = ref(null)
 
 // { start, end } of the date filter (end not included); null = no limit
 const range = ref({ start: null, end: null })
-
-function inRange(sale) {
-  const date = new Date(sale.created_at)
-  const { start, end } = range.value
-  return (!start || date >= start) && (!end || date < end)
-}
-
-const filteredSales = computed(() => sales.value.filter(inRange))
-
-const summaryTotal = computed(() =>
-  filteredSales.value.reduce((sum, s) => sum + Number(s.total_amount || 0), 0)
-)
-
-const summaryItems = computed(() =>
-  filteredSales.value.reduce(
-    (sum, s) => sum + (s.sale_items || []).reduce((n, i) => n + Number(i.quantity || 0), 0),
-    0
-  )
-)
+const filters = computed(() => ({ from: range.value.start, to: range.value.end, mine: true }))
 
 // 10, 15 or all sales a page, with page buttons under the table. The choice
 // is remembered on this device.
 const tableTop = ref(null)
-const {
-  page,
-  pageSize,
-  visible: visibleSales,
-  reset: resetPage,
-} = usePagination(filteredSales, { storageKey: 'mySales', scrollTarget: tableTop })
+const { page, pageSize, limit, offset, reset: resetPage } = useServerPagination({
+  storageKey: 'mySales',
+  scrollTarget: tableTop,
+})
 
-// another period starts again at page 1
-watch(range, resetPage)
+// an answer that comes after a newer question is dropped
+let rowsAsked = 0
+
+async function loadRows() {
+  const asked = ++rowsAsked
+  try {
+    const result = await salesPage(filters.value, { limit: limit.value, offset: offset.value })
+    if (asked !== rowsAsked) return
+    visibleSales.value = result.rows
+    total.value = result.total
+    errorMessage.value = ''
+  } catch (err) {
+    // a failed load used to look exactly like "No sales found"
+    if (asked === rowsAsked) errorMessage.value = err.message
+  }
+}
+
+async function loadTotals() {
+  try {
+    summary.value = await salesSummary(filters.value)
+  } catch (err) {
+    errorMessage.value = err.message
+  }
+}
 
 async function fetchSales() {
   loading.value = true
-  errorMessage.value = ''
-
-  const { data, error } = await supabase.rpc('list_my_sales')
-
+  await Promise.all([loadRows(), loadTotals()])
   loading.value = false
-
-  // a failed load used to look exactly like "No sales found"
-  if (error) {
-    errorMessage.value = error.message
-    return
-  }
-
-  // the latest sale first, the same order as the owner's reports
-  sales.value = newestFirst(data || [])
 }
+
+// another period: page 1 and its totals; another page: only the rows
+watch(range, () => {
+  if (page.value !== 1) resetPage()
+  else loadRows()
+  loadTotals()
+})
+watch([page, pageSize], loadRows)
 
 function openSale(sale) {
   selectedSale.value = sale
@@ -341,6 +342,8 @@ function refundSent(text) {
   refundSale.value = null
   selectedSale.value = null
   refundMessage.value = text
+  // the sale and the totals are lower now
+  fetchSales()
   clearTimeout(refundMessageTimer)
   refundMessageTimer = setTimeout(() => (refundMessage.value = ''), 6000)
 }

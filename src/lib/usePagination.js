@@ -77,6 +77,51 @@ export function usePagination(items, { storageKey = '', scrollTarget = null, siz
   return { page, pageSize, pageCount, visible, reset }
 }
 
+/**
+ * The same, for a table the database gives one page at a time (Sales
+ * History): the page and rows-per-page, and what to ask the database for.
+ *
+ *   const { page, pageSize, limit, offset, reset } = useServerPagination({ storageKey: 'adminSales', scrollTarget })
+ *   load rows with { limit: limit.value, offset: offset.value } (limit 0 = all)
+ *   <TablePager v-model:page="page" v-model:page-size="pageSize" :total="total" />
+ */
+export function useServerPagination({ storageKey = '', scrollTarget = null, sizes = PAGE_SIZES } = {}) {
+  const page = ref(1)
+  const pageSize = ref(savedSize(storageKey, sizes))
+
+  const limit = computed(() => pageSize.value) // ALL is 0: every row
+  const offset = computed(() => (pageSize.value === ALL ? 0 : (page.value - 1) * pageSize.value))
+
+  watch(pageSize, (size) => {
+    page.value = 1
+    if (!storageKey) return
+    try {
+      localStorage.setItem(`rowsPerPage:${storageKey}`, String(size))
+    } catch {
+      // storage blocked: the choice lasts until the page closes
+    }
+  })
+
+  if (scrollTarget) {
+    watch(
+      page,
+      () => {
+        const table = scrollTarget.value
+        if (!table || table.getBoundingClientRect().top >= 0) return
+        const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+        table.scrollIntoView({ block: 'start', behavior: reduceMotion ? 'auto' : 'smooth' })
+      },
+      { flush: 'post' }
+    )
+  }
+
+  function reset() {
+    page.value = 1
+  }
+
+  return { page, pageSize, limit, offset, reset }
+}
+
 // Rows on one page. "All" is the whole list (at least 1, so an empty list
 // still has its one, empty, page).
 export function rowsPerPage(size, total) {
