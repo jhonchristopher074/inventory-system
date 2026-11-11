@@ -750,6 +750,7 @@
 </style>
 
 <script setup>
+import { appUrl } from '../../lib/appUrl'
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { supabase } from '../../lib/supabase'
@@ -980,7 +981,7 @@ async function forgotPassword() {
   // The email's link opens /reset-password on this same site. That address
   // must be listed under Supabase > Authentication > URL Configuration.
   const { error } = await supabase.auth.resetPasswordForEmail(address, {
-    redirectTo: `${window.location.origin}/reset-password`,
+    redirectTo: `${window.location.origin}${appUrl('reset-password')}`,
   })
 
   sendingReset.value = false

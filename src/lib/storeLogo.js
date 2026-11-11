@@ -9,9 +9,10 @@
 // get_store_logo() fails and the built-in logo stays.
 import { ref } from 'vue'
 import { supabase } from './supabase'
+import { appUrl } from './appUrl'
 
 export const LOGO_BUCKET = 'branding'
-export const DEFAULT_LOGO = '/logo.svg'
+export const DEFAULT_LOGO = appUrl('logo.svg')
 
 // what the Owner may pick, and how big the cropped logo may be (the bucket
 // refuses anything over 1 MB too)
@@ -50,7 +51,7 @@ function applyTabIcon(url, isDefault) {
   }
 
   const touch = document.querySelector('link[rel="apple-touch-icon"]')
-  if (touch) touch.href = isDefault ? '/apple-touch-icon.png' : url
+  if (touch) touch.href = isDefault ? appUrl('apple-touch-icon.png') : url
 }
 
 export function setLogoPath(path) {

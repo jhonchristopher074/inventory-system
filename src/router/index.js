@@ -11,6 +11,7 @@ import { wasBrowserClosed, markLoggedIn, CLOSED_MESSAGE } from '../lib/browserSe
 import { clearCurrentUser, saveCurrentUser } from '../lib/currentUser'
 import { clearSupplierNotices } from '../lib/supplierNotices'
 import { needsCode } from '../lib/twoStep'
+import { appUrl } from '../lib/appUrl'
 
 // Every page except Login is downloaded only when it's first opened, so the
 // first load (the login screen) is much smaller, especially on phones.
@@ -102,7 +103,8 @@ const BLOCKED_MESSAGE =
   'This account is disabled or not set up yet. Please contact the owner.'
 
 const router = createRouter({
-  history: createWebHistory(),
+  // the test copy is in a folder (lib/appUrl.js)
+  history: createWebHistory(import.meta.env.BASE_URL),
   routes,
 })
 
@@ -233,7 +235,7 @@ function reloadForNewVersion(path) {
     // storage disabled: reload anyway
   }
 
-  window.location.assign(path)
+  window.location.assign(appUrl(path))
 }
 
 router.onError((error, to) => {

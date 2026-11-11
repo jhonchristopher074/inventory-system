@@ -5,6 +5,8 @@
 // browser tab (sessionStorage); Exit or Logout ends it (endGuest). Both
 // reload the page, so lib/supabase.js picks the right client.
 
+import { appUrl } from './appUrl'
+
 const KEY = 'guestMode'
 
 export const GUEST_ROLES = [
@@ -40,7 +42,7 @@ export function startGuest(role, onReady) {
     return
   }
   onReady?.()
-  location.assign('/')
+  location.assign(appUrl('/'))
 }
 
 export function endGuest() {
@@ -50,7 +52,7 @@ export function endGuest() {
   } catch {
     // nothing saved
   }
-  location.assign('/login')
+  location.assign(appUrl('/login'))
 }
 
 export const GUEST_MESSAGE = 'Guest mode is view only: nothing was changed.'

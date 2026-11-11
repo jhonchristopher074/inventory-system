@@ -228,6 +228,7 @@
 <script setup>
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import NavIcon from './NavIcon.vue'
+import { appUrl } from '../lib/appUrl'
 import { dayAndTime } from '../lib/format'
 import { refreshTasksSoon } from '../lib/taskCounts'
 import { announceChange } from '../lib/liveRefresh'
@@ -391,7 +392,7 @@ function listenForUnlock(on) {
 }
 
 function getAudio() {
-  if (!audio) audio = new Audio('/notif.mp3')
+  if (!audio) audio = new Audio(appUrl('notif.mp3'))
   return audio
 }
 

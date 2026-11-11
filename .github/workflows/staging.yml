@@ -1,0 +1,94 @@
+# The test copy: the app built against a SECOND Supabase project (its own
+# data), published on GitHub Pages:
+#   https://jhonchristopher074.github.io/inventory-system/
+# A push to the "staging" branch updates it; main (the live store) is not
+# touched. Set up once: docs/STAGING.md.
+#
+# Needs two repository variables (Settings > Secrets and variables >
+# Actions > Variables; they're public anyway, they end up in the page):
+#   STAGING_SUPABASE_URL   https://<test project ref>.supabase.co
+#   STAGING_SUPABASE_KEY   the test project's publishable key
+# and Settings > Pages > Source: "GitHub Actions".
+# Until the variables are set, a run makes nothing and shows a warning.
+name: Test copy
+
+on:
+  push:
+    branches: [staging]
+  workflow_dispatch: # a "Run workflow" button
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: test-copy
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      skip: ${{ steps.check.outputs.skip }}
+
+    steps:
+      - name: Check the settings
+        id: check
+        env:
+          URL: ${{ vars.STAGING_SUPABASE_URL }}
+          KEY: ${{ vars.STAGING_SUPABASE_KEY }}
+        run: |
+          if [ -z "$URL" ] || [ -z "$KEY" ]; then
+            echo "::warning::No test copy made: add the STAGING_SUPABASE_URL and STAGING_SUPABASE_KEY variables (docs/STAGING.md)."
+            echo "skip=1" >> "$GITHUB_OUTPUT"
+          elif echo "$URL" | grep -q dvtnrfhsxabtcmpgojnn; then
+            # never a "test" site that changes the store's real data
+            echo "::error::STAGING_SUPABASE_URL is the live project. The test copy needs a project of its own."
+            exit 1
+          fi
+
+      - if: steps.check.outputs.skip != '1'
+        uses: actions/checkout@v4
+
+      - if: steps.check.outputs.skip != '1'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - if: steps.check.outputs.skip != '1'
+        run: npm ci
+
+      - name: Build the test copy
+        if: steps.check.outputs.skip != '1'
+        env:
+          VITE_BASE: /${{ github.event.repository.name }}/
+          VITE_SUPABASE_URL: ${{ vars.STAGING_SUPABASE_URL }}
+          VITE_SUPABASE_KEY: ${{ vars.STAGING_SUPABASE_KEY }}
+          VITE_TEST_COPY: '1'
+        run: |
+          npm run build
+          # GitHub Pages has no rewrite rules: an address like /inventory
+          # opens 404.html, which is the app too
+          cp dist/index.html dist/404.html
+          rm -f dist/.htaccess
+
+      - if: steps.check.outputs.skip != '1'
+        uses: actions/configure-pages@v5
+
+      - if: steps.check.outputs.skip != '1'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    if: needs.build.outputs.skip != '1'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
