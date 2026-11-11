@@ -1,73 +1,96 @@
-# Weekly backup of the Supabase database: every table's data, plus the
-# structure (tables, the database functions, policies) and roles.
+# Nightly backup of the Supabase project: every table's data, the structure
+# (tables, database functions, policies), the roles, and the files in
+# Storage (receipt photos, product pictures, documents, the logo).
 #
-# Supabase's free plan keeps no backups you can download, and many database
-# functions exist only in Supabase (not in supabase/migrations), so this is
-# the copy to restore from if something is deleted or broken.
+# Supabase's free plan keeps no backups you can download, so this is the
+# copy to restore from if something is deleted or broken. How to open and
+# restore one: docs/BACKUPS.md.
 #
-# Each backup is kept for 90 days under Actions > Database backup > a run >
+# Each backup is kept for 30 days under Actions > Database backup > a run >
 # Artifacts. This repo is public, so the file is encrypted: it can only be
 # opened with BACKUP_PASSPHRASE.
 #
 # Needs two repository secrets (GitHub > Settings > Secrets and variables
 # > Actions > New repository secret):
-#   SUPABASE_DB_URL     Supabase > Connect (top bar) > "Session pooler"
-#                       connection string, with [YOUR-PASSWORD] replaced by
-#                       the database password
-#   BACKUP_PASSPHRASE   a long password you make up. Keep it somewhere safe:
-#                       without it the backups can't be opened.
-# Until both are set, the weekly run makes no backup and only shows a
-# warning (no failure emails). Adding them is all it takes to start.
-#
-# Open a backup (Git Bash on Windows already has gpg):
-#   gpg -d database-backup-2026-10-26.tar.gz.gpg > backup.tar.gz
-#   tar -xzf backup.tar.gz
-# That gives backup/roles.sql, backup/schema.sql and backup/data.sql
-# (restore them with psql; see "Backup and restore using the CLI" in the
-# Supabase docs).
-#
-# Only the database: files in Storage (receipt and product images) are not
-# in it.
+#   SUPABASE_ACCESS_TOKEN   Supabase > your account (top right) > Account
+#                           preferences > Access Tokens > Generate new token
+#                           (no database password needed; also backs up Storage)
+#     or SUPABASE_DB_URL    Supabase > Connect > "Session pooler" connection
+#                           string with the database password in it
+#                           (the database only, no Storage files)
+#   BACKUP_PASSPHRASE       a long password you make up. Keep it somewhere
+#                           safe: without it the backups can't be opened.
+# Until they're set, each run makes no backup and only shows a warning.
 name: Database backup
 
 on:
   schedule:
-    - cron: '0 18 * * 6' # every Sunday, 2:00 AM Philippine time
+    - cron: '0 18 * * *' # every night, 2:00 AM Philippine time
   workflow_dispatch: # adds a "Run workflow" button for a backup right now
 
 permissions:
   contents: read
 
+env:
+  PROJECT_REF: dvtnrfhsxabtcmpgojnn
+
 jobs:
   backup:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
 
     steps:
       - name: Check the secrets
         env:
+          TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           DB_URL: ${{ secrets.SUPABASE_DB_URL }}
           PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
         run: |
-          if [ -z "$DB_URL" ] || [ -z "$PASSPHRASE" ]; then
-            echo "::warning::No backup made: the SUPABASE_DB_URL and BACKUP_PASSPHRASE secrets aren't set up yet (see the top of backup.yml)."
+          if [ -z "$PASSPHRASE" ] || { [ -z "$TOKEN" ] && [ -z "$DB_URL" ]; }; then
+            echo "::warning::No backup made: add the SUPABASE_ACCESS_TOKEN and BACKUP_PASSPHRASE secrets (see the top of backup.yml)."
             echo "SKIP_BACKUP=1" >> "$GITHUB_ENV"
           fi
 
+      # pinned: CLI 3 changed the flags (--db-url became --remote=<url>)
       - if: env.SKIP_BACKUP != '1'
         uses: supabase/setup-cli@v1
         with:
-          version: latest
+          version: 3.1.0
 
       - name: Copy the database
         if: env.SKIP_BACKUP != '1'
         env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           DB_URL: ${{ secrets.SUPABASE_DB_URL }}
         run: |
+          # the access token if there is one, else the connection string
+          if [ -n "$SUPABASE_ACCESS_TOKEN" ]; then target="$PROJECT_REF"; else target="$DB_URL"; fi
           mkdir backup
-          supabase db dump --db-url "$DB_URL" -f backup/roles.sql --role-only
-          supabase db dump --db-url "$DB_URL" -f backup/schema.sql
-          supabase db dump --db-url "$DB_URL" -f backup/data.sql --use-copy --data-only
+          supabase db dump --remote="$target" --yes -f backup/roles.sql --role-only
+          supabase db dump --remote="$target" --yes -f backup/schema.sql
+          # plain INSERTs (not COPY), so the SQL Editor can run it too
+          supabase db dump --remote="$target" --yes -f backup/data.sql --data-only
+          ls -la backup
+
+      # the files in Storage (needs the access token). A problem here still
+      # keeps the database backup.
+      - name: Copy the Storage files
+        if: env.SKIP_BACKUP != '1'
+        continue-on-error: true
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          if [ -z "$SUPABASE_ACCESS_TOKEN" ]; then
+            echo "::notice::Storage files skipped: they need SUPABASE_ACCESS_TOKEN."
+            exit 0
+          fi
+          mkdir -p backup/storage
+          supabase storage ls ss:/// --remote="$PROJECT_REF" | sed 's:/$::' | while IFS= read -r bucket; do
+            [ -n "$bucket" ] || continue
+            echo "Bucket: $bucket"
+            supabase storage cp -r "ss:///$bucket" "backup/storage/$bucket" --remote="$PROJECT_REF" -j 4 > /dev/null
+          done
+          du -sh backup/storage
 
       - name: Encrypt it
         if: env.SKIP_BACKUP != '1'
@@ -79,6 +102,7 @@ jobs:
           gpg --batch --yes --pinentry-mode loopback --passphrase "$PASSPHRASE" \
             --symmetric --cipher-algo AES256 -o "$name.tar.gz.gpg" backup.tar.gz
           rm -rf backup backup.tar.gz
+          ls -la "$name.tar.gz.gpg"
           echo "BACKUP_NAME=$name" >> "$GITHUB_ENV"
 
       - if: env.SKIP_BACKUP != '1'
@@ -86,5 +110,5 @@ jobs:
         with:
           name: ${{ env.BACKUP_NAME }}
           path: ${{ env.BACKUP_NAME }}.tar.gz.gpg
-          retention-days: 90
+          retention-days: 30
           compression-level: 0 # already compressed and encrypted
