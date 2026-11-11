@@ -5,7 +5,8 @@
 //   Step 2: choose the new password
 import { computed, nextTick, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { supabase } from '../lib/supabase'
+import { supabase, passwordIsRight } from '../lib/supabase'
+import { saveNewPassword } from '../lib/newPassword'
 import { PASSWORD_RULES } from '../lib/passwordStatus'
 // a pasted password loses the invisible characters it brought along
 import { vClean } from '../lib/cleanText'
@@ -14,6 +15,8 @@ const emit = defineEmits(['close'])
 const router = useRouter()
 
 const step = ref(1) // 1 = current password, 2 = new password, 3 = done
+// saved by the server: every login ended, so "Done" goes to the login page
+const mustLogIn = ref(false)
 const currentPassword = ref('')
 const newPassword = ref('')
 const confirmPassword = ref('')
@@ -54,11 +57,9 @@ async function checkCurrent() {
       error.value = 'Your session expired. Please log in again.'
       return
     }
-    const { error: verifyErr } = await supabase.auth.signInWithPassword({
-      email,
-      password: currentPassword.value,
-    })
-    if (verifyErr) {
+    // not a new login: that replaced this one, and with two-step
+    // verification on the app asked for the code again
+    if (!(await passwordIsRight(email, currentPassword.value))) {
       error.value = 'Incorrect password. Please try again.'
       currentPassword.value = ''
       nextTick(() => firstInput.value?.focus())
@@ -78,30 +79,26 @@ async function saveNew() {
   busy.value = true
   error.value = ''
   try {
-    const { error: updateErr } = await supabase.auth.updateUser({
-      password: newPassword.value,
-    })
-    if (updateErr) {
-      error.value = updateErr.message || 'Could not change the password.'
-      return
-    }
-
-    // Keep the session valid with the new password.
-    const email = await getEmail()
-    const { error: reErr } = email
-      ? await supabase.auth.signInWithPassword({ email, password: newPassword.value })
-      : { error: true }
-
+    // This login stays (Supabase keeps it when the password changes), so
+    // no new login afterwards: that one would need the two-step code again.
+    const { loggedOut } = await saveNewPassword(newPassword.value, currentPassword.value)
     currentPassword.value = newPassword.value = confirmPassword.value = ''
-
-    if (reErr) {
-      router.replace({ path: '/login' })
-      return
-    }
+    mustLogIn.value = loggedOut
     step.value = 3
+  } catch (err) {
+    error.value = err?.message || 'Could not change the password.'
   } finally {
     busy.value = false
   }
+}
+
+async function done() {
+  if (!mustLogIn.value) {
+    emit('close')
+    return
+  }
+  await supabase.auth.signOut({ scope: 'local' })
+  router.replace({ path: '/login', query: { info: 'Your password was changed. Log in with your new password.' } })
 }
 </script>
 
@@ -178,9 +175,11 @@ async function saveNew() {
     <!-- DONE -->
     <div v-else class="ap-card">
       <h2>Password changed</h2>
-      <p class="ap-message">Your password was updated. Use the new one next time you log in.</p>
+      <p class="ap-message">
+        {{ mustLogIn ? 'Your password was updated. Log in again with the new one.' : 'Your password was updated. Use the new one next time you log in.' }}
+      </p>
       <div class="ap-actions">
-        <button type="button" class="ap-confirm" @click="emit('close')">Done</button>
+        <button type="button" class="ap-confirm" @click="done">{{ mustLogIn ? 'Log in again' : 'Done' }}</button>
       </div>
     </div>
   </div>

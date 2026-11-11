@@ -7,6 +7,7 @@ import { useRouter } from 'vue-router'
 import { supabase } from '../../lib/supabase'
 import { PASSWORD_MAX, PASSWORD_RULES } from '../../lib/passwordStatus'
 import { isPasswordRecovery, endPasswordRecovery } from '../../lib/passwordRecovery'
+import { saveNewPassword } from '../../lib/newPassword'
 // a pasted password loses the invisible characters it brought along
 import { vClean } from '../../lib/cleanText'
 
@@ -52,11 +53,11 @@ async function submit() {
   loading.value = true
 
   try {
-    const { error: updateError } = await supabase.auth.updateUser({
-      password: newPassword.value,
-    })
-
-    if (updateError) {
+    // with the authenticator app on, Supabase wants its code first: the
+    // server saves it then (logging in afterwards still asks for the code)
+    try {
+      await saveNewPassword(newPassword.value)
+    } catch (updateError) {
       error.value = /different from the old/i.test(updateError.message)
         ? 'Choose a password that is different from your old one.'
         : updateError.message

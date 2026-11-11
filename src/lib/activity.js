@@ -168,6 +168,13 @@ export function describeActivity(row) {
       tone = TONES.info
       continue
     }
+    // their own password (supabase/functions/set-password)
+    if (key === 'password_changed') {
+      verb ||= 'Changed password'
+      tone = TONES.info
+      changes.push(change === 'reset email' ? 'With a "Forgot password?" email' : 'In Profile')
+      continue
+    }
     const from = isObj(change) ? change.from : undefined
     const to = isObj(change) ? change.to : change
 
