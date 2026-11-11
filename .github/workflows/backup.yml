@@ -1,6 +1,7 @@
 # Nightly backup of the Supabase project: every table's data, the structure
 # (tables, database functions, policies), the roles, and the files in
 # Storage (receipt photos, product pictures, documents, the logo).
+# Then it checks that the money and stock add up (scripts/data-checks.sql).
 #
 # Supabase's free plan keeps no backups you can download, so this is the
 # copy to restore from if something is deleted or broken. How to open and
@@ -112,3 +113,33 @@ jobs:
           path: ${{ env.BACKUP_NAME }}.tar.gz.gpg
           retention-days: 30
           compression-level: 0 # already compressed and encrypted
+
+      # Do the money and stock add up? (scripts/data-checks.sql, read-only)
+      # A problem fails the run, and GitHub emails the repo's owner. Only the
+      # check names and counts are shown: this repo's logs are public.
+      - if: env.SKIP_BACKUP != '1'
+        uses: actions/checkout@v4
+
+      - name: Check the money and stock
+        if: env.SKIP_BACKUP != '1'
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          if [ -n "$SUPABASE_ACCESS_TOKEN" ]; then target="$PROJECT_REF"; else target="$DB_URL"; fi
+          supabase db query --remote="$target" --read-only -o json -f scripts/data-checks.sql > checks.json
+          python3 - <<'PY'
+          import json, os, sys
+          raw = open('checks.json', encoding='utf-8').read()
+          rows = json.loads(raw[raw.index('{'):])['rows']
+          bad = [r for r in rows if int(r['problems']) > 0]
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as out:
+              out.write('### Money and stock checks\n\n')
+              for r in rows:
+                  out.write(f"- {'❌' if int(r['problems']) else '✅'} {r['check_name']}: {r['problems']}\n")
+          for r in rows:
+              print(('PROBLEM ' if int(r['problems']) else 'ok      ') + f"{r['check_name']}: {r['problems']}")
+          if bad:
+              print('::error::Some money or stock numbers don\'t add up. Run scripts/data-checks.sql to see which.')
+              sys.exit(1)
+          PY

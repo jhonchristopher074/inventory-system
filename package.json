@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
+    "test": "vitest run",
     "lint": "run-s lint:*",
     "lint:oxlint": "oxlint . --fix",
     "lint:eslint": "eslint . --fix --cache"
@@ -33,7 +34,8 @@
     "postcss": "^8.5.10",
     "tailwindcss": "^4.2.4",
     "vite": "^8.1.6",
-    "vite-plugin-vue-devtools": "^8.1.1"
+    "vite-plugin-vue-devtools": "^8.1.1",
+    "vitest": "^5.1.0"
   },
   "overrides": {
     "exceljs": {
