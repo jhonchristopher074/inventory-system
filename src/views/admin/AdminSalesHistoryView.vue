@@ -166,7 +166,7 @@
               v-model="search"
               type="search"
               maxlength="80"
-              placeholder="Search sale, cashier, product"
+              placeholder="Search cashier, product"
               aria-label="Search sales"
               class="filter-box min-w-0 flex-1 sm:w-64 sm:flex-none"
             />
@@ -188,24 +188,22 @@
         <div class="overflow-x-auto">
           <table class="data-table resp-table fixed-cols">
             <colgroup>
-              <col class="w-[6rem]" />
-              <col class="w-[11rem]" />
               <col class="w-[13rem]" />
               <col />
+              <col class="w-[11rem]" />
               <col class="w-[9rem]" />
               <col class="w-[9.5rem]" />
               <col class="w-[6.5rem]" />
             </colgroup>
             <thead>
               <tr>
-                <th>Sale</th>
+                <th>Cashier</th>
+                <th>Items</th>
                 <th>
                   <button type="button" class="sort-btn" @click="sortBy('date')">
                     Date <span aria-hidden="true">{{ sortMark('date') }}</span>
                   </button>
                 </th>
-                <th>Cashier</th>
-                <th>Items</th>
                 <th class="num">
                   <button type="button" class="sort-btn ml-auto" @click="sortBy('total')">
                     Total <span aria-hidden="true">{{ sortMark('total') }}</span>
@@ -222,14 +220,6 @@
                 :key="sale.id"
               >
                 <td class="cell-main">
-                  <span class="text-sm font-semibold text-white">#{{ sale.id }}</span>
-                </td>
-
-                <td data-label="Date" class="whitespace-nowrap text-sm text-zinc-300" :title="fullDate(sale.created_at)">
-                  {{ dayAndTime(sale.created_at) }}
-                </td>
-
-                <td data-label="Cashier">
                   <button
                     type="button"
                     class="flex min-w-0 items-center gap-2 text-left"
@@ -249,6 +239,10 @@
                     <span v-if="moreItems(sale)" class="text-zinc-500">+{{ moreItems(sale) }} more</span>
                   </p>
                   <p class="text-xs text-zinc-500">{{ count(piecesOf(sale)) }} pcs</p>
+                </td>
+
+                <td data-label="Date" class="whitespace-nowrap text-sm text-zinc-300" :title="fullDate(sale.created_at)">
+                  {{ dayAndTime(sale.created_at) }}
                 </td>
 
                 <td data-label="Total" class="num">

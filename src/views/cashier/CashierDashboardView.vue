@@ -144,17 +144,6 @@
 
           <ol v-if="bestSellers.length > 0" class="space-y-3">
             <li v-for="(item, i) in bestSellers" :key="item.key" class="flex items-center gap-3">
-              <img
-                v-if="item.image"
-                :src="item.image"
-                alt=""
-                loading="lazy"
-                class="h-10 w-10 shrink-0 rounded-[10px] object-cover"
-              />
-              <span v-else class="grid h-10 w-10 shrink-0 place-items-center rounded-[10px] bg-white/5 text-zinc-500">
-                <NavIcon name="inventory" class="h-5 w-5" />
-              </span>
-
               <div class="min-w-0 flex-1">
                 <div class="flex items-baseline justify-between gap-2">
                   <p class="min-w-0 truncate text-sm font-bold text-white">
