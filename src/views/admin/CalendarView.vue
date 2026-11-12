@@ -193,13 +193,14 @@
               >
                 Approve
               </RouterLink>
-              <RouterLink
+              <button
                 v-if="card.kind === 'delivery' && card.item.receipt_state === 'waiting'"
-                :to="{ path: '/approval', query: { receiptFor: card.item.id } }"
+                type="button"
                 class="rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-bold text-black hover:bg-amber-400"
+                @click="openReceiptUpload(card.item)"
               >
                 Add receipt
-              </RouterLink>
+              </button>
               <button
                 v-if="card.kind === 'inspection'"
                 type="button"
@@ -300,12 +301,13 @@
             <p class="mt-3 text-xs text-amber-200/80">
               No stock is added until its receipt is in. When the supplier sends it, link it in Approval, or upload it here.
             </p>
-            <RouterLink
-              :to="{ path: '/approval', query: { receiptFor: delivery.id } }"
+            <button
+              type="button"
               class="mt-3 block w-full rounded-xl bg-amber-500 py-2 text-center text-sm font-bold text-black hover:bg-amber-400"
+              @click="openReceiptUpload(delivery)"
             >
               Add receipt
-            </RouterLink>
+            </button>
           </template>
           <template v-else-if="delivery.receipt_state === 'sent'">
             <p class="mt-3 text-xs text-zinc-500">
@@ -445,13 +447,14 @@
                 </div>
               </div>
               <div v-else class="mt-3 flex flex-wrap justify-end gap-2">
-                <RouterLink
+                <button
                   v-if="event.item.receipt_state === 'waiting'"
-                  :to="{ path: '/approval', query: { receiptFor: event.item.id } }"
+                  type="button"
                   class="rounded-lg bg-amber-500 px-3.5 py-1.5 text-xs font-bold text-black hover:bg-amber-400"
+                  @click="openReceiptUpload(event.item)"
                 >
                   Add receipt
-                </RouterLink>
+                </button>
                 <button
                   v-if="!event.item.upload_id"
                   type="button"
@@ -729,6 +732,38 @@
         </div>
       </div>
     </div>
+
+    <!-- ADD RECEIPT (an arrived delivery's): upload it here and it goes
+         straight to the receipt scanner, as in Approval. Closes only with
+         Cancel, so an upload can't be cut off halfway. -->
+    <Teleport to="body">
+      <div
+        v-if="receiptFor"
+        class="fixed inset-0 z-[2000] flex items-center justify-center bg-black/80 p-3 sm:p-4"
+      >
+        <div
+          class="max-h-[94vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-white/10 bg-zinc-900 p-4 shadow-2xl sm:rounded-[24px] sm:p-6"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="calendar-upload-title"
+        >
+          <p class="text-xs font-extrabold uppercase tracking-[0.14em] text-red-400">Upload receipt</p>
+          <h2 id="calendar-upload-title" class="mt-1 text-xl font-bold text-white sm:text-2xl">A receipt handed to you</h2>
+          <p class="mt-1 text-sm text-zinc-400">No approval needed: it goes straight to the receipt scanner.</p>
+
+          <ReceiptUploadForm
+            class="mt-5"
+            mode="owner"
+            :delivery-id="receiptFor.id"
+            :delivery-title="receiptFor.title || ''"
+            :preset-supplier="receiptFor.supplier || ''"
+            :deliveries="[]"
+            @done="receiptUploaded"
+            @cancel="receiptFor = null"
+          />
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
@@ -747,6 +782,8 @@ import MonthCalendar from '../../components/MonthCalendar.vue'
 import DatePicker from '../../components/DatePicker.vue'
 import NavIcon from '../../components/NavIcon.vue'
 import { onLiveRefresh } from '../../lib/liveRefresh'
+import ReceiptUploadForm from '../../components/ReceiptUploadForm.vue'
+import { forwardReceipt } from '../../lib/forwardReceipt'
 
 // in the address (?tab=delivery), like the Staff calendar, so the Dashboard
 // can open the Delivery tab
@@ -1030,6 +1067,37 @@ async function fetchDeliveries() {
     // done ones leave; arrived ones stay until their receipt is through
     deliveries.value = (data || []).filter(isOpenDelivery)
   }
+}
+
+// ----- Add receipt: an arrived delivery's receipt, uploaded here -----
+// The form saves it (linked to the delivery); then it's sent to the receipt
+// scanner right away, like the owner's own upload in Approval.
+const receiptFor = ref(null) // the delivery
+
+function openReceiptUpload(delivery) {
+  receiptFor.value = delivery
+}
+
+async function receiptUploaded({ row, file, percent }) {
+  receiptFor.value = null
+  fetchDeliveries()
+  toast(`Sending "${row.file_name}" to the receipt scanner…`)
+
+  try {
+    await forwardReceipt(row, file, percent)
+    toast(`Sent "${row.file_name}" to the receipt scanner. The stock is added when it's read.`)
+  } catch (sendError) {
+    console.error('Could not send to the receipt scanner:', sendError)
+    toast(
+      sendError.alreadySent
+        ? `"${row.file_name}" reached the scanner, but couldn't be recorded. Check Approval > Approved but not sent.`
+        : `Uploaded "${row.file_name}", but sending it failed. Press "Send again" in Approval > Approved but not sent.`,
+      { kind: 'error', ms: 10000 }
+    )
+  }
+
+  fetchDeliveries()
+  refreshTasksSoon()
 }
 
 // ----- Delete a delivery (asks first, on its card) -----
