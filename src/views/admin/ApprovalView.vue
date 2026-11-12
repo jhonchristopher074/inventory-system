@@ -596,11 +596,14 @@
               Is this the receipt of an arrived delivery?
             </label>
             <select id="review-delivery" v-model="reviewDeliveryId" class="input w-full">
-              <option value="">No</option>
+              <option value="">No, it isn't for a delivery</option>
               <option v-for="delivery in waitingForReceipt" :key="delivery.id" :value="String(delivery.id)">
-                Yes: {{ delivery.title }}{{ delivery.supplier ? ` · ${delivery.supplier}` : '' }}
+                Yes, for {{ deliveryChoiceLabel(delivery) }}
               </option>
             </select>
+            <p class="mt-1.5 text-xs text-zinc-500">
+              These deliveries arrived and are waiting for their receipt. Pick one if this receipt is for it.
+            </p>
           </div>
 
           <!-- profit percentage -->
@@ -857,7 +860,7 @@
 <script setup>
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
-import { linkDeliveryReceipt } from '../../lib/deliveries'
+import { deliveryChoiceLabel, linkDeliveryReceipt } from '../../lib/deliveries'
 import { onLiveRefresh } from '../../lib/liveRefresh'
 import { supabase, uniqueChannelName } from '../../lib/supabase'
 import { useQueryParam } from '../../lib/useQueryParam'

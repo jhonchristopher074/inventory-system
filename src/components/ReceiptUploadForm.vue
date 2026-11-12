@@ -82,9 +82,9 @@
         Is it for a delivery that already arrived? <span class="font-normal text-zinc-500">(optional)</span>
       </label>
       <select :id="`${uid}-delivery`" v-model="chosenDelivery" class="field-input" :disabled="busy" @change="fillSupplier">
-        <option value="">No, not for one of these</option>
+        <option value="">No, it isn't for a delivery</option>
         <option v-for="delivery in deliveries" :key="delivery.id" :value="String(delivery.id)">
-          Yes: {{ delivery.title }}{{ delivery.supplier ? ` · ${delivery.supplier}` : '' }}
+          Yes, for {{ deliveryChoiceLabel(delivery) }}
         </option>
       </select>
     </div>
@@ -182,6 +182,7 @@ import {
   submitReceipt,
 } from '../lib/receiptUploads'
 import { toast } from '../lib/toast'
+import { deliveryChoiceLabel } from '../lib/deliveries'
 
 const props = defineProps({
   // 'staff' (waits for the owner) or 'owner' (straight to the scanner)

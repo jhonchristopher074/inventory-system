@@ -53,3 +53,16 @@ export async function linkDeliveryReceipt(uploadId, deliveryId) {
   })
   if (error) throw new Error(explain(error))
 }
+
+// How an arrived delivery reads in a "which delivery is this receipt for?"
+// list: "Cement, from JM (Nov 13)"
+export function deliveryChoiceLabel(delivery) {
+  const parts = [delivery?.title || 'Delivery']
+  if (delivery?.supplier) parts[0] += `, from ${delivery.supplier}`
+  const day = String(delivery?.delivery_date || '').slice(0, 10)
+  if (/^\d{4}-\d{2}-\d{2}$/.test(day)) {
+    const date = new Date(`${day}T00:00:00`)
+    parts.push(`(${date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })})`)
+  }
+  return parts.join(' ')
+}
