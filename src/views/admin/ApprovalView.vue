@@ -528,7 +528,7 @@
         class="fixed inset-0 z-[2000] flex items-center justify-center bg-black/80 p-3 sm:p-4"
         @click.self="closeReview"
       >
-        <div class="max-h-[94vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-white/10 bg-zinc-900 p-4 shadow-2xl sm:rounded-[24px] sm:p-6">
+        <div class="max-h-[94vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-white/10 bg-zinc-900 p-4 shadow-2xl sm:rounded-[24px] sm:p-6 lg:max-w-5xl">
           <h2 class="text-xl font-bold text-white sm:text-2xl">
             {{ review.mode === 'send' ? 'Send receipt again' : 'Approve receipt' }}
           </h2>
@@ -544,119 +544,126 @@
             <b class="text-zinc-400">Note:</b> {{ review.upload.note }}
           </p>
 
-          <!-- receipt preview: click to zoom -->
-          <div class="mt-4">
-            <p v-if="!fileUrl(review.upload)" class="rounded-xl bg-black p-6 text-center text-sm text-zinc-400">
-              {{ fileMissing(review.upload) ? "This receipt's file is no longer in storage." : 'Loading the receipt…' }}
+          <!-- wide screens: the receipt on the left, the questions on the right
+               (nothing to scroll); phones: one under the other -->
+          <div class="mt-4 lg:grid lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] lg:items-start lg:gap-6">
+            <!-- receipt preview: click to zoom -->
+            <div>
+              <p v-if="!fileUrl(review.upload)" class="rounded-xl bg-black p-6 text-center text-sm text-zinc-400">
+                {{ fileMissing(review.upload) ? "This receipt's file is no longer in storage." : 'Loading the receipt…' }}
+              </p>
+
+              <button
+                v-else-if="isImage(review.upload.file_name)"
+                type="button"
+                class="group relative block w-full overflow-hidden rounded-xl bg-black"
+                title="Click to zoom"
+                @click="openZoom(review.upload)"
+              >
+                <img
+                  :src="fileUrl(review.upload)"
+                  :alt="review.upload.file_name"
+                  class="max-h-[40vh] w-full object-contain lg:max-h-[70vh]"
+                />
+                <span class="absolute bottom-2 right-2 rounded-full bg-black/70 px-3 py-1 text-xs font-bold text-white group-hover:bg-red-600">
+                  🔍 Click to zoom
+                </span>
+              </button>
+
+              <div v-else class="overflow-hidden rounded-xl bg-black">
+                <iframe
+                  :src="fileUrl(review.upload)"
+                  class="h-[40vh] w-full lg:h-[66vh]"
+                  title="Receipt preview"
+                ></iframe>
+                <a
+                  :href="fileUrl(review.upload)"
+                  target="_blank"
+                  rel="noopener"
+                  class="block py-2 text-center text-sm font-bold text-red-400 hover:underline"
+                >
+                  Open the PDF in a new tab
+                </a>
+              </div>
+            </div>
+
+            <!-- the questions (right column on wide screens) -->
+            <div class="lg:[&>*:first-child]:mt-0">
+            <!-- the arrived delivery it's for (its stock comes from this receipt) -->
+            <p
+              v-if="review.mode === 'approve' && review.upload.delivery_title"
+              class="mt-4 rounded-xl bg-sky-500/10 p-3 text-sm text-sky-200"
+            >
+              For the delivery <b class="text-white">{{ review.upload.delivery_title }}</b>: its goods are here.
+            </p>
+            <div v-else-if="review.mode === 'approve' && waitingForReceipt.length > 0" class="mt-4">
+              <DeliveryChoice v-model="reviewDeliveryId" :deliveries="waitingForReceipt" />
+            </div>
+
+            <!-- profit percentage -->
+            <div class="mt-5">
+              <label class="mb-2 block text-sm font-bold text-zinc-300" for="profit-input">
+                Profit percentage
+              </label>
+
+              <div class="flex items-center gap-2">
+                <input
+                  id="profit-input"
+                  v-model="profitInput"
+                  type="number"
+                  inputmode="decimal"
+                  min="0"
+                  max="1000"
+                  step="0.01"
+                  placeholder="e.g. 25"
+                  class="input flex-1"
+                  @keyup.enter="confirmReview"
+                />
+                <span class="text-lg font-bold text-zinc-300">%</span>
+              </div>
+
+              <div class="mt-3 flex flex-wrap gap-2">
+                <button
+                  v-for="quick in [10, 15, 20, 25, 30, 50]"
+                  :key="quick"
+                  type="button"
+                  class="rounded-xl bg-zinc-800 px-3 py-1.5 text-sm font-bold text-zinc-200 hover:bg-zinc-700"
+                  @click="profitInput = String(quick)"
+                >
+                  {{ quick }}%
+                </button>
+              </div>
+
+              <p class="mt-2 text-xs text-zinc-500">
+                After the scanner has read the receipt, the new products appear on this
+                page under "New prices to check" with this percentage already added.
+                You can change any price there before confirming.
+              </p>
+            </div>
+
+            <p
+              v-if="reviewError"
+              class="mt-4 rounded-xl bg-red-600/20 p-3 text-sm text-red-400"
+            >
+              {{ reviewError }}
             </p>
 
-            <button
-              v-else-if="isImage(review.upload.file_name)"
-              type="button"
-              class="group relative block w-full overflow-hidden rounded-xl bg-black"
-              title="Click to zoom"
-              @click="openZoom(review.upload)"
-            >
-              <img
-                :src="fileUrl(review.upload)"
-                :alt="review.upload.file_name"
-                class="max-h-[40vh] w-full object-contain"
-              />
-              <span class="absolute bottom-2 right-2 rounded-full bg-black/70 px-3 py-1 text-xs font-bold text-white group-hover:bg-red-600">
-                🔍 Click to zoom
-              </span>
-            </button>
-
-            <div v-else class="overflow-hidden rounded-xl bg-black">
-              <iframe
-                :src="fileUrl(review.upload)"
-                class="h-[40vh] w-full"
-                title="Receipt preview"
-              ></iframe>
-              <a
-                :href="fileUrl(review.upload)"
-                target="_blank"
-                rel="noopener"
-                class="block py-2 text-center text-sm font-bold text-red-400 hover:underline"
-              >
-                Open the PDF in a new tab
-              </a>
-            </div>
-          </div>
-
-          <!-- the arrived delivery it's for (its stock comes from this receipt) -->
-          <p
-            v-if="review.mode === 'approve' && review.upload.delivery_title"
-            class="mt-4 rounded-xl bg-sky-500/10 p-3 text-sm text-sky-200"
-          >
-            For the delivery <b class="text-white">{{ review.upload.delivery_title }}</b>: its goods are here.
-          </p>
-          <div v-else-if="review.mode === 'approve' && waitingForReceipt.length > 0" class="mt-4">
-            <DeliveryChoice v-model="reviewDeliveryId" :deliveries="waitingForReceipt" />
-          </div>
-
-          <!-- profit percentage -->
-          <div class="mt-5">
-            <label class="mb-2 block text-sm font-bold text-zinc-300" for="profit-input">
-              Profit percentage
-            </label>
-
-            <div class="flex items-center gap-2">
-              <input
-                id="profit-input"
-                v-model="profitInput"
-                type="number"
-                inputmode="decimal"
-                min="0"
-                max="1000"
-                step="0.01"
-                placeholder="e.g. 25"
-                class="input flex-1"
-                @keyup.enter="confirmReview"
-              />
-              <span class="text-lg font-bold text-zinc-300">%</span>
-            </div>
-
-            <div class="mt-3 flex flex-wrap gap-2">
+            <div class="mt-5 flex gap-3">
               <button
-                v-for="quick in [10, 15, 20, 25, 30, 50]"
-                :key="quick"
-                type="button"
-                class="rounded-xl bg-zinc-800 px-3 py-1.5 text-sm font-bold text-zinc-200 hover:bg-zinc-700"
-                @click="profitInput = String(quick)"
+                class="flex-1 rounded-2xl bg-emerald-600 py-3 font-bold text-white hover:bg-emerald-700"
+                @click="confirmReview"
               >
-                {{ quick }}%
+                {{ review.mode === 'send' ? 'Send' : 'Approve & send' }}
+              </button>
+
+              <button
+                class="flex-1 rounded-2xl bg-zinc-800 py-3 font-bold text-white hover:bg-zinc-700"
+                @click="closeReview"
+              >
+                Cancel
               </button>
             </div>
-
-            <p class="mt-2 text-xs text-zinc-500">
-              After the scanner has read the receipt, the new products appear on this
-              page under "New prices to check" with this percentage already added.
-              You can change any price there before confirming.
-            </p>
-          </div>
-
-          <p
-            v-if="reviewError"
-            class="mt-4 rounded-xl bg-red-600/20 p-3 text-sm text-red-400"
-          >
-            {{ reviewError }}
-          </p>
-
-          <div class="mt-5 flex gap-3">
-            <button
-              class="flex-1 rounded-2xl bg-emerald-600 py-3 font-bold text-white hover:bg-emerald-700"
-              @click="confirmReview"
-            >
-              {{ review.mode === 'send' ? 'Send' : 'Approve & send' }}
-            </button>
-
-            <button
-              class="flex-1 rounded-2xl bg-zinc-800 py-3 font-bold text-white hover:bg-zinc-700"
-              @click="closeReview"
-            >
-              Cancel
-            </button>
+            </div>
           </div>
         </div>
       </div>
