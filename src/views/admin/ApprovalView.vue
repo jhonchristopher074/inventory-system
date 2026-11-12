@@ -643,9 +643,27 @@
               <div class="flex gap-3">
                 <span class="step-no">{{ hasDeliveryStep ? 2 : 1 }}</span>
                 <div class="min-w-0 flex-1">
-                  <label class="mb-2 block text-sm font-bold text-zinc-300" for="profit-input">
-                    Profit percentage
-                  </label>
+                  <div class="mb-2 flex items-center gap-2">
+                    <label class="text-sm font-bold text-zinc-300" for="profit-input">Profit percentage</label>
+                    <!-- what it does: hover (computer) or tap (phone) the "?" -->
+                    <span class="help">
+                      <button
+                        type="button"
+                        class="help-btn"
+                        :aria-expanded="profitHelp"
+                        aria-controls="profit-help"
+                        aria-label="What is the profit percentage?"
+                        @click="profitHelp = !profitHelp"
+                      >
+                        ?
+                      </button>
+                      <span id="profit-help" class="help-tip" :class="{ 'is-open': profitHelp }" role="tooltip">
+                        Added to the cost of each new product on this receipt. After the scanner reads it,
+                        the products appear under "New prices to check", where you can change any price
+                        before confirming.
+                      </span>
+                    </span>
+                  </div>
 
                   <div class="flex items-center gap-2">
                     <input
@@ -678,11 +696,6 @@
                     </button>
                   </div>
 
-                  <p class="mt-2.5 text-xs leading-relaxed text-zinc-500">
-                    Added to the cost of each new product on this receipt. After the scanner reads it,
-                    the products appear under "New prices to check", where you can change any price
-                    before confirming.
-                  </p>
                 </div>
               </div>
 
@@ -1051,6 +1064,7 @@ const zoom = ref(1)
 // the Approve window's own viewer
 const viewZoom = ref(1)
 const viewTurn = ref(0)
+const profitHelp = ref(false) // the "?" next to Profit percentage, tapped open
 
 function resetView() {
   viewZoom.value = 1
@@ -1121,6 +1135,7 @@ function openReview(upload, mode) {
   zoom.value = 1
   viewZoom.value = 1
   viewTurn.value = 0
+  profitHelp.value = false
 
   // no link yet (e.g. the list was just loaded): make it for the preview
   if (!fileUrl(upload)) refreshFileLinks([upload])
@@ -2309,6 +2324,46 @@ onUnmounted(() => {
 }
 .view-tool:hover:not(:disabled) { background: rgb(255 255 255 / 0.14); color: white; }
 .view-tool:disabled { opacity: 0.35; cursor: default; }
+
+/* the "?" with its explanation (hover on a computer, tap on a phone) */
+.help { position: relative; display: inline-flex; }
+.help-btn {
+  display: grid;
+  height: 1.15rem;
+  width: 1.15rem;
+  place-items: center;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.1);
+  font-size: 0.7rem;
+  font-weight: 800;
+  color: rgb(212 212 216);
+}
+.help-btn:hover, .help-btn[aria-expanded="true"] { background: rgb(16 185 129 / 0.25); color: white; }
+.help-tip {
+  position: absolute;
+  left: 50%;
+  top: calc(100% + 0.5rem);
+  z-index: 10;
+  width: 16rem;
+  transform: translateX(-50%);
+  border-radius: 0.75rem;
+  border: 1px solid rgb(255 255 255 / 0.1);
+  background: rgb(24 24 27);
+  padding: 0.65rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1.5;
+  color: rgb(212 212 216);
+  box-shadow: 0 10px 30px rgb(0 0 0 / 0.5);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s;
+}
+.help:hover .help-tip, .help-tip.is-open { opacity: 1; pointer-events: auto; }
+@media (max-width: 480px) {
+  /* phones: under the label, from its left edge, so it stays on screen */
+  .help-tip { left: -7.5rem; transform: none; width: 15rem; }
+}
 
 /* its numbered steps */
 .step-no {
