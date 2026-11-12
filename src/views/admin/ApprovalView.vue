@@ -592,8 +592,6 @@
             For the delivery <b class="text-white">{{ review.upload.delivery_title }}</b>: its goods are here.
           </p>
           <div v-else-if="review.mode === 'approve' && waitingForReceipt.length > 0" class="mt-4">
-            <p class="text-sm font-bold text-zinc-300">Which delivery is this receipt for?</p>
-            <p class="mb-2.5 mt-0.5 text-xs text-zinc-500">These arrived and are waiting for their receipt.</p>
             <DeliveryChoice v-model="reviewDeliveryId" :deliveries="waitingForReceipt" />
           </div>
 

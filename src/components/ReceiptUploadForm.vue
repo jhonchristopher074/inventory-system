@@ -78,8 +78,6 @@
       For the delivery <b class="text-white">{{ deliveryTitle || 'on the calendar' }}</b>
     </p>
     <div v-else-if="deliveries.length > 0">
-      <p class="field-label">Which delivery is it for? <span class="font-normal text-zinc-500">(optional)</span></p>
-      <p class="mb-2.5 -mt-1 text-xs text-zinc-500">These arrived and are waiting for their receipt.</p>
       <DeliveryChoice v-model="chosenDelivery" :deliveries="deliveries" :disabled="busy" @update:model-value="fillSupplier" />
     </div>
 

@@ -1,17 +1,28 @@
 <script setup>
-// "Which delivery is this receipt for?": one card per delivery that arrived
-// and waits for its receipt, plus "Not for a delivery". v-model is the
-// chosen delivery's id as text, '' for none.
-import { useId } from 'vue'
-import NavIcon from './NavIcon.vue'
+// "Is this the receipt of an arrived delivery?" Yes / No. Yes shows a
+// dropdown of the deliveries that arrived and wait for their receipt (name,
+// who delivers it, the day), then a box naming the chosen one. No: nothing
+// more to fill in. v-model is the chosen delivery's id as text, '' for none.
+import { computed, ref, useId, watch } from 'vue'
 
 const props = defineProps({
   deliveries: { type: Array, default: () => [] },
   disabled: { type: Boolean, default: false },
+  question: { type: String, default: 'Is this the receipt of an arrived delivery?' },
 })
 
 const model = defineModel({ type: String, default: '' })
-const name = useId()
+const uid = useId()
+
+// starts on Yes when a delivery is already chosen (e.g. the only one from
+// the same supplier)
+const answer = ref(model.value ? 'yes' : 'no')
+
+watch(model, (value) => {
+  if (value) answer.value = 'yes'
+})
+
+const chosen = computed(() => props.deliveries.find((item) => String(item.id) === model.value) || null)
 
 function dayOf(delivery) {
   const day = String(delivery?.delivery_date || '').slice(0, 10)
@@ -19,103 +30,95 @@ function dayOf(delivery) {
   return new Date(`${day}T00:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
 }
 
-function pick(value) {
-  if (!props.disabled) model.value = value
+function optionText(delivery) {
+  let text = delivery.title || 'Delivery'
+  if (delivery.supplier) text += ` — from ${delivery.supplier}`
+  if (dayOf(delivery)) text += ` (${dayOf(delivery)})`
+  return text
+}
+
+function setAnswer(value) {
+  if (props.disabled) return
+  answer.value = value
+  if (value === 'no') model.value = ''
+  // only one to choose from: choose it
+  else if (!model.value && props.deliveries.length === 1) model.value = String(props.deliveries[0].id)
 }
 </script>
 
 <template>
-  <div class="space-y-2" role="radiogroup">
-    <label
-      v-for="delivery in deliveries"
-      :key="delivery.id"
-      class="choice"
-      :class="{ 'is-on': model === String(delivery.id), 'is-off': disabled }"
-    >
-      <input
-        type="radio"
-        class="sr-only"
-        :name="name"
-        :value="String(delivery.id)"
-        :checked="model === String(delivery.id)"
-        :disabled="disabled"
-        @change="pick(String(delivery.id))"
-      />
-      <span class="choice-icon bg-sky-500/15 text-sky-300">
-        <NavIcon name="inventory" class="h-4 w-4" />
-      </span>
-      <span class="min-w-0 flex-1">
-        <span class="block truncate font-bold text-white">{{ delivery.title || 'Delivery' }}</span>
-        <span class="block truncate text-xs text-zinc-400">
-          <template v-if="delivery.supplier">From <b class="text-zinc-200">{{ delivery.supplier }}</b></template>
-          <template v-if="delivery.supplier && dayOf(delivery)"> · </template>
-          <template v-if="dayOf(delivery)">arrived {{ dayOf(delivery) }}</template>
-        </span>
-      </span>
-      <span class="choice-dot" aria-hidden="true"></span>
-    </label>
+  <div>
+    <p class="mb-2 text-sm font-bold text-zinc-300">{{ question }}</p>
 
-    <label class="choice" :class="{ 'is-on': model === '', 'is-off': disabled }">
-      <input
-        type="radio"
-        class="sr-only"
-        :name="name"
-        value=""
-        :checked="model === ''"
+    <div class="grid grid-cols-2 gap-2" role="group" :aria-label="question">
+      <button
+        type="button"
+        class="answer"
+        :class="{ 'is-on': answer === 'yes' }"
+        :aria-pressed="answer === 'yes'"
         :disabled="disabled"
-        @change="pick('')"
-      />
-      <span class="choice-icon bg-white/5 text-zinc-400">
-        <NavIcon name="docs" class="h-4 w-4" />
-      </span>
-      <span class="min-w-0 flex-1">
-        <span class="block font-bold text-white">Not for a delivery</span>
-        <span class="block text-xs text-zinc-400">A receipt on its own</span>
-      </span>
-      <span class="choice-dot" aria-hidden="true"></span>
-    </label>
+        @click="setAnswer('yes')"
+      >
+        Yes
+      </button>
+      <button
+        type="button"
+        class="answer"
+        :class="{ 'is-on': answer === 'no' }"
+        :aria-pressed="answer === 'no'"
+        :disabled="disabled"
+        @click="setAnswer('no')"
+      >
+        No
+      </button>
+    </div>
+
+    <template v-if="answer === 'yes'">
+      <label class="mb-1.5 mt-3 block text-xs font-semibold text-zinc-400" :for="`${uid}-delivery`">
+        Which delivery? (these arrived and wait for their receipt)
+      </label>
+      <select :id="`${uid}-delivery`" v-model="model" class="pick" :disabled="disabled">
+        <option value="" disabled>Choose the delivery…</option>
+        <option v-for="delivery in deliveries" :key="delivery.id" :value="String(delivery.id)">
+          {{ optionText(delivery) }}
+        </option>
+      </select>
+
+      <p v-if="chosen" class="mt-2 rounded-xl bg-sky-500/10 px-3 py-2 text-sm text-sky-200">
+        For the delivery <b class="text-white">{{ chosen.title || 'Delivery' }}</b>
+        <template v-if="chosen.supplier"> · from <b class="text-white">{{ chosen.supplier }}</b></template>
+      </p>
+    </template>
   </div>
 </template>
 
 <style scoped>
-.choice {
-  display: flex;
-  cursor: pointer;
-  align-items: center;
-  gap: 0.75rem;
-  border-radius: 0.875rem;
+.answer {
+  border-radius: 0.75rem;
   border: 1px solid rgb(255 255 255 / 0.1);
   background: rgb(0 0 0 / 0.25);
-  padding: 0.7rem 0.85rem;
-  transition: border-color 0.15s, background-color 0.15s;
+  padding: 0.6rem 0.75rem;
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: rgb(212 212 216);
+  transition: border-color 0.15s, background-color 0.15s, color 0.15s;
 }
-.choice:hover { border-color: rgb(255 255 255 / 0.22); }
-.choice:focus-within { outline: 2px solid rgb(56 189 248 / 0.6); outline-offset: 2px; }
-.choice.is-on {
+.answer:hover:not(:disabled) { border-color: rgb(255 255 255 / 0.25); color: white; }
+.answer.is-on {
   border-color: rgb(56 189 248 / 0.7);
-  background: rgb(56 189 248 / 0.1);
+  background: rgb(56 189 248 / 0.12);
+  color: white;
 }
-.choice.is-off { cursor: default; opacity: 0.6; }
+.answer:disabled { cursor: default; opacity: 0.6; }
 
-.choice-icon {
-  display: grid;
-  height: 2.25rem;
-  width: 2.25rem;
-  flex-shrink: 0;
-  place-items: center;
-  border-radius: 0.65rem;
+.pick {
+  width: 100%;
+  border-radius: 0.75rem;
+  border: 1px solid rgb(255 255 255 / 0.1);
+  background: black;
+  padding: 0.7rem 0.85rem;
+  font-size: 0.9rem;
+  color: white;
 }
-
-/* the radio's dot, on the right */
-.choice-dot {
-  height: 1.15rem;
-  width: 1.15rem;
-  flex-shrink: 0;
-  border-radius: 999px;
-  border: 2px solid rgb(255 255 255 / 0.25);
-}
-.choice.is-on .choice-dot {
-  border-color: rgb(56 189 248);
-  background: radial-gradient(circle, rgb(56 189 248) 0 45%, transparent 50%);
-}
+.pick:focus { outline: 2px solid rgb(56 189 248 / 0.6); outline-offset: 1px; }
 </style>
