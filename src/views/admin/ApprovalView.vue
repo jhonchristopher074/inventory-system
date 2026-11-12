@@ -339,6 +339,99 @@
         />
       </div>
 
+      <!-- Sent to the scanner 10+ minutes ago and no products came back:
+           the scanner didn't read it. Send it again or remove it.
+           Only shown when there are any. -->
+      <div v-if="unreadVisible.length > 0" class="list-card border-red-500/30">
+        <div class="list-head">
+          <h2 class="list-title">Not read by the scanner</h2>
+          <span class="list-count bg-red-600/15 text-red-300">{{ count(unreadVisible.length) }}</span>
+          <span
+            class="list-hint"
+            title="These were sent to the receipt scanner, but no products came back from them after 10 minutes."
+          >
+            No products came back
+          </span>
+        </div>
+
+        <table class="data-table resp-table">
+          <thead>
+            <tr>
+              <th>Receipt</th>
+              <th>From</th>
+              <th>Sent</th>
+              <th class="text-right">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="upload in unreadVisible" :key="upload.id">
+              <td class="cell-main">
+                <div class="cell-text">
+                  <p class="row-name text-white" :title="upload.file_name">{{ upload.file_name }}</p>
+                  <p v-if="upload.scan_tries > 0" class="row-sub text-zinc-500">
+                    Sent again {{ upload.scan_tries }} time{{ upload.scan_tries === 1 ? '' : 's' }}
+                  </p>
+                </div>
+              </td>
+              <td data-label="From">{{ upload.supplier_name || upload.supplier_email || 'Supplier' }}</td>
+              <td data-label="Sent" class="whitespace-nowrap">{{ sentAgo(upload.forwarded_at) }}</td>
+              <td class="cell-actions">
+                <div v-if="removingUnreadId === upload.id" class="row-actions">
+                  <span class="text-xs font-bold text-zinc-300">Remove it from this list?</span>
+                  <button
+                    type="button"
+                    class="btn-sm bg-red-600 text-white hover:bg-red-700"
+                    :disabled="isBusy(upload.id)"
+                    @click="removeUnreadUpload(upload)"
+                  >
+                    Yes, remove
+                  </button>
+                  <button type="button" class="btn-sm bg-zinc-800 text-white hover:bg-zinc-700" @click="removingUnreadId = null">
+                    No
+                  </button>
+                </div>
+                <div v-else class="row-actions">
+                  <button
+                    v-if="isImage(upload.file_name)"
+                    type="button"
+                    class="btn-sm bg-zinc-800 text-white hover:bg-zinc-700"
+                    @click="openZoom(upload)"
+                  >
+                    View
+                  </button>
+                  <a
+                    v-else
+                    :href="fileUrl(upload)"
+                    target="_blank"
+                    rel="noopener"
+                    class="btn-sm bg-zinc-800 text-white hover:bg-zinc-700"
+                  >
+                    View
+                  </a>
+                  <button
+                    type="button"
+                    class="btn-sm bg-amber-500 text-black hover:bg-amber-400"
+                    :disabled="isBusy(upload.id)"
+                    @click="openReview(upload, 'rescan')"
+                  >
+                    {{ isBusy(upload.id) ? 'In line…' : 'Send again' }}
+                  </button>
+                  <button
+                    type="button"
+                    class="btn-sm text-red-300 hover:bg-red-600/15"
+                    title="Take it off this list (not a real receipt, or added by hand)"
+                    :disabled="isBusy(upload.id)"
+                    @click="removingUnreadId = upload.id"
+                  >
+                    Remove
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
       <!-- Approved, but copying to the Approved Receipt bucket failed,
            so n8n never received them. Only shown when there are any. -->
       <div v-if="unsentVisible.length > 0" class="list-card border-amber-500/30">
@@ -592,10 +685,10 @@
             <div class="flex items-start gap-3 border-b border-white/10 p-4 sm:p-5">
               <div class="min-w-0 flex-1">
                 <p class="text-xs font-extrabold uppercase tracking-[0.14em] text-emerald-400">
-                  {{ review.mode === 'send' ? 'Send again' : 'Approve' }}
+                  {{ reviewWords.eyebrow }}
                 </p>
                 <h2 id="review-title" class="mt-0.5 text-xl font-bold text-white">
-                  {{ review.mode === 'send' ? 'Send receipt again' : 'Approve receipt' }}
+                  {{ reviewWords.title }}
                 </h2>
                 <p class="mt-1 truncate text-sm text-zinc-400" :title="review.upload.file_name">{{ review.upload.file_name }}</p>
                 <p class="mt-1.5 flex flex-wrap items-center gap-1.5 text-xs">
@@ -621,6 +714,9 @@
             </div>
 
             <div class="min-h-0 flex-1 space-y-5 overflow-y-auto p-4 sm:p-5">
+              <p v-if="review.mode === 'rescan'" class="rounded-xl bg-red-600/10 p-3 text-sm text-red-200">
+                The scanner didn't read this receipt. It gets it again, with the profit percentage below.
+              </p>
               <p v-if="review.upload.note" class="rounded-xl bg-amber-500/10 p-3 text-sm text-amber-100">
                 <b class="text-amber-300">Note:</b> {{ review.upload.note }}
               </p>
@@ -718,7 +814,7 @@
                 class="flex-[1.6] rounded-2xl bg-emerald-600 py-3 font-bold text-white hover:bg-emerald-700"
                 @click="confirmReview"
               >
-                {{ review.mode === 'send' ? 'Send' : 'Approve & send' }}
+                {{ reviewWords.button }}
               </button>
             </div>
           </section>
@@ -928,7 +1024,7 @@ import {
   signReceiptLinks,
 } from '../../lib/receipts'
 import { isWaiting, needsPrice, startingPrice } from '../../lib/receiptPrices'
-import { forwardReceipt } from '../../lib/forwardReceipt'
+import { forwardReceipt, rescanReceipt, scannerCopyUrl } from '../../lib/forwardReceipt'
 import PageHeader from '../../components/PageHeader.vue'
 import TablePager from '../../components/TablePager.vue'
 import { usePagination } from '../../lib/usePagination'
@@ -1120,6 +1216,14 @@ const hasDeliveryStep = computed(() =>
   Boolean(review.value?.mode === 'approve' && (review.value.upload.delivery_title || waitingForReceipt.value.length > 0))
 )
 
+// the review window's words for each kind
+const reviewWords = computed(() => {
+  const mode = review.value?.mode
+  if (mode === 'send') return { eyebrow: 'Send again', title: 'Send receipt again', button: 'Send' }
+  if (mode === 'rescan') return { eyebrow: 'Not read', title: 'Send to the scanner again', button: 'Send again' }
+  return { eyebrow: 'Approve', title: 'Approve receipt', button: 'Approve & send' }
+})
+
 function openReview(upload, mode) {
   review.value = { upload, mode }
   // an arrived delivery from the same supplier: probably this one
@@ -1129,7 +1233,9 @@ function openReview(upload, mode) {
       String(delivery.supplier).trim().toLowerCase() === String(upload.supplier_name || '').trim().toLowerCase()
   )
   reviewDeliveryId.value = !upload.delivery_id && sameSupplier.length === 1 ? String(sameSupplier[0].id) : ''
-  profitInput.value = ''
+  // sending again: the percentage it had
+  profitInput.value =
+    mode === 'rescan' && upload.last_percent != null ? String(Number(upload.last_percent)) : ''
   reviewError.value = ''
   zoomOpen.value = false
   zoom.value = 1
@@ -1184,6 +1290,8 @@ function confirmReview() {
 
   if (mode === 'send') {
     resendSupplierUpload(upload, clean)
+  } else if (mode === 'rescan') {
+    rescanUnreadUpload(upload, clean)
   } else {
     approveSupplierUpload(upload, clean, deliveryId)
   }
@@ -1384,10 +1492,15 @@ function publishSchedule() {
   const first = Math.max(0, nextSendAt.value - Date.now())
 
   saveSchedule(
-    sendQueue.value.map((item, index) => ({
-      id: item.upload.id,
-      seconds: Math.ceil((first + index * SEND_GAP_MS) / 1000),
-    }))
+    sendQueue.value
+      .map((item, index) => ({
+        id: item.upload.id,
+        seconds: Math.ceil((first + index * SEND_GAP_MS) / 1000),
+        rescan: item.mode === 'rescan',
+      }))
+      // a receipt sent again isn't the supplier's to count down
+      .filter((entry) => !entry.rescan)
+      .map(({ id, seconds }) => ({ id, seconds }))
   )
 }
 
@@ -1409,6 +1522,8 @@ async function saveSchedule(schedule) {
 // Sends one queued receipt. Returns true when it reached the Approved Receipt bucket.
 async function sendQueued(item) {
   const { upload, mode } = item
+
+  if (mode === 'rescan') return sendRescan(item)
 
   try {
     const blob = item.blob || (await fetchReceipt(upload))
@@ -1452,6 +1567,89 @@ async function sendQueued(item) {
 
 // forwardReceipt (copy to the scanner, record it, remove the original):
 // lib/forwardReceipt.js, also used by Calendar > Add receipt
+
+/* ------------------------------------------------------------------
+   Not read by the scanner: sent 10+ minutes ago, no products from it
+   (admin_list_unread_receipts, 20261123000001_unread_receipts.sql).
+   Send again puts a new copy in the scanner's bucket; Remove takes it off
+   the list.
+------------------------------------------------------------------ */
+const unreadUploads = ref([])
+const removingUnreadId = ref(null) // its "Remove it?" question is open
+let unreadTimer = null
+
+const unreadVisible = computed(() => unreadUploads.value.filter((item) => !isQueued(item.id)))
+
+async function fetchUnreadUploads() {
+  const { data, error } = await supabase.rpc('admin_list_unread_receipts')
+
+  if (error) {
+    // the SQL file hasn't been run yet: just no list
+    unreadUploads.value = []
+    return
+  }
+
+  unreadUploads.value = data || []
+
+  // their original is gone after sending: show the scanner's copy
+  const next = new Map(fileLinks.value)
+  for (const upload of unreadUploads.value) {
+    next.set(upload.id, { url: scannerCopyUrl(upload), missing: false, at: Date.now() })
+  }
+  fileLinks.value = next
+}
+
+function rescanUnreadUpload(upload, profitPercent) {
+  supplierError.value = ''
+  supplierSuccess.value = ''
+  busyIds.value.add(upload.id)
+  enqueueSend({ upload, blob: null, percent: profitPercent, mode: 'rescan' })
+  showProcessing()
+  supplierSuccess.value = `"${upload.file_name}" is in line to be sent to the receipt scanner again.`
+}
+
+// one "rescan" from the send line. Returns true when the scanner got it.
+async function sendRescan(item) {
+  const { upload } = item
+
+  try {
+    await rescanReceipt(upload, item.percent)
+    unreadUploads.value = unreadUploads.value.filter((entry) => entry.id !== upload.id)
+    startScanning(upload)
+    supplierError.value = ''
+    supplierSuccess.value = `Sent "${upload.file_name}" to the receipt scanner again.`
+    return true
+  } catch (sendError) {
+    console.error('Could not send the receipt again:', sendError)
+    supplierError.value = `Sending "${upload.file_name}" again failed: ${sendError.message || sendError}`
+    fetchUnreadUploads()
+    return false
+  } finally {
+    busyIds.value.delete(upload.id)
+  }
+}
+
+async function removeUnreadUpload(upload) {
+  busyIds.value.add(upload.id)
+  const { error } = await supabase.rpc('admin_dismiss_unread_receipt', { p_upload_id: upload.id })
+  busyIds.value.delete(upload.id)
+  removingUnreadId.value = null
+
+  if (error) {
+    supplierError.value = `Could not remove "${upload.file_name}" from the list: ${error.message}`
+    return
+  }
+  unreadUploads.value = unreadUploads.value.filter((entry) => entry.id !== upload.id)
+  toast(`Removed "${upload.file_name}" from "Not read by the scanner".`)
+}
+
+function sentAgo(date) {
+  const minutes = Math.max(0, Math.round((nowTick.value - new Date(date).getTime()) / 60000))
+  if (minutes < 60) return `${minutes} min ago`
+  const hours = Math.round(minutes / 60)
+  if (hours < 24) return `${hours} hour${hours === 1 ? '' : 's'} ago`
+  return formatDate(date)
+}
 
 async function fetchUnsentUploads() {
   const { data, error } = await supabase.rpc('admin_list_unsent_supplier_uploads')
@@ -2269,6 +2467,7 @@ onMounted(() => {
   isMounted = true
   fetchSupplierUploads()
   fetchUnsentUploads()
+  fetchUnreadUploads()
   fetchReviewItems()
   setupSupplierRealtime()
   window.addEventListener('keydown', onKey)
@@ -2276,6 +2475,8 @@ onMounted(() => {
 
   // safety net: if a live update is ever missed, the list still catches up
   pollTimer = setInterval(() => fetchSupplierUploads({ silent: true }), 30000)
+  // a receipt becomes "not read" 10 minutes after it was sent
+  unreadTimer = setInterval(fetchUnreadUploads, 60000)
   // every 3 seconds while a receipt is being processed, otherwise every 10
   let pollCount = 0
   reviewPollTimer = setInterval(() => {
@@ -2300,6 +2501,7 @@ onUnmounted(() => {
 
   clearTimeout(refreshTimer)
   clearInterval(pollTimer)
+  clearInterval(unreadTimer)
   clearInterval(tickTimer)
   clearInterval(reviewPollTimer)
 
