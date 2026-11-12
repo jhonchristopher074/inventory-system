@@ -592,18 +592,9 @@
             For the delivery <b class="text-white">{{ review.upload.delivery_title }}</b>: its goods are here.
           </p>
           <div v-else-if="review.mode === 'approve' && waitingForReceipt.length > 0" class="mt-4">
-            <label class="mb-2 block text-sm font-bold text-zinc-300" for="review-delivery">
-              Is this the receipt of an arrived delivery?
-            </label>
-            <select id="review-delivery" v-model="reviewDeliveryId" class="input w-full">
-              <option value="">No, it isn't for a delivery</option>
-              <option v-for="delivery in waitingForReceipt" :key="delivery.id" :value="String(delivery.id)">
-                Yes, for {{ deliveryChoiceLabel(delivery) }}
-              </option>
-            </select>
-            <p class="mt-1.5 text-xs text-zinc-500">
-              These deliveries arrived and are waiting for their receipt. Pick one if this receipt is for it.
-            </p>
+            <p class="text-sm font-bold text-zinc-300">Which delivery is this receipt for?</p>
+            <p class="mb-2.5 mt-0.5 text-xs text-zinc-500">These arrived and are waiting for their receipt.</p>
+            <DeliveryChoice v-model="reviewDeliveryId" :deliveries="waitingForReceipt" />
           </div>
 
           <!-- profit percentage -->
@@ -860,7 +851,8 @@
 <script setup>
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
-import { deliveryChoiceLabel, linkDeliveryReceipt } from '../../lib/deliveries'
+import { linkDeliveryReceipt } from '../../lib/deliveries'
+import DeliveryChoice from '../../components/DeliveryChoice.vue'
 import { onLiveRefresh } from '../../lib/liveRefresh'
 import { supabase, uniqueChannelName } from '../../lib/supabase'
 import { useQueryParam } from '../../lib/useQueryParam'

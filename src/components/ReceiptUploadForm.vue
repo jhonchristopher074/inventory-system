@@ -78,15 +78,9 @@
       For the delivery <b class="text-white">{{ deliveryTitle || 'on the calendar' }}</b>
     </p>
     <div v-else-if="deliveries.length > 0">
-      <label class="field-label" :for="`${uid}-delivery`">
-        Is it for a delivery that already arrived? <span class="font-normal text-zinc-500">(optional)</span>
-      </label>
-      <select :id="`${uid}-delivery`" v-model="chosenDelivery" class="field-input" :disabled="busy" @change="fillSupplier">
-        <option value="">No, it isn't for a delivery</option>
-        <option v-for="delivery in deliveries" :key="delivery.id" :value="String(delivery.id)">
-          Yes, for {{ deliveryChoiceLabel(delivery) }}
-        </option>
-      </select>
+      <p class="field-label">Which delivery is it for? <span class="font-normal text-zinc-500">(optional)</span></p>
+      <p class="mb-2.5 -mt-1 text-xs text-zinc-500">These arrived and are waiting for their receipt.</p>
+      <DeliveryChoice v-model="chosenDelivery" :deliveries="deliveries" :disabled="busy" @update:model-value="fillSupplier" />
     </div>
 
     <!-- 2. where it came from -->
@@ -182,7 +176,7 @@ import {
   submitReceipt,
 } from '../lib/receiptUploads'
 import { toast } from '../lib/toast'
-import { deliveryChoiceLabel } from '../lib/deliveries'
+import DeliveryChoice from './DeliveryChoice.vue'
 
 const props = defineProps({
   // 'staff' (waits for the owner) or 'owner' (straight to the scanner)
