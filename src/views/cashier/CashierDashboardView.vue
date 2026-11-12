@@ -184,20 +184,18 @@
           <table class="data-table resp-table">
             <thead>
               <tr>
-                <th>Sale</th>
-                <th>When</th>
                 <th>Items</th>
+                <th>When</th>
                 <th class="num">Total</th>
               </tr>
             </thead>
 
             <tbody>
               <tr v-for="sale in recentSales" :key="sale.id">
-                <td class="cell-main font-bold text-white">Sale #{{ sale.id }}</td>
+                <td class="cell-main text-sm font-bold text-white">{{ itemsText(sale) }}</td>
                 <td data-label="When" class="whitespace-nowrap text-sm text-zinc-400">
                   {{ dayAndTime(sale.created_at, now) }}
                 </td>
-                <td data-label="Items" class="text-sm text-zinc-300">{{ itemsText(sale) }}</td>
                 <td data-label="Total" class="num text-sm font-extrabold text-white">{{ peso(sale.total_amount) }}</td>
               </tr>
             </tbody>

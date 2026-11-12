@@ -35,9 +35,8 @@
       <table class="resp-table w-full border-collapse text-left">
         <thead class="bg-black text-sm text-zinc-400">
           <tr>
-            <th class="px-5 py-4">Sale ID</th>
-            <th class="px-5 py-4">Date</th>
             <th class="px-5 py-4">Items</th>
+            <th class="px-5 py-4">Date</th>
             <th class="px-5 py-4">Total</th>
             <th class="px-5 py-4">Action</th>
           </tr>
@@ -50,16 +49,16 @@
             class="cursor-pointer border-t border-white/10 transition hover:border-l-4 hover:border-l-blue-500 hover:bg-zinc-800/70"
             @click="openSale(sale)"
           >
-            <td data-label="Sale ID" class="px-5 py-4 font-bold text-white">
-              #{{ sale.id }}
+            <td data-label="Items" class="px-5 py-4">
+              <p class="text-zinc-200" :title="itemNames(sale)">
+                {{ sale.sale_items?.[0]?.product_name || 'No items' }}
+                <span v-if="moreItems(sale)" class="text-zinc-500">+{{ moreItems(sale) }} more</span>
+              </p>
+              <p class="text-xs text-zinc-500">{{ count(piecesOf(sale)) }} pcs</p>
             </td>
 
             <td data-label="Date" class="px-5 py-4 text-zinc-300">
               {{ formatDate(sale.created_at) }}
-            </td>
-
-            <td data-label="Items" class="px-5 py-4 text-zinc-300">
-              {{ sale.sale_items?.length || 0 }} item(s)
             </td>
 
             <td data-label="Total" class="px-5 py-4 font-bold text-red-400">
@@ -327,6 +326,19 @@ function openReceipt(sale) {
 
 function formatDate(date) {
   return new Date(date).toLocaleString()
+}
+
+// the Items cell: the first product, "+N more", and the pieces in all
+function moreItems(sale) {
+  return Math.max(0, (sale.sale_items?.length || 0) - 1)
+}
+
+function piecesOf(sale) {
+  return (sale.sale_items || []).reduce((n, item) => n + Number(item.quantity || 0), 0)
+}
+
+function itemNames(sale) {
+  return (sale.sale_items || []).map((i) => `${i.product_name} × ${i.quantity}`).join('\n')
 }
 
 function printReceipt() {
