@@ -171,13 +171,27 @@ jobs:
           supabase db query --remote="$target" --read-only -o json -f scripts/data-checks.sql > checks.json
           python3 - <<'PY'
           import json, os, sys
-          # the CLI may print more than one JSON object: take the one with rows
+          # Here the CLI prints a plain list of rows. Run by an AI agent it
+          # prints {"boundary": ..., "rows": [...]} instead, and it may print
+          # more than one JSON value: take the first list, or the "rows".
           raw = open('checks.json', encoding='utf-8').read()
           dec, i, rows = json.JSONDecoder(), 0, None
           while rows is None:
-              i = raw.index('{', i)
-              obj, i = dec.raw_decode(raw, i)
-              rows = obj.get('rows')
+              starts = [k for k in (raw.find('[', i), raw.find('{', i)) if k >= 0]
+              if not starts:
+                  break
+              try:
+                  value, i = dec.raw_decode(raw, min(starts))
+              except ValueError:   # a "[" or "{" in plain text: look further
+                  i = min(starts) + 1
+                  continue
+              if isinstance(value, list):
+                  rows = value
+              elif isinstance(value, dict) and isinstance(value.get('rows'), list):
+                  rows = value['rows']
+          if not rows:
+              print('::error::Could not read the answer of the money and stock checks.')
+              sys.exit(1)
           bad = [r for r in rows if int(r['problems']) > 0]
           with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as out:
               out.write('### Money and stock checks\n\n')
