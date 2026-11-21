@@ -9,9 +9,8 @@
 
   <div v-else class="min-h-screen text-white app-scale">
     <div class="app-shell" :class="{ collapsed }">
-      <!-- phones: the open menu floats over the page; tap beside it to close -->
-      <div v-if="!collapsed" class="side-scrim" aria-hidden="true" @click="closeOnPhone"></div>
-
+      <!-- tablets and computers; phones have the bar at the bottom instead
+           (PhoneNav, below) -->
       <aside class="app-side">
         <div class="side-top">
           <div class="brand-card">
@@ -160,6 +159,13 @@
           class="app-topbar mb-5 flex items-center justify-end gap-3"
           :class="{ 'is-floating': !guest }"
         >
+          <!-- phones: the store's logo on the left (the sidebar's is hidden
+               there), like the app name at the top of Facebook; opens the
+               Dashboard -->
+          <RouterLink :to="homeLink" class="phone-brand phone-only" aria-label="10 FIVE 7 Hardware: Dashboard">
+            <img :src="logoUrl" alt="" width="40" height="40" @error="showDefaultLogo" />
+          </RouterLink>
+
           <NotificationBell class="shrink-0" />
 
           <!-- who is logged in: name, role and the role's colour -->
@@ -173,6 +179,16 @@
 
         <RouterView />
       </main>
+
+      <!-- phones: the menu as a bar at the bottom, and Menu with every page -->
+      <PhoneNav
+        :groups="navGroups"
+        :role="role"
+        :name="currentUser.full_name"
+        :email="currentUser.email"
+        :profile-link="profileLink"
+        @logout="askLogout"
+      />
     </div>
   </div>
   <ToastHost />
@@ -190,15 +206,13 @@ import { confirmLeave } from './lib/leaveGuard'
 import { currentRole } from './router'
 import { currentUser } from './lib/currentUser'
 import CurrentUserBadge from './components/CurrentUserBadge.vue'
+import PhoneNav from './components/PhoneNav.vue'
 import ToastHost from './components/ToastHost.vue'
 import { clearTasks, refreshTasksSoon, taskBadges } from './lib/taskCounts'
 import { loadStoreLogo, logoUrl, showDefaultLogo } from './lib/storeLogo'
 
 const router = useRouter()
 const route = useRoute()
-
-// a phone: going to another page closes the menu
-watch(() => route.path, closeOnPhone)
 
 /* ------------------------------------------------------------------
    What's waiting (lib/taskCounts.js): numbers on the menu and in the
@@ -271,15 +285,10 @@ let userChoseState = false
 // stops the auto-logout watcher (started in onMounted)
 let stopIdleWatch = null
 
-// a phone (the same 760px as the phone layout in style.css)
+// a phone (the same 760px as the phone layout in style.css). It shows no
+// sidebar (PhoneNav's bar instead), so nothing is remembered from there.
 function isPhone() {
   return window.matchMedia('(max-width: 760px)').matches
-}
-
-// On a phone the menu floats over the page, so it starts closed on every
-// page and isn't remembered (a remembered "open" covered the next page).
-function closeOnPhone() {
-  if (isPhone()) collapsed.value = true
 }
 
 function toggleSidebar() {
@@ -362,21 +371,23 @@ async function idleLogout() {
 
 /* ------------------------------------------------------------------
    Navigation, per role
+   bar: also on the phone's bar at the bottom (PhoneNav, at most four;
+   every page is under its Menu). short: the name there, when it's long.
 ------------------------------------------------------------------ */
 const NAV = {
   admin: [
     {
       section: 'Overview',
       items: [
-        { to: '/', label: 'Dashboard', icon: 'dashboard' },
-        { to: '/inventory', label: 'Inventory', icon: 'inventory' },
+        { to: '/', label: 'Dashboard', icon: 'dashboard', bar: true },
+        { to: '/inventory', label: 'Inventory', icon: 'inventory', bar: true },
         { to: '/archived', label: 'Archived', icon: 'archive' },
       ],
     },
     {
       section: 'Selling',
       items: [
-        { to: '/admin/pos', label: 'POS', icon: 'pos' },
+        { to: '/admin/pos', label: 'POS', icon: 'pos', bar: true },
         { to: '/admin/sales', label: 'Sales History', icon: 'sales' },
       ],
     },
@@ -384,7 +395,7 @@ const NAV = {
       section: 'Inspection',
       items: [
         { to: '/calendar', label: 'Calendar', icon: 'calendar' },
-        { to: '/approval', label: 'Approval', icon: 'approval' },
+        { to: '/approval', label: 'Approval', icon: 'approval', bar: true },
         { to: '/documentation', label: 'Documentation', icon: 'docs' },
       ],
     },
@@ -400,18 +411,18 @@ const NAV = {
   cashier: [
     {
       section: 'Overview',
-      items: [{ to: '/cashier', label: 'Dashboard', icon: 'dashboard' }],
+      items: [{ to: '/cashier', label: 'Dashboard', icon: 'dashboard', bar: true }],
     },
     {
       section: 'Selling',
       items: [
-        { to: '/cashier/pos', label: 'POS', icon: 'pos' },
-        { to: '/cashier/sales', label: 'Sales History', icon: 'sales' },
+        { to: '/cashier/pos', label: 'POS', icon: 'pos', bar: true },
+        { to: '/cashier/sales', label: 'Sales History', short: 'Sales', icon: 'sales', bar: true },
       ],
     },
     {
       section: 'Account',
-      items: [{ to: '/cashier/profile', label: 'Profile', icon: 'profile' }],
+      items: [{ to: '/cashier/profile', label: 'Profile', icon: 'profile', bar: true }],
     },
   ],
 
@@ -419,15 +430,15 @@ const NAV = {
     {
       section: 'Overview',
       items: [
-        { to: '/staff', label: 'Dashboard', icon: 'dashboard' },
-        { to: '/staff/inventory', label: 'Inventory', icon: 'inventory' },
+        { to: '/staff', label: 'Dashboard', icon: 'dashboard', bar: true },
+        { to: '/staff/inventory', label: 'Inventory', icon: 'inventory', bar: true },
       ],
     },
     {
       section: 'Inspection',
       items: [
-        { to: '/staff/calendar', label: 'Inspection Calendar', icon: 'calendar' },
-        { to: '/staff/receipts', label: 'Receipts', icon: 'upload' },
+        { to: '/staff/calendar', label: 'Inspection Calendar', short: 'Calendar', icon: 'calendar', bar: true },
+        { to: '/staff/receipts', label: 'Receipts', icon: 'upload', bar: true },
         { to: '/staff/documentation', label: 'Documentation', icon: 'docs' },
       ],
     },
@@ -440,11 +451,11 @@ const NAV = {
   supplier: [
     {
       section: 'Overview',
-      items: [{ to: '/SupplierDropBoxView', label: 'Dashboard', icon: 'dashboard' }],
+      items: [{ to: '/SupplierDropBoxView', label: 'Dashboard', icon: 'dashboard', bar: true }],
     },
     {
       section: 'Account',
-      items: [{ to: '/supplier/profile', label: 'Profile', icon: 'profile' }],
+      items: [{ to: '/supplier/profile', label: 'Profile', icon: 'profile', bar: true }],
     },
   ],
 }
@@ -518,6 +529,9 @@ const profileLink = computed(
   () => navGroups.value.flatMap((group) => group.items).find((item) => item.icon === 'profile')?.to || '/'
 )
 
+// the role's Dashboard (the phone's logo opens it)
+const homeLink = computed(() => navGroups.value[0]?.items[0]?.to || '/')
+
 /* ------------------------------------------------------------------
    Session: Logout asks "Are you sure you want to log out?" first
 ------------------------------------------------------------------ */
@@ -580,6 +594,23 @@ async function logout() {
 </script>
 
 <style scoped>
+/* phones: the logo at the left of the bell + name row (pushes them right) */
+.phone-brand {
+  display: grid;
+  flex: none;
+  place-items: center;
+  margin-right: auto;
+  border-radius: 0.8rem;
+}
+
+.phone-brand img {
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 0.6rem;
+  object-fit: contain;
+  filter: drop-shadow(0 4px 10px rgba(224, 27, 50, 0.35));
+}
+
 /* guest mode: a strip across the top of every page */
 .guest-banner {
   display: flex;

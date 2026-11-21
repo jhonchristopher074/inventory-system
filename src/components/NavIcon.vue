@@ -194,6 +194,11 @@
       <path d="M5 12h.01M12 12h.01M19 12h.01" stroke-width="3" />
     </template>
 
+    <!-- three lines (the phone's Menu) -->
+    <template v-else-if="name === 'menu'">
+      <path d="M4 6.5h16M4 12h16M4 17.5h16" />
+    </template>
+
     <!-- fallback dot -->
     <circle v-else cx="12" cy="12" r="3" />
   </svg>

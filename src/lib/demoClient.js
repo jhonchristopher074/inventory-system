@@ -81,15 +81,45 @@ export function createDemoClient(role) {
   })
   movements.sort((a, b) => b.created_at.localeCompare(a.created_at))
 
+  // The bell: a few notifications for the role, worded like the real ones
+  // (the database's notify calls). The unread number is counted from them:
+  // a fixed 3 beside an empty list read as "3 new, you're all caught up".
+  const ago = (ms) => new Date(now - ms).toISOString()
+  const pesos = (n) => Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  const monthDay = (ms) => new Date(now - ms).toLocaleDateString('en-US', { month: 'short', day: '2-digit' })
+  const NOTICES = {
+    admin: [
+      { type: 'low_stock', title: 'Out of Stock', message: 'Steel nails 2" is out of stock.', created_at: ago(12e5) },
+      { type: 'supplier_upload', title: 'New supplier upload', message: 'Hardware Depot uploaded receipt-nov-01-hardware-depot.jpg', created_at: ago(36e5) },
+      { type: 'inspection_approval', title: 'Inspection Approval Request', message: 'Umbrella Nails (2 inches) has 3 item(s) waiting for admin approval.', created_at: ago(day) },
+      { type: 'low_stock', title: 'Low Stock', message: 'Cement 40kg is down to 3 left (alert at 10).', created_at: ago(day + 3 * 36e5), is_read: true },
+      { type: 'sale', title: 'New Sale Completed', message: `Juan Dela Cruz completed sale #${sales[2].id} worth ₱${pesos(sales[2].total_amount)}.`, created_at: sales[2].created_at, is_read: true },
+    ],
+    cashier: [
+      { type: 'low_stock', title: 'Out of Stock', message: 'Steel nails 2" is out of stock.', created_at: ago(12e5) },
+      { type: 'low_stock', title: 'Low Stock', message: 'Cement 40kg is down to 3 left (alert at 10).', created_at: ago(day + 3 * 36e5) },
+      { type: 'low_stock', title: 'Low Stock', message: 'PVC pipe 1/2" is down to 7 left (alert at 10).', created_at: ago(2 * day) },
+    ],
+    staff: [
+      { type: 'receive', title: 'Delivery to receive', message: `Steve Cruz will receive receipt-nov-03-depot.jpg now, expected ${monthDay(2 * day)}.`, created_at: ago(3 * day) },
+      { type: 'inspection', title: 'Inspection Scheduled', message: 'Cement 40kg is scheduled for inspection.', created_at: ago(5 * 36e5) },
+      { type: 'receipt', title: 'Receipt approved', message: 'The owner approved receipt-depot.jpg (from Hardware Depot), uploaded by Steve Cruz. It goes to the receipt scanner.', created_at: ago(day) },
+      { type: 'inspection', title: 'Inspection Scheduled', message: 'PVC pipe 1/2" is scheduled for inspection.', created_at: ago(2 * day), is_read: true },
+    ],
+  }
+  const notifications = (NOTICES[role === 'manager' ? 'admin' : role] || [])
+    .map((notice, i) => ({ id: 9000 - i, recipient_role: role === 'manager' ? 'admin' : role, is_read: false, ...notice }))
+    .sort((a, b) => b.created_at.localeCompare(a.created_at))
+
   const data = {
     get_my_profile: { id: 'guest', role, is_active: true, is_hidden: false, email: 'guest@example.com', full_name: `Guest ${label}` },
     // the server reads a Manager as the Owner (get_my_role)
     get_my_role: role === 'manager' ? 'admin' : role,
-    unread_notification_count: 3,
+    list_notifications: notifications,
+    unread_notification_count: notifications.filter((notice) => !notice.is_read).length,
     list_products: products,
     list_all_sales: sales,
     list_my_sales: sales,
-    list_my_sales_since: sales,
     admin_list_supplier_uploads: [
       { id: 11, file_name: 'receipt-nov-01-hardware-depot.jpg', supplier_name: 'Hardware Depot', created_at: new Date(now - 36e5).toISOString(), file_path: 's/a.jpg' },
       { id: 12, file_name: 'IMG_20261106_0912.jpg', supplier_name: 'JM Supply', uploader_role: 'staff', uploader_name: 'Steve Cruz', note: '2 boxes still on the truck', created_at: new Date(now - 2 * day).toISOString(), file_path: 's/b.jpg' },

@@ -1,6 +1,7 @@
 <template>
   <div ref="root" class="relative">
     <button
+      ref="bellButton"
       class="bell-btn relative flex h-[3.8rem] w-[3.8rem] items-center justify-center rounded-2xl border border-white/10 bg-zinc-900 text-white transition hover:bg-zinc-800"
       :class="unreadCount > 0 ? 'text-white' : 'text-zinc-300'"
       :aria-label="unreadCount > 0 ? `Notifications, ${unreadCount} unread` : 'Notifications'"
@@ -26,9 +27,12 @@
       </span>
     </button>
 
+    <!-- under the bell. Phones: the screen's whole width (it hung off the
+         left edge there and was cut off), see the style below -->
     <div
       v-if="showList"
       class="notif-panel absolute right-0 z-[9999] mt-2 w-[min(20rem,calc(100vw_-_5.5rem))]"
+      :style="{ '--notif-top': `${panelTop}px` }"
       role="dialog"
       aria-label="Notifications"
     >
@@ -103,7 +107,7 @@
       <Transition name="notice-pop">
         <div
           v-if="popup"
-          class="fixed bottom-5 right-5 z-[2500] flex w-[min(22rem,calc(100vw-2.5rem))] items-start gap-3 rounded-2xl border border-emerald-500/40 bg-zinc-900 p-3.5 shadow-2xl"
+          class="above-tabbar fixed bottom-5 right-5 z-[2500] flex w-[min(22rem,calc(100vw-2.5rem))] items-start gap-3 rounded-2xl border border-emerald-500/40 bg-zinc-900 p-3.5 shadow-2xl"
           role="status"
         >
           <span class="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-emerald-500 text-sm font-extrabold text-black" aria-hidden="true">✓</span>
@@ -134,6 +138,31 @@
 .notif-list {
   scrollbar-width: thin;
   scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
+}
+
+/* Phones: the screen's whole width, just under the bell (--notif-top,
+   measured when it opens), and never taller than the room above the bar at
+   the bottom. Hanging from the bell's right edge, it went off the left of
+   the screen, where the page cuts off whatever sticks out. */
+@media (max-width: 760px) {
+  .notif-panel {
+    position: fixed;
+    top: var(--notif-top, 5rem);
+    right: 0.75rem;
+    left: 0.75rem;
+    width: auto;
+    margin-top: 0;
+    display: flex;
+    flex-direction: column;
+    max-height: calc(100vh - var(--notif-top, 5rem) - var(--tabbar-space, 0px) - 0.75rem);
+    max-height: calc(100dvh - var(--notif-top, 5rem) - var(--tabbar-space, 0px) - 0.75rem);
+  }
+
+  .notif-list {
+    min-height: 0;
+    max-height: none;
+    flex: 1 1 auto;
+  }
 }
 
 .notif-item {
@@ -315,7 +344,13 @@ async function fetchUnreadCount() {
   unreadTotal.value = error ? null : Number(data || 0)
 }
 
+// where the list starts on a phone: just under the bell
+const bellButton = ref(null)
+const panelTop = ref(0)
+
 function toggleList() {
+  const box = bellButton.value?.getBoundingClientRect()
+  panelTop.value = box ? Math.round(box.bottom + 8) : 0
   showList.value = !showList.value
 }
 

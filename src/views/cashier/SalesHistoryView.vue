@@ -169,7 +169,7 @@
     </div>
 
     <RefundRequestModal v-if="refundSale" :sale="refundSale" @close="refundSale = null" @sent="refundSent" />
-    <p v-if="refundMessage" class="fixed bottom-4 left-1/2 z-[2100] w-[min(92vw,32rem)] -translate-x-1/2 rounded-xl bg-emerald-600 p-3 text-sm font-bold text-white shadow-2xl" role="status">
+    <p v-if="refundMessage" class="above-tabbar fixed bottom-4 left-1/2 z-[2100] w-[min(92vw,32rem)] -translate-x-1/2 rounded-xl bg-emerald-600 p-3 text-sm font-bold text-white shadow-2xl" role="status">
       {{ refundMessage }}
     </p>
 

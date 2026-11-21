@@ -951,7 +951,7 @@
 
       <button
         v-else-if="processing"
-        class="fixed bottom-4 right-4 z-[1900] flex items-center gap-3 rounded-2xl border border-emerald-500/25 bg-zinc-900/95 py-2.5 pl-3 pr-4 text-left text-white shadow-2xl backdrop-blur hover:border-emerald-500/50"
+        class="above-tabbar fixed bottom-4 right-4 z-[1900] flex items-center gap-3 rounded-2xl border border-emerald-500/25 bg-zinc-900/95 py-2.5 pl-3 pr-4 text-left text-white shadow-2xl backdrop-blur hover:border-emerald-500/50"
         title="Show the steps"
         @click="overlayHidden = false"
       >

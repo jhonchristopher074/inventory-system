@@ -232,8 +232,8 @@ button:not(:disabled):active {
   background: #15171b;
 }
 
-/* Layers: page content (POS cart bar: 40) < sidebar (45)
-   < popups (50 and up). */
+/* Layers: page content (POS cart bar: 40) < sidebar, or the phone's bar
+   at the bottom (45) < popups (50 and up). */
 .app-side {
   grid-column: 1;
   grid-row: 1;
@@ -909,39 +909,50 @@ html {
 
 
 /* ------------------------------------------------------------
-   Phones: tighter page, slimmer sidebar rail, popups that scroll
+   Phones: no sidebar. The menu is a bar at the bottom instead, like
+   Facebook's app (components/PhoneNav.vue, an alpha tester's
+   suggestion): the page takes the whole width, with room under it for
+   the bar. Tablets and computers keep the sidebar.
    ------------------------------------------------------------ */
+:root {
+  /* the bar's height, 0 where there's none. --tabbar-space adds the
+     iPhone's home-bar strip under it. Whatever is fixed to the bottom of
+     the screen sits above it (.above-tabbar, the POS cart bar). */
+  --tabbar-h: 0px;
+  --tabbar-space: 0px;
+}
+
 @media (max-width: 760px) {
+  :root {
+    --tabbar-h: 3.9rem;
+    --tabbar-space: calc(var(--tabbar-h) + env(safe-area-inset-bottom, 0px));
+  }
+
   .app-shell,
   .app-shell.collapsed {
-    --side: 60px;
+    --side: 0px;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .app-shell::before,
+  .app-side {
+    display: none;
   }
 
   .app-main {
-    padding: 0.9rem;
+    grid-column: 1;
+    padding: 0.9rem 0.9rem calc(0.9rem + var(--tabbar-space));
   }
 
-  /* the sidebar's expanded width would squeeze the page on a phone,
-     so when opened it floats over the page instead */
-  .app-shell:not(.collapsed) {
-    --side: 60px;
+  .above-tabbar {
+    bottom: calc(var(--tabbar-space) + 1rem);
   }
+}
 
-  .app-shell:not(.collapsed) .app-side {
-    width: 250px;
-    box-shadow: 12px 0 30px -10px rgba(0, 0, 0, 0.8);
-    background: #15171b;
-  }
-
-  /* the page behind the open menu: dimmed, and a tap here closes it */
-  .app-shell .side-scrim {
-    position: fixed;
-    inset: 0;
-    z-index: 44;
-    display: block;
-    background: rgba(0, 0, 0, 0.6);
-    backdrop-filter: blur(2px);
-  }
+/* the page under the phone's open Menu stays still */
+html.phone-menu-open,
+html.phone-menu-open body {
+  overflow: hidden;
 }
 
 /* Phones only (the computer layout is unchanged):
@@ -980,11 +991,6 @@ html {
   #receiptArea .text-xl {
     font-size: 1.05rem;
   }
-}
-
-/* only phones have a menu floating over the page */
-.side-scrim {
-  display: none;
 }
 
 

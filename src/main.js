@@ -15,7 +15,8 @@ if (import.meta.env.VITE_TEST_COPY) {
   const ribbon = document.createElement('div')
   ribbon.textContent = 'TEST COPY · not the real store'
   ribbon.style.cssText =
-    'position:fixed;bottom:8px;left:50%;transform:translateX(-50%);z-index:9999;pointer-events:none;' +
+    // above the phone's menu bar (style.css --tabbar-space)
+    'position:fixed;bottom:calc(var(--tabbar-space, 0px) + 8px);left:50%;transform:translateX(-50%);z-index:9999;pointer-events:none;' +
     'background:#f59e0b;color:#111;font:800 11px/1 system-ui,sans-serif;letter-spacing:.08em;' +
     'padding:6px 12px;border-radius:999px;box-shadow:0 4px 14px rgba(0,0,0,.45)'
   document.body.appendChild(ribbon)

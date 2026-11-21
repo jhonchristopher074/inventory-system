@@ -37,7 +37,7 @@
               : 'border-red-500/40 text-red-400 hover:bg-red-600/10 hover:text-white'"
             :aria-pressed="outOnly"
             :title="outOnly ? 'Show every product again' : 'Only the products that are out of stock'"
-            @click="outOnly = !outOnly"
+            @click="stockFilter = outOnly ? 'all' : 'out'"
           >
             Out of stock
             <span class="rounded-full px-1.5 text-xs" :class="outOnly ? 'bg-black/20' : 'bg-red-600/15'">{{ count(outOfStockCount) }}</span>
@@ -48,20 +48,43 @@
 
         <p v-if="loading" class="text-zinc-400">Loading products...</p>
 
-        <!-- categories: only the ones that have products, with how many -->
-        <div v-if="categoryTabs.length > 2" class="category-row -mx-1 mb-4 flex gap-2 overflow-x-auto px-1 pb-2" role="group" aria-label="Category">
+        <!-- Low stock (as in Inventory: the same button, the same 10-or-fewer
+             rule, emptiest first), then the categories that have products,
+             with how many -->
+        <div v-if="products.length > 0" class="category-row -mx-1 mb-4 flex items-center gap-2 overflow-x-auto px-1 pb-2">
           <button
-            v-for="tab in categoryTabs"
-            :key="tab.name"
             type="button"
-            class="flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl px-3.5 py-2 text-sm font-bold transition"
-            :class="selectedCategory === tab.name ? 'bg-red-600 text-white' : 'bg-zinc-900 text-zinc-300 hover:bg-zinc-800 hover:text-white'"
-            :aria-pressed="selectedCategory === tab.name"
-            @click="selectedCategory = tab.name"
+            class="flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl border px-3.5 py-2 text-sm font-bold transition"
+            :class="lowOnly
+              ? 'border-yellow-400 bg-yellow-400 text-black'
+              : 'border-yellow-500/40 bg-zinc-900 text-yellow-400 hover:bg-yellow-500/10'"
+            :aria-pressed="lowOnly"
+            :title="lowOnly ? 'Show every product again' : `Products with ${LOW_STOCK} or fewer left, emptiest first`"
+            @click="stockFilter = lowOnly ? 'all' : 'low'"
           >
-            {{ tab.name }}
-            <span class="text-xs font-semibold" :class="selectedCategory === tab.name ? 'text-white/80' : 'text-zinc-500'">{{ count(tab.count) }}</span>
+            <NavIcon name="alert" class="h-4 w-4" />
+            Low stock
+            <span class="rounded-full px-1.5 text-xs" :class="lowOnly ? 'bg-black/15' : 'bg-yellow-500/15'">{{ count(lowStockCount) }}</span>
           </button>
+
+          <template v-if="categoryTabs.length > 2">
+            <span class="h-6 w-px shrink-0 bg-white/10" aria-hidden="true"></span>
+
+            <div class="flex gap-2" role="group" aria-label="Category">
+              <button
+                v-for="tab in categoryTabs"
+                :key="tab.name"
+                type="button"
+                class="flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl px-3.5 py-2 text-sm font-bold transition"
+                :class="selectedCategory === tab.name ? 'bg-red-600 text-white' : 'bg-zinc-900 text-zinc-300 hover:bg-zinc-800 hover:text-white'"
+                :aria-pressed="selectedCategory === tab.name"
+                @click="selectedCategory = tab.name"
+              >
+                {{ tab.name }}
+                <span class="text-xs font-semibold" :class="selectedCategory === tab.name ? 'text-white/80' : 'text-zinc-500'">{{ count(tab.count) }}</span>
+              </button>
+            </div>
+          </template>
         </div>
 
         <!-- what Disable / Enable just did -->
@@ -108,7 +131,21 @@
               <!-- mt-auto pins stock, price and the button to the bottom, so they
                    line up across the row no matter how long the product name is -->
               <div class="mt-auto pt-2 @min-[440px]:pt-3">
-                <p class="text-xs text-zinc-300 @min-[440px]:text-sm">Stock: {{ count(product.quantity) }}</p>
+                <!-- running low (10 or fewer): the number in yellow and "Low",
+                     like the Low stock button; none left: in red -->
+                <p class="flex flex-wrap items-center gap-x-1.5 text-xs text-zinc-300 @min-[440px]:text-sm">
+                  <span>
+                    Stock:
+                    <b :class="isOutOfStock(product) ? 'text-red-400' : isLowStock(product) ? 'text-yellow-400' : 'font-normal'">{{ count(stockOf(product)) }}</b>
+                  </span>
+                  <span
+                    v-if="isLowStock(product) && !isOutOfStock(product)"
+                    class="rounded-full bg-yellow-400/15 px-1.5 py-px text-[0.6rem] font-extrabold uppercase tracking-wider text-yellow-400"
+                    :title="`${LOW_STOCK} or fewer left`"
+                  >
+                    Low
+                  </span>
+                </p>
                 <p class="text-sm font-bold text-red-400">
                   {{ peso(product.price || 0) }}
                 </p>
@@ -177,7 +214,7 @@
         />
 
         <p v-else-if="!loading" class="card p-5 text-zinc-400">
-          {{ products.length > 0 ? 'No product matches your search.' : 'No products to show.' }}
+          {{ emptyText }}
         </p>
       </div>
 
@@ -422,7 +459,7 @@ import { GRID_PAGE_SIZES, usePagination } from '../lib/usePagination'
 import { printElement } from '../lib/printReceipt'
 import { count, peso } from '../lib/format'
 import { NO_CATEGORY } from '../lib/categories'
-import { stockOf } from '../lib/stock'
+import { LOW_STOCK, byStockLevel, isLowStock, isOutOfStock, stockOf } from '../lib/stock'
 import { readCurrentUser } from '../lib/currentUser'
 import { useDisabledProducts } from '../lib/disabledProducts'
 import TablePager from './TablePager.vue'
@@ -488,23 +525,43 @@ watch(categoryTabs, (tabs) => {
   if (!tabs.some((tab) => tab.name === selectedCategory.value)) selectedCategory.value = ALL_CATEGORIES
 })
 
-// "Out of stock": only the products with nothing left
-const outOnly = ref(false)
-const outOfStockCount = computed(() => products.value.filter((product) => stockOf(product) <= 0).length)
-
-const filteredProducts = computed(() => {
+// The category and the search
+const shownProducts = computed(() => {
   const search = searchQuery.value.toLowerCase().trim()
-  const shown = outOnly.value ? products.value.filter((product) => stockOf(product) <= 0) : products.value
   const inCategory =
     selectedCategory.value === ALL_CATEGORIES
-      ? shown
-      : shown.filter((product) => categoryOf(product) === selectedCategory.value)
+      ? products.value
+      : products.value.filter((product) => categoryOf(product) === selectedCategory.value)
 
   if (!search) return inCategory
 
   return inCategory.filter(
     (product) => product.name?.toLowerCase().includes(search) || product.category?.toLowerCase().includes(search)
   )
+})
+
+// "Low stock" (10 or fewer left, lib/stock.js, the same as Inventory's) or
+// "Out of stock" (none left): one at a time. Each button's number is what it
+// would show: of the products in the category and search, as in Inventory.
+const stockFilter = ref('all') // 'all' | 'low' | 'out'
+const lowOnly = computed(() => stockFilter.value === 'low')
+const outOnly = computed(() => stockFilter.value === 'out')
+const lowStockCount = computed(() => shownProducts.value.filter(isLowStock).length)
+const outOfStockCount = computed(() => shownProducts.value.filter(isOutOfStock).length)
+
+// with Low stock or Out of stock on: only those, emptiest first
+const filteredProducts = computed(() => {
+  if (lowOnly.value) return shownProducts.value.filter(isLowStock).sort(byStockLevel)
+  if (outOnly.value) return shownProducts.value.filter(isOutOfStock)
+  return shownProducts.value
+})
+
+// nothing to show: say why
+const emptyText = computed(() => {
+  if (products.value.length === 0) return 'No products to show.'
+  if (lowOnly.value) return `No product here is running low (${LOW_STOCK} or fewer left).`
+  if (outOnly.value) return 'No product here is out of stock.'
+  return 'No product matches your search.'
 })
 
 // 16 or 24 products a page, or all of them (remembered on this device)
@@ -516,8 +573,8 @@ const {
   reset: resetPage,
 } = usePagination(filteredProducts, { storageKey: 'pos', scrollTarget: productsTop, sizes: GRID_PAGE_SIZES })
 
-// a new search or category starts again at page 1
-watch([searchQuery, selectedCategory, outOnly], resetPage)
+// a new search, category or stock filter starts again at page 1
+watch([searchQuery, selectedCategory, stockFilter], resetPage)
 
 const totalAmount = computed(() =>
   cart.value.reduce((total, item) => total + Number(item.price || 0) * Number(item.cartQty || 0), 0)
@@ -764,7 +821,7 @@ onMounted(fetchProducts)
   scroll-snap-type: x proximity;
 }
 
-.category-row > button {
+.category-row button {
   scroll-snap-align: start;
 }
 
@@ -867,11 +924,11 @@ onMounted(fetchProducts)
   box-shadow: none;
 }
 
-/* phones: the bar at the bottom */
+/* phones: the bar at the bottom (above the menu bar, components/PhoneNav.vue) */
 .cart-bar {
   position: fixed;
   right: 0.75rem;
-  bottom: 0.75rem;
+  bottom: calc(var(--tabbar-space, 0px) + 0.75rem);
   left: calc(var(--side) + 0.75rem);
   z-index: 40;
   display: flex;
