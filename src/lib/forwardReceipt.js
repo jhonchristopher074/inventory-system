@@ -3,7 +3,7 @@
 // (that copy is what starts n8n), records it as sent, then removes the
 // original. Used by Approval and by Calendar > Add receipt.
 import { supabase } from './supabase'
-import { APPROVED_BUCKET, RECEIPT_BUCKET, approvedCopyName, safeFileName } from './receipts'
+import { APPROVED_BUCKET, KEPT_BUCKET, RECEIPT_BUCKET, approvedCopyName, keptCopyPath, safeFileName } from './receipts'
 
 // Copies an approved receipt into the "Approved Receipt" bucket (that copy
 // is what triggers n8n), records it as sent, then removes the original.
@@ -37,6 +37,14 @@ export async function forwardReceipt(upload, blob, profitPercent) {
       throw new Error(`Could not save the profit percentage (${markupError.message})`)
     }
   }
+
+  // Documentation keeps its own copy of the picture (lib/receipts.js): the
+  // scanner's copy and the original are both removed later. A failure here
+  // doesn't stop the sending.
+  const { error: keepError } = await supabase.storage
+    .from(KEPT_BUCKET)
+    .upload(keptCopyPath(upload), blob, { contentType: blob.type || undefined, upsert: false })
+  if (keepError && !isAlreadyExists(keepError)) console.error("Couldn't keep a copy of the receipt for Documentation:", keepError)
 
   const { error: uploadError } = alreadyThere
     ? { error: null }

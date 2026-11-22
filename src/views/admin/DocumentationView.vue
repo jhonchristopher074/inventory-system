@@ -65,6 +65,7 @@
               v-if="documentImage(document)"
               :src="documentImage(document)"
               loading="lazy"
+              @error="pictureFailed(document)"
               class="h-full w-full object-cover transition duration-300 group-hover:scale-105"
             />
 
@@ -166,6 +167,7 @@
           <img
             :src="documentImage(selectedDocument)"
             :alt="selectedDocument.title || 'Document picture'"
+            @error="pictureFailed(selectedDocument)"
             class="h-full w-full object-contain"
           />
         </a>
@@ -219,7 +221,7 @@ import TablePager from '../../components/TablePager.vue'
 import { count, peso } from '../../lib/format'
 import { listRefundDocuments } from '../../lib/refunds'
 import { DOCUMENT_TYPES, documentTypeClass } from '../../lib/documentTypes'
-import { APPROVED_BUCKET, LINK_SECONDS, RECEIPT_BUCKET, approvedCopyName, isImageFile } from '../../lib/receipts'
+import { APPROVED_BUCKET, LINK_SECONDS, RECEIPT_BUCKET, approvedCopyName, isImageFile, keptCopyUrl } from '../../lib/receipts'
 
 const documents = ref([])
 const loading = ref(false)
@@ -315,7 +317,10 @@ function refundDocument(request) {
 // scanner, before that the upload itself (lib/receipts.js). A PDF has no
 // picture: the window links to the file instead.
 async function receiptDocuments() {
-  const { data, error } = await supabase.rpc('admin_list_supplier_uploads', { p_status: 'approved' })
+  const [{ data, error }, results] = await Promise.all([
+    supabase.rpc('admin_list_supplier_uploads', { p_status: 'approved' }),
+    receiptProducts(),
+  ])
   if (error) throw error
   const uploads = data || []
 
@@ -343,15 +348,24 @@ async function receiptDocuments() {
     const url = links.get(`${file.bucket}/${file.path}`) || ''
     const supplier = upload.supplier_name || 'a supplier'
     const byStaff = upload.uploader_role && upload.uploader_role !== 'supplier'
+    const products = results.get(String(upload.id)) || []
+    // Documentation's own copy first (kept since receipts are approved with
+    // it), then the scanner's or the original, which get removed: a picture
+    // that won't load moves on to the next (pictureFailed)
+    const pictures = isImageFile(upload.file_name) ? [keptCopyUrl(upload), url].filter(Boolean) : []
     return {
       id: `receipt-${upload.id}`,
       type: 'Order Receipt',
       title: `Receipt from ${supplier}`,
       created_at: upload.reviewed_at || upload.created_at,
-      receipt_image_url: isImageFile(upload.file_name) ? url : '',
+      receipt_image_url: pictures[0] || '',
+      pictures,
       file_url: url,
       file_name: upload.file_name,
       description: [
+        products.length
+          ? `Added to the inventory: ${products.map((p) => `${count(p.qty_added)} × ${p.product_name}`).join(', ')}.`
+          : '',
         byStaff
           ? `Uploaded by ${upload.uploader_name || 'a staff member'} (staff) on ${formatDate(upload.created_at)}.`
           : `Sent by ${upload.uploader_name || supplier} (supplier) on ${formatDate(upload.created_at)}.`,
@@ -359,11 +373,45 @@ async function receiptDocuments() {
         upload.delivery_title ? `Delivery: ${upload.delivery_title}` : '',
         `File: ${upload.file_name || 'receipt'}`,
         upload.note ? `Note: ${upload.note}` : '',
+        products.length ? `\nProducts added to the inventory:\n${products.map(productLine).join('\n')}` : '',
       ]
         .filter(Boolean)
         .join('\n'),
     }
   })
+}
+
+// "• 20 × Cement 40kg · ₱280.00 each · new product"
+function productLine(p) {
+  return [`• ${count(p.qty_added)} × ${p.product_name}`, p.price != null ? `${peso(p.price)} each` : '', p.is_new ? 'new product' : '']
+    .filter(Boolean)
+    .join(' · ')
+}
+
+// What each approved receipt put into the inventory, by receipt
+// (admin_list_receipt_results: migration 20261124000001). Until that SQL is
+// run, the cards just don't list products.
+async function receiptProducts() {
+  const byUpload = new Map()
+  const { data, error } = await supabase.rpc('admin_list_receipt_results')
+  if (error) {
+    console.warn('Products per receipt not shown:', error.message)
+    return byUpload
+  }
+  for (const row of data || []) {
+    const key = String(row.upload_id)
+    if (!byUpload.has(key)) byUpload.set(key, [])
+    byUpload.get(key).push(row)
+  }
+  return byUpload
+}
+
+// a picture that doesn't load (removed from storage): try the next copy,
+// or show "No Image"
+function pictureFailed(document) {
+  const rest = (document.pictures || []).filter((url) => url !== document.receipt_image_url)
+  document.pictures = rest
+  document.receipt_image_url = rest[0] || ''
 }
 
 function openDocument(document) {

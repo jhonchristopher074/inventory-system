@@ -21,6 +21,20 @@ export function safeFileName(name) {
   return String(name || 'receipt').replace(/[^A-Za-z0-9._-]+/g, '_')
 }
 
+// Documentation's own copy of an approved receipt's picture: the scanner's
+// copy in Approved Receipt is removed after it is read, and the original
+// in supplierReceipt when it is sent. Kept in the public documents bucket
+// (documents/receipts/<upload id>-<file name>), which nothing clears.
+export const KEPT_BUCKET = 'documents'
+
+export function keptCopyPath(upload) {
+  return `receipts/${upload.id}-${safeFileName(upload.file_name)}`
+}
+
+export function keptCopyUrl(upload) {
+  return supabase.storage.from(KEPT_BUCKET).getPublicUrl(keptCopyPath(upload)).data.publicUrl
+}
+
 // The approved copy's name in the Approved Receipt bucket
 export function approvedCopyName(upload) {
   return `${upload.id}-${safeFileName(upload.file_name)}`
