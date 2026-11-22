@@ -170,6 +170,18 @@
           />
         </a>
 
+        <!-- a receipt that is a PDF: open the file -->
+        <a
+          v-else-if="selectedDocument.file_url"
+          :href="selectedDocument.file_url"
+          target="_blank"
+          rel="noopener"
+          class="flex min-h-0 flex-1 flex-col items-center justify-center gap-2 rounded-2xl bg-black text-sm font-bold text-blue-400 hover:text-white"
+        >
+          Open the receipt file
+          <span class="text-xs font-normal text-zinc-500">{{ selectedDocument.file_name }}</span>
+        </a>
+
         <div
           v-else
           class="flex min-h-0 flex-1 items-center justify-center rounded-2xl bg-black text-sm text-zinc-500"
@@ -207,6 +219,7 @@ import TablePager from '../../components/TablePager.vue'
 import { count, peso } from '../../lib/format'
 import { listRefundDocuments } from '../../lib/refunds'
 import { DOCUMENT_TYPES, documentTypeClass } from '../../lib/documentTypes'
+import { APPROVED_BUCKET, LINK_SECONDS, RECEIPT_BUCKET, approvedCopyName, isImageFile } from '../../lib/receipts'
 
 const documents = ref([])
 const loading = ref(false)
@@ -224,10 +237,15 @@ async function fetchDocuments() {
   loading.value = true
   errorMessage.value = ''
 
-  const [{ data, error }, refunds] = await Promise.all([
+  const [{ data, error }, refunds, receipts] = await Promise.all([
     supabase.rpc('list_documentations'),
     // approved refunds, shown as documents (lib/refunds.js)
     listRefundDocuments().catch((err) => {
+      console.error(err)
+      return []
+    }),
+    // approved receipts from suppliers and staff, shown as Order Receipts
+    receiptDocuments().catch((err) => {
       console.error(err)
       return []
     }),
@@ -237,7 +255,7 @@ async function fetchDocuments() {
     errorMessage.value = error.message
     documents.value = []
   } else {
-    documents.value = [...(data || []), ...refunds.map(refundDocument)].sort(
+    documents.value = [...(data || []), ...refunds.map(refundDocument), ...receipts].sort(
       (a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0)
     )
   }
@@ -290,6 +308,62 @@ function refundDocument(request) {
       .filter(Boolean)
       .join('\n'),
   }
+}
+
+// Receipts the owner approved (from a supplier or a staff member), as Order
+// Receipt cards. The picture is the approved copy once it was sent to the
+// scanner, before that the upload itself (lib/receipts.js). A PDF has no
+// picture: the window links to the file instead.
+async function receiptDocuments() {
+  const { data, error } = await supabase.rpc('admin_list_supplier_uploads', { p_status: 'approved' })
+  if (error) throw error
+  const uploads = data || []
+
+  const where = (upload) =>
+    upload.forwarded_at
+      ? { bucket: APPROVED_BUCKET, path: approvedCopyName(upload) }
+      : { bucket: RECEIPT_BUCKET, path: upload.file_path }
+
+  // Approved Receipt is a public bucket: its plain link. supplierReceipt is
+  // private: signed links, one request for all of them.
+  const links = new Map()
+  for (const file of uploads.map(where)) {
+    if (file.bucket === APPROVED_BUCKET && file.path) {
+      links.set(`${file.bucket}/${file.path}`, supabase.storage.from(APPROVED_BUCKET).getPublicUrl(file.path).data.publicUrl)
+    }
+  }
+  const privatePaths = uploads.map(where).filter((file) => file.bucket === RECEIPT_BUCKET && file.path).map((file) => file.path)
+  if (privatePaths.length > 0) {
+    const { data: signed } = await supabase.storage.from(RECEIPT_BUCKET).createSignedUrls(privatePaths, LINK_SECONDS)
+    for (const row of signed || []) if (row.signedUrl) links.set(`${RECEIPT_BUCKET}/${row.path}`, row.signedUrl)
+  }
+
+  return uploads.map((upload) => {
+    const file = where(upload)
+    const url = links.get(`${file.bucket}/${file.path}`) || ''
+    const supplier = upload.supplier_name || 'a supplier'
+    const byStaff = upload.uploader_role && upload.uploader_role !== 'supplier'
+    return {
+      id: `receipt-${upload.id}`,
+      type: 'Order Receipt',
+      title: `Receipt from ${supplier}`,
+      created_at: upload.reviewed_at || upload.created_at,
+      receipt_image_url: isImageFile(upload.file_name) ? url : '',
+      file_url: url,
+      file_name: upload.file_name,
+      description: [
+        byStaff
+          ? `Uploaded by ${upload.uploader_name || 'a staff member'} (staff) on ${formatDate(upload.created_at)}.`
+          : `Sent by ${upload.uploader_name || supplier} (supplier) on ${formatDate(upload.created_at)}.`,
+        `Approved on ${formatDate(upload.reviewed_at || upload.created_at)}${upload.forwarded_at ? ', and sent to the receipt scanner' : ''}.`,
+        upload.delivery_title ? `Delivery: ${upload.delivery_title}` : '',
+        `File: ${upload.file_name || 'receipt'}`,
+        upload.note ? `Note: ${upload.note}` : '',
+      ]
+        .filter(Boolean)
+        .join('\n'),
+    }
+  })
 }
 
 function openDocument(document) {

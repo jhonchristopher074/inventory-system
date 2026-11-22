@@ -275,6 +275,8 @@ export function createDemoClient(role) {
         const rows = args.p_product_id ? movements.filter((m) => m.product_id === args.p_product_id) : movements
         return { data: rows, error: null }
       }
+      // the sample receipts are all waiting for approval
+      if (name === 'admin_list_supplier_uploads' && args.p_status && args.p_status !== 'pending') return { data: [], error: null }
       if (name in data) return { data: data[name], error: null }
       if (READS.test(name)) return { data: name.startsWith('get_') || name.startsWith('unread_') ? null : [], error: null }
       return { data: null, error: VIEW_ONLY }
