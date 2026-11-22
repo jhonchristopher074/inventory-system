@@ -638,18 +638,39 @@ const overdueLink = computed(() =>
 )
 
 /* ------------------------------------------------------------------
-   Your tasks, soonest first (what's late or low is in the tiles above,
-   so it isn't listed twice)
+   Your tasks, most urgent first: what's late (also in the Overdue tile,
+   but leaving it out here said "All caught up" over an overdue batch with
+   pieces still to count), then today's work, then the rest
 ------------------------------------------------------------------ */
-// amber = soon, blue = a task for you (the same colours as everywhere else)
+// red = late, amber = soon, blue = a task for you (the same colours as
+// everywhere else)
 const TONES = {
+  alert: 'bg-red-600/15 text-red-400',
   warning: 'bg-yellow-500/15 text-yellow-400',
   task: 'bg-sky-500/15 text-sky-300',
 }
 
+const piecesLeft = (rows) => rows.reduce((sum, row) => sum + row.remaining, 0)
+
 const attention = computed(() =>
   [
-    { key: 'today', n: dueToday.value.length, label: (n) => `${noun(n, 'inspection')} to do today`, to: CALENDAR, icon: 'calendar', tone: 'warning' },
+    {
+      key: 'overdue',
+      n: overdue.value.length,
+      label: (n) => `overdue ${noun(n, 'inspection')}, ${count(piecesLeft(overdue.value))} pcs left`,
+      to: CALENDAR,
+      icon: 'alert',
+      tone: 'alert',
+    },
+    { key: 'late-deliveries', n: deliveriesOverdue.value.length, label: (n) => `overdue ${noun(n, 'delivery', 'deliveries')}`, to: DELIVERIES, icon: 'alert', tone: 'alert' },
+    {
+      key: 'today',
+      n: dueToday.value.length,
+      label: (n) => `${noun(n, 'inspection')} to do today, ${count(piecesLeft(dueToday.value))} pcs left`,
+      to: CALENDAR,
+      icon: 'calendar',
+      tone: 'warning',
+    },
     { key: 'saved', n: mySaved.value.length, label: (n) => `saved ${noun(n, 'inspection')} to submit`, to: CALENDAR, icon: 'approval', tone: 'task' },
     { key: 'receive', n: toReceive.value, label: (n) => `supplier ${noun(n, 'delivery', 'deliveries')} to receive`, to: DELIVERIES, icon: 'inventory', tone: 'warning' },
     { key: 'arriving', n: deliveriesToday.value.length, label: (n) => `${noun(n, 'delivery', 'deliveries')} arriving today`, to: DELIVERIES, icon: 'inventory', tone: 'task' },
