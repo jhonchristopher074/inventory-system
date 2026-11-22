@@ -40,8 +40,11 @@
             </div>
           </div>
 
-          <!-- TYPE -->
-          <div class="max-w-full self-start truncate rounded-full bg-red-950 px-2 py-0.5 text-[10px] font-bold text-red-400 @min-[600px]:px-3 @min-[600px]:py-1 @min-[600px]:text-[11px]">
+          <!-- TYPE: each its own colour, as on the Owner's page -->
+          <div
+            class="max-w-full self-start truncate rounded-full px-2 py-0.5 text-[10px] font-bold @min-[600px]:px-3 @min-[600px]:py-1 @min-[600px]:text-[11px]"
+            :class="documentTypeClass(doc.type || 'Staff Documentation')"
+          >
             {{ doc.type || 'Staff Documentation' }}
           </div>
 
@@ -234,8 +237,11 @@
           <div class="min-w-0">
             <h2 class="line-clamp-2 break-words text-xl font-black text-white sm:text-2xl">{{ selectedDocument.title }}</h2>
             <div class="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1">
-              <span class="rounded-full bg-red-950 px-3 py-1 text-[11px] font-bold text-red-400">
-                {{ selectedDocument.type }}
+              <span
+                class="rounded-full px-3 py-1 text-[11px] font-bold"
+                :class="documentTypeClass(selectedDocument.type || 'Staff Documentation')"
+              >
+                {{ selectedDocument.type || 'Staff Documentation' }}
               </span>
               <span class="text-xs text-zinc-500">{{ formatDate(selectedDocument.created_at) }}</span>
             </div>
@@ -354,6 +360,7 @@ import { computed, onMounted, ref } from 'vue'
 import { supabase } from '../../lib/supabase'
 import { uploadImage as uploadImage_ } from '../../lib/uploadImage'
 import { GRID_PAGE_SIZES, usePagination } from '../../lib/usePagination'
+import { documentTypeClass } from '../../lib/documentTypes'
 import PageHeader from '../../components/PageHeader.vue'
 import TablePager from '../../components/TablePager.vue'
 

@@ -206,6 +206,7 @@ import PageHeader from '../../components/PageHeader.vue'
 import TablePager from '../../components/TablePager.vue'
 import { count, peso } from '../../lib/format'
 import { listRefundDocuments } from '../../lib/refunds'
+import { DOCUMENT_TYPES, documentTypeClass } from '../../lib/documentTypes'
 
 const documents = ref([])
 const loading = ref(false)
@@ -213,17 +214,9 @@ const errorMessage = ref('')
 const selectedType = ref('All')
 const selectedDocument = ref(null)
 
-// The last two are the types staff can create (Staff > Documentation);
-// without tabs they could only be found under "All".
-const documentTypes = [
-  'All',
-  'Order Receipt',
-  'Inspection Document',
-  'Product Report',
-  'Staff Documentation',
-  'Inspection Note',
-  'Refunded',
-]
+// a tab for every type (lib/documentTypes.js), so the ones staff make
+// (Staff > Documentation) aren't only found under "All"
+const documentTypes = ['All', ...DOCUMENT_TYPES]
 
 onMounted(fetchDocuments)
 
@@ -312,29 +305,8 @@ function closeDocument() {
   selectedDocument.value = null
 }
 
-function badgeClass(type) {
-  if (type === 'Order Receipt') {
-    return 'bg-blue-600/20 text-blue-400'
-  }
-
-  if (type === 'Inspection Document') {
-    return 'bg-emerald-600/20 text-emerald-400'
-  }
-
-  if (type === 'Product Report') {
-    return 'bg-red-600/20 text-red-400'
-  }
-
-  if (type === 'Refunded') {
-    return 'bg-orange-500/20 text-orange-300'
-  }
-
-  if (type === 'Staff Documentation' || type === 'Inspection Note') {
-    return 'bg-amber-500/20 text-amber-300'
-  }
-
-  return 'bg-zinc-700 text-zinc-300'
-}
+// each type's tag colour, the same as on the Staff's page
+const badgeClass = documentTypeClass
 
 function formatDate(date) {
   if (!date) return 'No date'

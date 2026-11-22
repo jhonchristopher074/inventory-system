@@ -107,6 +107,21 @@ export function createDemoClient(role) {
       { type: 'inspection', title: 'Inspection Scheduled', message: 'PVC pipe 1/2" is scheduled for inspection.', created_at: ago(2 * day), is_read: true },
     ],
   }
+  // Documentation: one record of each kind (lib/documentTypes.js), worded
+  // like the database's own. The staff page shows the ones staff made.
+  const documents = [
+    { id: 905, type: 'Inspection Document', title: 'Inspection Result - PVC pipe 1/2"', product_name: 'PVC pipe 1/2"', created_by: 'Guest Staff', created_at: ago(day),
+      description: `PVC pipe 1/2" was inspected and approved on ${new Date(now - day).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}.\nResult: Approved with returns\nApproved: 12\nReturn: 1\nTotal inspected: 13\nInspected by: Guest Staff\nCategory: Plumbing` },
+    { id: 904, type: 'Product Report', title: 'Damaged Item: Paint brush set', product_name: 'Paint brush set', created_by: 'Guest Staff', created_at: ago(5 * 36e5),
+      description: 'Reported by Guest Staff. Issue: Damaged Item. Details: Two sets have broken handles. Kept them apart on the bottom shelf.' },
+    { id: 903, type: 'Staff Documentation', title: 'Stockroom count, aisle 3', product_name: '', created_by: 'Guest Staff', created_at: ago(2 * day),
+      description: 'Counted the nails and wires in aisle 3. Two boxes of 2" nails were wet, so they are on the top shelf now.' },
+    { id: 902, type: 'Inspection Note', title: 'Cement bags at the door', product_name: 'Cement 40kg', created_by: 'Guest Staff', created_at: ago(3 * day),
+      description: 'Three bags are torn at the corner. Set aside for the owner to check before they are sold.' },
+    { id: 901, type: 'Order Receipt', title: 'Order Receipt - Hardware Depot', product_name: 'Cement 40kg', created_by: 'Guest Owner', created_at: ago(4 * day),
+      description: 'Receipt from Hardware Depot: 20 bags of Cement 40kg.' },
+  ]
+
   const notifications = (NOTICES[role === 'manager' ? 'admin' : role] || [])
     .map((notice, i) => ({ id: 9000 - i, recipient_role: role === 'manager' ? 'admin' : role, is_read: false, ...notice }))
     .sort((a, b) => b.created_at.localeCompare(a.created_at))
@@ -117,6 +132,8 @@ export function createDemoClient(role) {
     get_my_role: role === 'manager' ? 'admin' : role,
     list_notifications: notifications,
     unread_notification_count: notifications.filter((notice) => !notice.is_read).length,
+    list_documentations: documents,
+    list_documentations_by_author: documents.filter((doc) => doc.created_by === 'Guest Staff'),
     list_products: products,
     list_all_sales: sales,
     list_my_sales: sales,
@@ -213,6 +230,9 @@ export function createDemoClient(role) {
     admin_list_receipt_review: [],
     admin_list_unsent_supplier_uploads: [],
   }
+
+  // Documentation > Refunded: the refunds that went through (lib/refunds.js)
+  data.admin_list_refund_documents = data.admin_list_refunds.filter((refund) => refund.status === 'approved')
 
   // supabase.from(...).select()...: reads give [], a change is refused
   const query = () => {
