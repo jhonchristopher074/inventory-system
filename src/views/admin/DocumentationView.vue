@@ -155,14 +155,11 @@
           </button>
         </div>
 
-        <!-- tap the picture to open it full size (e.g. to read a receipt) -->
-        <a
+        <!-- tap the picture to see it full screen, here in the app (e.g. to
+             read a receipt); ✕, Esc or a tap closes it -->
+        <div
           v-if="documentImage(selectedDocument)"
-          :href="documentImage(selectedDocument)"
-          target="_blank"
-          rel="noopener"
-          title="Open the full picture"
-          class="flex min-h-0 flex-1 items-center justify-center overflow-hidden rounded-2xl bg-black"
+          class="relative flex min-h-0 flex-1 items-center justify-center overflow-hidden rounded-2xl bg-black"
         >
           <img
             :src="documentImage(selectedDocument)"
@@ -170,7 +167,8 @@
             @error="pictureFailed(selectedDocument)"
             class="h-full w-full object-contain"
           />
-        </a>
+          <PreviewButton :src="documentImage(selectedDocument)" :alt="selectedDocument.title || 'Document picture'" />
+        </div>
 
         <!-- a receipt that is a PDF: open the file -->
         <a
@@ -191,7 +189,63 @@
           No Image
         </div>
 
-        <div class="h-[30%] shrink-0 overflow-y-auto rounded-2xl bg-black p-4">
+        <!-- A receipt: what came of it, its details, then every line the
+             scanner read. More room than other documents. -->
+        <div
+          v-if="selectedDocument.receipt"
+          class="h-[48%] shrink-0 space-y-4 overflow-y-auto rounded-2xl bg-black p-4"
+        >
+          <p
+            class="rounded-xl px-3 py-2 text-sm font-bold"
+            :class="selectedDocument.receipt.summaryTone"
+          >
+            {{ selectedDocument.receipt.summary }}
+          </p>
+
+          <dl class="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1.5 text-sm">
+            <template v-for="row in selectedDocument.receipt.details" :key="row[0]">
+              <dt class="text-zinc-500">{{ row[0] }}</dt>
+              <dd class="min-w-0 break-words text-zinc-200">{{ row[1] }}</dd>
+            </template>
+          </dl>
+
+          <div v-if="selectedDocument.receipt.products.length">
+            <p class="mb-2 text-xs font-bold uppercase tracking-[0.12em] text-zinc-500">
+              Read by the receipt scanner · {{ selectedDocument.receipt.products.length }}
+              {{ selectedDocument.receipt.products.length === 1 ? 'product' : 'products' }}
+            </p>
+            <ul class="divide-y divide-white/5 rounded-xl border border-white/10">
+              <li
+                v-for="(item, i) in selectedDocument.receipt.products"
+                :key="i"
+                class="flex flex-wrap items-start justify-between gap-x-3 gap-y-1 px-3 py-2.5"
+              >
+                <div class="min-w-0 flex-1">
+                  <p class="text-sm font-bold text-white">
+                    <span class="text-zinc-400">{{ count(item.qty_added) }} ×</span> {{ item.product_name }}
+                    <span v-if="item.is_new" class="ml-1 rounded-full bg-sky-500/15 px-1.5 py-0.5 text-[10px] font-bold text-sky-300">New</span>
+                  </p>
+                  <p class="mt-0.5 text-xs text-zinc-500">
+                    <template v-if="item.cost != null">Cost {{ peso(item.cost) }}</template>
+                    <template v-if="item.cost != null && Number(item.price) > 0"> · </template>
+                    <template v-if="Number(item.price) > 0">Price {{ peso(item.price) }}</template>
+                  </p>
+                </div>
+                <span class="shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold" :class="STATE_TONES[item.state]">
+                  {{ STATE_WORDS[item.state] || item.state }}
+                </span>
+              </li>
+            </ul>
+          </div>
+
+          <p v-else class="text-sm text-zinc-500">{{ selectedDocument.receipt.empty }}</p>
+
+          <p v-if="selectedDocument.receipt.note" class="text-sm text-zinc-400">
+            <span class="font-bold text-zinc-300">Note:</span> {{ selectedDocument.receipt.note }}
+          </p>
+        </div>
+
+        <div v-else class="h-[30%] shrink-0 overflow-y-auto rounded-2xl bg-black p-4">
           <p class="mb-2 text-sm font-bold text-zinc-300">
             Description
           </p>
@@ -218,6 +272,7 @@ import { supabase } from '../../lib/supabase'
 import { GRID_PAGE_SIZES, usePagination } from '../../lib/usePagination'
 import PageHeader from '../../components/PageHeader.vue'
 import TablePager from '../../components/TablePager.vue'
+import PreviewButton from '../../components/PreviewButton.vue'
 import { count, peso } from '../../lib/format'
 import { listRefundDocuments } from '../../lib/refunds'
 import { DOCUMENT_TYPES, documentTypeClass } from '../../lib/documentTypes'
@@ -362,58 +417,62 @@ async function receiptDocuments() {
       pictures,
       file_url: url,
       file_name: upload.file_name,
+      // the window's own layout (summary, details, the scanner's lines)
+      receipt: {
+        ...receiptSummary(products, upload),
+        details: [
+          [byStaff ? 'Uploaded by' : 'Sent by', `${byStaff ? upload.uploader_name || 'a staff member' : upload.uploader_name || supplier} (${byStaff ? 'staff' : 'supplier'})`],
+          ['Supplier', supplier],
+          ['Sent on', formatDate(upload.created_at)],
+          ['Approved on', `${formatDate(upload.reviewed_at || upload.created_at)}${upload.forwarded_at ? ' · sent to the scanner' : ''}`],
+          ...(upload.delivery_title ? [['Delivery', upload.delivery_title]] : []),
+          ['File', upload.file_name || 'receipt'],
+        ],
+        products,
+        note: upload.note || '',
+        empty: upload.forwarded_at ? 'The receipt scanner has no products from this receipt yet.' : 'Not sent to the receipt scanner yet.',
+      },
+      // the card: what came of it first, then who sent it
       description: [
-        receiptSummary(products),
-        byStaff
-          ? `Uploaded by ${upload.uploader_name || 'a staff member'} (staff) on ${formatDate(upload.created_at)}.`
-          : `Sent by ${upload.uploader_name || supplier} (supplier) on ${formatDate(upload.created_at)}.`,
-        `Approved on ${formatDate(upload.reviewed_at || upload.created_at)}${upload.forwarded_at ? ', and sent to the receipt scanner' : ''}.`,
-        upload.delivery_title ? `Delivery: ${upload.delivery_title}` : '',
-        `File: ${upload.file_name || 'receipt'}`,
-        upload.note ? `Note: ${upload.note}` : '',
-        products.length
-          ? `\nRead by the receipt scanner (${products.length} ${products.length === 1 ? 'product' : 'products'}):\n${products.map(productLine).join('\n')}`
-          : upload.forwarded_at
-            ? '\nThe receipt scanner has no products from this receipt yet.'
-            : '',
-      ]
-        .filter(Boolean)
-        .join('\n'),
+        receiptSummary(products, upload).summary,
+        `${byStaff ? 'Uploaded by' : 'Sent by'} ${byStaff ? upload.uploader_name || 'a staff member' : upload.uploader_name || supplier} on ${formatDate(upload.created_at)}.`,
+      ].join('\n'),
     }
   })
 }
 
+// each line's state, in words and colours
 const STATE_WORDS = {
-  added: 'added to stock',
-  waiting: 'prices not checked yet',
-  'not added': 'not in stock yet',
-  rejected: 'rejected',
+  added: 'Added to stock',
+  waiting: 'Prices not checked',
+  'not added': 'Not in stock yet',
+  rejected: 'Rejected',
 }
 
-// the card's first line: what came of the scanner's reading
-function receiptSummary(products) {
-  if (products.length === 0) return ''
+const STATE_TONES = {
+  added: 'bg-emerald-500/15 text-emerald-400',
+  waiting: 'bg-amber-500/15 text-amber-300',
+  'not added': 'bg-sky-500/15 text-sky-300',
+  rejected: 'bg-red-600/15 text-red-400',
+}
+
+// what came of the scanner's reading, in one sentence, and its colour
+function receiptSummary(products, upload) {
+  const n = products.length
+  const read = `${n} ${n === 1 ? 'product' : 'products'}`
+  if (n === 0) {
+    return {
+      summary: upload.forwarded_at ? 'Waiting for the receipt scanner.' : 'Approved, not sent to the scanner yet.',
+      summaryTone: 'bg-white/5 text-zinc-300',
+    }
+  }
   const added = products.filter((p) => p.state === 'added')
-  if (added.length > 0) {
-    return `Added to the inventory: ${added.map((p) => `${count(p.qty_added)} × ${p.product_name}`).join(', ')}.`
-  }
+  if (added.length === n) return { summary: `All ${read} added to the inventory.`, summaryTone: STATE_TONES.added }
+  if (added.length > 0) return { summary: `${added.length} of ${read} added to the inventory.`, summaryTone: STATE_TONES.added }
   if (products.some((p) => p.state === 'waiting')) {
-    return `The scanner read ${products.length} ${products.length === 1 ? 'product' : 'products'}. Prices to check in Approval.`
+    return { summary: `The scanner read ${read}. Check the prices in Approval to add them.`, summaryTone: STATE_TONES.waiting }
   }
-  return `The scanner read ${products.length} ${products.length === 1 ? 'product' : 'products'}. None added to stock.`
-}
-
-// "• 4 × Shark SF2210 Faucet · cost ₱858.00 · price ₱1,029.60 · new product · added to stock"
-function productLine(p) {
-  return [
-    `• ${count(p.qty_added)} × ${p.product_name}`,
-    p.cost != null ? `cost ${peso(p.cost)}` : '',
-    p.price != null && Number(p.price) > 0 ? `price ${peso(p.price)}` : '',
-    p.is_new ? 'new product' : '',
-    STATE_WORDS[p.state] || '',
-  ]
-    .filter(Boolean)
-    .join(' · ')
+  return { summary: `The scanner read ${read}. None added to stock.`, summaryTone: STATE_TONES.rejected }
 }
 
 // What the scanner read from each receipt, by receipt
@@ -440,6 +499,8 @@ function pictureFailed(document) {
   const rest = (document.pictures || []).filter((url) => url !== document.receipt_image_url)
   document.pictures = rest
   document.receipt_image_url = rest[0] || ''
+  // no copy of the picture left: its file link is gone too
+  if (rest.length === 0 && document.receipt) document.file_url = ''
 }
 
 function openDocument(document) {

@@ -275,8 +275,20 @@ export function createDemoClient(role) {
         const rows = args.p_product_id ? movements.filter((m) => m.product_id === args.p_product_id) : movements
         return { data: rows, error: null }
       }
-      // the sample receipts are all waiting for approval
+      // approved receipts (Documentation > Order Receipt): one, read by the scanner
+      if (name === 'admin_list_supplier_uploads' && args.p_status === 'approved') {
+        return { data: [{ id: 41, file_name: 'receipt-nov-02-shark.jpg', file_path: '', status: 'approved', supplier_name: 'JM Supply',
+          uploader_name: 'JM Supply', uploader_role: 'supplier', delivery_title: 'Faucets', note: 'Check the faucets for damage',
+          created_at: new Date(now - 2 * day).toISOString(), reviewed_at: new Date(now - 2 * day + 36e5).toISOString(), forwarded_at: new Date(now - 2 * day + 37e5).toISOString() }], error: null }
+      }
       if (name === 'admin_list_supplier_uploads' && args.p_status && args.p_status !== 'pending') return { data: [], error: null }
+      if (name === 'admin_list_receipt_results') {
+        return { data: [
+          { upload_id: 41, product_name: 'Shark SF2210 Gooseneck K.Faucet Vertical Tap', qty_added: 4, cost: 715, price: 858, is_new: false, state: 'added' },
+          { upload_id: 41, product_name: 'Shark SF2240 Kitchen Faucet Flex.Head V.Tap', qty_added: 3, cost: 1347.5, price: 1617, is_new: false, state: 'added' },
+          { upload_id: 41, product_name: 'Shark SF2771 Brass Ball Valve 3/4"', qty_added: 13, cost: 352.92, price: 423.5, is_new: true, state: 'waiting' },
+        ], error: null }
+      }
       if (name in data) return { data: data[name], error: null }
       if (READS.test(name)) return { data: name.startsWith('get_') || name.startsWith('unread_') ? null : [], error: null }
       return { data: null, error: VIEW_ONLY }
