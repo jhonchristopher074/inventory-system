@@ -363,9 +363,7 @@ async function receiptDocuments() {
       file_url: url,
       file_name: upload.file_name,
       description: [
-        products.length
-          ? `Added to the inventory: ${products.map((p) => `${count(p.qty_added)} × ${p.product_name}`).join(', ')}.`
-          : '',
+        receiptSummary(products),
         byStaff
           ? `Uploaded by ${upload.uploader_name || 'a staff member'} (staff) on ${formatDate(upload.created_at)}.`
           : `Sent by ${upload.uploader_name || supplier} (supplier) on ${formatDate(upload.created_at)}.`,
@@ -373,7 +371,11 @@ async function receiptDocuments() {
         upload.delivery_title ? `Delivery: ${upload.delivery_title}` : '',
         `File: ${upload.file_name || 'receipt'}`,
         upload.note ? `Note: ${upload.note}` : '',
-        products.length ? `\nProducts added to the inventory:\n${products.map(productLine).join('\n')}` : '',
+        products.length
+          ? `\nRead by the receipt scanner (${products.length} ${products.length === 1 ? 'product' : 'products'}):\n${products.map(productLine).join('\n')}`
+          : upload.forwarded_at
+            ? '\nThe receipt scanner has no products from this receipt yet.'
+            : '',
       ]
         .filter(Boolean)
         .join('\n'),
@@ -381,14 +383,40 @@ async function receiptDocuments() {
   })
 }
 
-// "• 20 × Cement 40kg · ₱280.00 each · new product"
+const STATE_WORDS = {
+  added: 'added to stock',
+  waiting: 'prices not checked yet',
+  'not added': 'not in stock yet',
+  rejected: 'rejected',
+}
+
+// the card's first line: what came of the scanner's reading
+function receiptSummary(products) {
+  if (products.length === 0) return ''
+  const added = products.filter((p) => p.state === 'added')
+  if (added.length > 0) {
+    return `Added to the inventory: ${added.map((p) => `${count(p.qty_added)} × ${p.product_name}`).join(', ')}.`
+  }
+  if (products.some((p) => p.state === 'waiting')) {
+    return `The scanner read ${products.length} ${products.length === 1 ? 'product' : 'products'}. Prices to check in Approval.`
+  }
+  return `The scanner read ${products.length} ${products.length === 1 ? 'product' : 'products'}. None added to stock.`
+}
+
+// "• 4 × Shark SF2210 Faucet · cost ₱858.00 · price ₱1,029.60 · new product · added to stock"
 function productLine(p) {
-  return [`• ${count(p.qty_added)} × ${p.product_name}`, p.price != null ? `${peso(p.price)} each` : '', p.is_new ? 'new product' : '']
+  return [
+    `• ${count(p.qty_added)} × ${p.product_name}`,
+    p.cost != null ? `cost ${peso(p.cost)}` : '',
+    p.price != null && Number(p.price) > 0 ? `price ${peso(p.price)}` : '',
+    p.is_new ? 'new product' : '',
+    STATE_WORDS[p.state] || '',
+  ]
     .filter(Boolean)
     .join(' · ')
 }
 
-// What each approved receipt put into the inventory, by receipt
+// What the scanner read from each receipt, by receipt
 // (admin_list_receipt_results: migration 20261124000001). Until that SQL is
 // run, the cards just don't list products.
 async function receiptProducts() {
