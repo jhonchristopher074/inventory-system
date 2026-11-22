@@ -286,7 +286,7 @@ export function createDemoClient(role) {
         return { data: [
           { upload_id: 41, product_name: 'Shark SF2210 Gooseneck K.Faucet Vertical Tap', qty_added: 4, cost: 715, price: 858, is_new: false, state: 'added' },
           { upload_id: 41, product_name: 'Shark SF2240 Kitchen Faucet Flex.Head V.Tap', qty_added: 3, cost: 1347.5, price: 1617, is_new: false, state: 'added' },
-          { upload_id: 41, product_name: 'Shark SF2771 Brass Ball Valve 3/4"', qty_added: 13, cost: 352.92, price: 423.5, is_new: true, state: 'waiting' },
+          { upload_id: 41, product_name: 'Shark SF2771 Brass Ball Valve 3/4"', qty_added: 13, cost: 352.92, price: 423.5, is_new: true, state: 'added' },
         ], error: null }
       }
       if (name in data) return { data: data[name], error: null }
