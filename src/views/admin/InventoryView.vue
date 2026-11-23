@@ -61,8 +61,9 @@
       {{ enableMessage }}
     </p>
 
-    <!-- FILTERS: low stock (on its own, in amber), then the categories -->
-    <div class="mb-5 flex items-center gap-3 overflow-x-auto pb-2">
+    <!-- FILTERS: low stock (on its own, in amber; it stays put), then the
+         categories, which scroll sideways -->
+    <div class="mb-5 flex items-start gap-3">
       <!-- only the products running low, emptiest first. In the address as
            ?stock=low, so the Dashboard's low stock links open it. -->
       <button
@@ -94,21 +95,23 @@
         Reorder list
       </button>
 
-      <span class="h-6 w-px shrink-0 bg-white/10" aria-hidden="true"></span>
+      <span class="mt-2 h-6 w-px shrink-0 bg-white/10" aria-hidden="true"></span>
 
-      <button
-        v-for="category in categories"
-        :key="category"
-        class="shrink-0 rounded-full border px-4 py-2 text-sm font-bold transition"
-        :class="
-          selectedCategory === category
-            ? 'border-red-600 bg-red-600 text-white'
-            : 'border-white/10 bg-zinc-900 text-zinc-300 hover:bg-zinc-800'
-        "
-        @click="selectedCategory = category"
-      >
-        {{ category }}
-      </button>
+      <div class="flex min-w-0 flex-1 gap-3 overflow-x-auto pb-2" role="group" aria-label="Category">
+        <button
+          v-for="category in categories"
+          :key="category"
+          class="shrink-0 rounded-full border px-4 py-2 text-sm font-bold transition"
+          :class="
+            selectedCategory === category
+              ? 'border-red-600 bg-red-600 text-white'
+              : 'border-white/10 bg-zinc-900 text-zinc-300 hover:bg-zinc-800'
+          "
+          @click="selectedCategory = category"
+        >
+          {{ category }}
+        </button>
+      </div>
     </div>
 
     <!-- PRODUCT TABLE: 10, 15 or all products a page

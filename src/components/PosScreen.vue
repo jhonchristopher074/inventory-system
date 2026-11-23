@@ -51,7 +51,8 @@
         <!-- Low stock (as in Inventory: the same button, the same 10-or-fewer
              rule, emptiest first), then the categories that have products,
              with how many -->
-        <div v-if="products.length > 0" class="category-row -mx-1 mb-4 flex items-center gap-2 overflow-x-auto px-1 pb-2">
+        <!-- Low stock stays put; only the categories scroll sideways -->
+        <div v-if="products.length > 0" class="mb-4 flex items-start gap-2">
           <button
             type="button"
             class="flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl border px-3.5 py-2 text-sm font-bold transition"
@@ -68,9 +69,9 @@
           </button>
 
           <template v-if="categoryTabs.length > 2">
-            <span class="h-6 w-px shrink-0 bg-white/10" aria-hidden="true"></span>
+            <span class="mt-2 h-6 w-px shrink-0 bg-white/10" aria-hidden="true"></span>
 
-            <div class="flex gap-2" role="group" aria-label="Category">
+            <div class="category-row flex min-w-0 flex-1 gap-2 overflow-x-auto pb-2" role="group" aria-label="Category">
               <button
                 v-for="tab in categoryTabs"
                 :key="tab.name"
