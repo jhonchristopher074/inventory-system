@@ -58,10 +58,11 @@
       <div class="overflow-x-auto">
         <table class="data-table resp-table fixed-cols">
           <!-- the same widths on every page and filter; Product takes the rest -->
+          <!-- no Price column: staff count and check stock, prices are the
+               Owner's -->
           <colgroup>
             <col />
             <col class="w-[12rem]" />
-            <col class="w-[8rem]" />
             <col class="w-[7rem]" />
             <col class="w-[9rem]" />
             <col class="w-[8rem]" />
@@ -70,7 +71,6 @@
             <tr>
               <th>Product</th>
               <th>Category</th>
-              <th class="num">Price</th>
               <th class="num">Stock</th>
               <th>Inspection</th>
               <th class="text-right">Action</th>
@@ -101,10 +101,6 @@
                 {{ product.category || 'Uncategorized' }}
               </td>
 
-              <td data-label="Price" class="num text-sm font-bold text-white">
-                {{ peso(product.price || 0) }}
-              </td>
-
               <td data-label="Stock" class="num text-sm font-bold">
                 <StockLevel :product="product" />
               </td>
@@ -126,7 +122,7 @@
             </tr>
 
             <tr v-if="filteredProducts.length === 0">
-              <td colspan="6" class="cell-main p-6 text-center text-zinc-500">
+              <td colspan="5" class="cell-main p-6 text-center text-zinc-500">
                 {{
                   loading
                     ? 'Loading products...'
@@ -236,7 +232,7 @@ import ZoomThumb from '../../components/ZoomThumb.vue'
 import TablePager from '../../components/TablePager.vue'
 import NavIcon from '../../components/NavIcon.vue'
 import StockLevel from '../../components/StockLevel.vue'
-import { count, peso } from '../../lib/format'
+import { count } from '../../lib/format'
 import { LOW_STOCK, byStockLevel, isLowStock } from '../../lib/stock'
 
 const products = ref([])
