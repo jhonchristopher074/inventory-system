@@ -83,17 +83,9 @@
         </span>
       </button>
 
-      <!-- with Low stock on: what to order, by supplier (a suggestion only) -->
-      <button
-        v-if="lowOnly && lowCount > 0"
-        type="button"
-        class="flex shrink-0 items-center gap-2 rounded-full border border-yellow-500/40 bg-zinc-900 px-4 py-2 text-sm font-bold text-yellow-300 transition hover:bg-yellow-500/10"
-        title="The low products by supplier, with how many to order"
-        @click="showReorder = true"
-      >
-        <NavIcon name="tag" class="h-4 w-4" />
-        Reorder list
-      </button>
+      <!-- The "Reorder list" button (the low products by supplier, with how
+           many to order: ReorderListModal below, opened by showReorder)
+           is hidden for now (2026-11-24); its window and code are kept. -->
 
       <span class="mt-2 h-6 w-px shrink-0 bg-white/10" aria-hidden="true"></span>
 
