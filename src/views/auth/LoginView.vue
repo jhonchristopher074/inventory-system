@@ -201,7 +201,7 @@
           </form>
 
           <!-- GUEST: look around on sample data, view only (lib/guestMode.js) -->
-          <div class="guest">
+          <div v-if="GUEST_ENABLED" class="guest">
             <div class="guest-or"><span>or</span></div>
 
             <button
@@ -761,7 +761,7 @@ import { startPasswordRecovery } from '../../lib/passwordRecovery'
 import { cleanEmail, vClean, withoutInvisible } from '../../lib/cleanText'
 import { logoUrl, showDefaultLogo } from '../../lib/storeLogo'
 import { saveCurrentUser } from '../../lib/currentUser'
-import { GUEST_ROLES, startGuest } from '../../lib/guestMode'
+import { GUEST_ENABLED, GUEST_ROLES, startGuest } from '../../lib/guestMode'
 
 const router = useRouter()
 const route = useRoute()

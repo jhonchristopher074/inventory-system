@@ -9,6 +9,12 @@ import { appUrl } from './appUrl'
 
 const KEY = 'guestMode'
 
+// Guest mode is hidden on the live site for the defense (2026-11-23): no
+// "Continue as guest" on the login page, and a guest session left in a
+// tab is ended. Still on while developing (npm run dev), where it's used
+// to check pages on sample data. To bring it back, set this to true.
+export const GUEST_ENABLED = import.meta.env.DEV
+
 export const GUEST_ROLES = [
   { role: 'admin', label: 'Owner', hint: 'Dashboard, inventory, approvals, sales' },
   { role: 'manager', label: 'Manager', hint: 'Runs the store; accounts: disable / enable only' },
@@ -19,6 +25,7 @@ export const GUEST_ROLES = [
 
 // 'admin' | 'manager' | 'staff' | 'cashier' | 'supplier', or '' when not a guest
 export function guestRole() {
+  if (!GUEST_ENABLED) return ''
   try {
     const role = sessionStorage.getItem(KEY) || ''
     return GUEST_ROLES.some((option) => option.role === role) ? role : ''
