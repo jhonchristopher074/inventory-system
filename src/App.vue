@@ -180,6 +180,9 @@
         <RouterView />
       </main>
 
+      <!-- a receipt still being read by the scanner, on every page -->
+      <ReceiptScanPill />
+
       <!-- phones: the menu as a bar at the bottom, and Menu with every page -->
       <PhoneNav
         :groups="navGroups"
@@ -207,6 +210,8 @@ import { currentRole } from './router'
 import { currentUser } from './lib/currentUser'
 import CurrentUserBadge from './components/CurrentUserBadge.vue'
 import PhoneNav from './components/PhoneNav.vue'
+import ReceiptScanPill from './components/ReceiptScanPill.vue'
+import { clearScans } from './lib/receiptScans'
 import ToastHost from './components/ToastHost.vue'
 import { clearTasks, refreshTasksSoon, taskBadges } from './lib/taskCounts'
 import { loadStoreLogo, logoUrl, showDefaultLogo } from './lib/storeLogo'
@@ -589,6 +594,8 @@ async function logout() {
   }
 
   confirmingLogout.value = false
+  // receipts being read belong to this login
+  clearScans()
   router.push('/login')
 }
 </script>

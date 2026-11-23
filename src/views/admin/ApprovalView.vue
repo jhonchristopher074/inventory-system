@@ -1024,6 +1024,7 @@ import {
   signReceiptLinks,
 } from '../../lib/receipts'
 import { isWaiting, needsPrice, startingPrice } from '../../lib/receiptPrices'
+import { scans, startScan, updateScans } from '../../lib/receiptScans'
 import { forwardReceipt, rescanReceipt, scannerCopyUrl } from '../../lib/forwardReceipt'
 import PageHeader from '../../components/PageHeader.vue'
 import TablePager from '../../components/TablePager.vue'
@@ -1762,8 +1763,8 @@ const priceEdits = ref({}) // item id -> what is typed in the price box
 const reviewSaving = ref(new Set()) // group keys being saved
 
 // Receipts that were sent to n8n and are still being read / written to products
-const SCAN_TIMEOUT_MS = 3 * 60 * 1000
-const scanning = ref([]) // { ref, name, baseline, found, stable, startedAt }
+// receipts being read by the scanner: lib/receiptScans.js (scans)
+const scanning = scans
 const preparing = ref(0) // receipts being downloaded / approved right now
 const overlayHidden = ref(false)
 const itemsError = ref('')
@@ -1846,63 +1847,16 @@ async function fetchReviewItems() {
   updateScanning()
 }
 
-// A receipt was just sent to n8n: wait for its products to show up.
+// A receipt was just sent to the scanner: wait for its products to show up
+// (lib/receiptScans.js: it goes on on other pages, and after a reload).
 function startScanning(upload) {
-  const key = String(upload.id)
-  const baseline = reviewItems.value.filter((item) => item.upload_ref === key).length
-
-  scanning.value.push({
-    ref: key,
-    name: upload.file_name,
-    baseline,
-    found: baseline,
-    stable: 0,
-    startedAt: Date.now(),
-  })
-
+  startScan(upload, reviewItems.value)
   fetchReviewItems()
 }
 
-// Done when products have appeared and no more are coming (two checks in a row
-// with the same count). Gives up after SCAN_TIMEOUT_MS with a clear message.
+// the list just loaded tells which receipts are done (lib/receiptScans.js)
 function updateScanning() {
-  if (scanning.value.length === 0) return
-
-  const finished = []
-
-  for (const entry of scanning.value) {
-    const itemsNow = reviewItems.value.filter((item) => item.upload_ref === entry.ref).length
-
-    if (itemsNow > entry.baseline) {
-      if (itemsNow === entry.found) {
-        entry.stable += 1
-      } else {
-        entry.found = itemsNow
-        entry.stable = 0
-      }
-
-      if (entry.stable >= 1) {
-        finished.push(entry)
-        itemsError.value = ''
-        const found = itemsNow - entry.baseline
-        const held = reviewItems.value.some((item) => item.upload_ref === entry.ref && isWaiting(item))
-        itemsSuccess.value = held
-          ? `"${entry.name}": ${found} product${found === 1 ? '' : 's'} read. Press Open to check the prices and add them to stock.`
-          : `"${entry.name}": ${found} product${found === 1 ? '' : 's'} updated. Press Open to check the prices.`
-      }
-    } else if (Date.now() - entry.startedAt > SCAN_TIMEOUT_MS) {
-      finished.push(entry)
-      itemsSuccess.value = ''
-      itemsError.value =
-        `No products from "${entry.name}" yet after 3 minutes. The receipt scanner may still be ` +
-        `busy: they'll show up here by themselves when it's done. If they never do, ask the ` +
-        `person who looks after the receipt scanner to check it.`
-    }
-  }
-
-  if (finished.length > 0) {
-    scanning.value = scanning.value.filter((entry) => !finished.includes(entry))
-  }
+  updateScans(reviewItems.value)
 }
 
 /* ---- loading screen ---- */
