@@ -1,8 +1,11 @@
 <template>
-  <!-- Crop a picture to a square logo. Drag (or the arrow keys) to move it,
-       the slider (or the mouse wheel, + / -) to zoom. "Fit" shows the whole
-       picture, "Fill" fills the square. What's outside the picture stays
-       see-through. Emits done(blob) with a LOGO_SIZE x LOGO_SIZE PNG. -->
+  <!-- Crop a picture: the store logo (kind="logo": a square PNG of
+       LOGO_SIZE, with the menu and tab previews) or a product photo
+       (kind="product": a 4:3 JPEG, the shape of the POS cards). Drag (or
+       the arrow keys) to move it, the slider (or the mouse wheel, + / -) to
+       zoom. "Fit" shows the whole picture, "Fill" fills the frame. Outside
+       the picture: see-through for a logo, white for a photo.
+       Emits done(blob). -->
   <Teleport to="body">
     <div
       class="fixed inset-0 z-[2100] flex items-center justify-center overflow-y-auto bg-black/80 p-4"
@@ -12,8 +15,8 @@
       @keydown.esc="!busy && emit('cancel')"
     >
       <div class="w-full max-w-xl rounded-[24px] border border-white/10 bg-zinc-900 p-5 shadow-2xl sm:p-6">
-        <h2 id="crop-title" class="text-xl font-bold text-white">Crop your logo</h2>
-        <p class="mt-1 text-sm text-zinc-400">Drag to move it, zoom with the slider. The square is what's shown.</p>
+        <h2 id="crop-title" class="text-xl font-bold text-white">{{ isLogo ? 'Crop your logo' : 'Adjust the picture' }}</h2>
+        <p class="mt-1 text-sm text-zinc-400">Drag to move it, zoom with the slider. {{ isLogo ? "The square is what's shown." : "The frame is what the product shows." }}</p>
 
         <p v-if="loadError" class="mt-4 rounded-xl bg-red-600/15 p-3 text-sm text-red-400" role="alert">{{ loadError }}</p>
 
@@ -22,9 +25,9 @@
           <canvas
             ref="stage"
             class="stage"
-            :style="{ width: VIEW + 'px', height: VIEW + 'px' }"
+            :style="{ width: VIEW_W + 'px', height: VIEW_H + 'px' }"
             tabindex="0"
-            aria-label="Logo crop area. Arrow keys move the picture, plus and minus zoom."
+            :aria-label="`${isLogo ? 'Logo' : 'Picture'} crop area. Arrow keys move the picture, plus and minus zoom.`"
             @pointerdown="startDrag"
             @pointermove="drag"
             @pointerup="endDrag"
@@ -32,8 +35,8 @@
             @keydown="onKey"
           ></canvas>
 
-          <!-- how it will look in the app -->
-          <div class="flex flex-col gap-3 text-xs text-zinc-400">
+          <!-- how it will look in the app (the logo) -->
+          <div v-if="isLogo" class="flex flex-col gap-3 text-xs text-zinc-400">
             <p class="font-bold uppercase tracking-[0.12em] text-zinc-500">Preview</p>
             <div class="flex items-center gap-2.5 rounded-xl border border-white/10 bg-zinc-950 p-2.5">
               <canvas ref="previewMenu" class="h-10 w-10"></canvas>
@@ -83,7 +86,7 @@
             :disabled="!ready || busy"
             @click="finish"
           >
-            {{ busy ? 'Preparing…' : 'Use this logo' }}
+            {{ busy ? 'Preparing…' : isLogo ? 'Use this logo' : 'Use this picture' }}
           </button>
         </div>
       </div>
@@ -97,12 +100,27 @@ import { LOGO_MAX_BYTES, LOGO_SIZE } from '../lib/storeLogo'
 
 const props = defineProps({
   file: { type: File, required: true },
+  // 'logo': a square PNG; 'product': a 4:3 JPEG photo
+  kind: { type: String, default: 'logo' },
 })
+
+const isLogo = props.kind !== 'product'
+// width / height of the frame, and the finished picture's size
+const ASPECT = isLogo ? 1 : 4 / 3
+const OUT_W = isLogo ? LOGO_SIZE : 1200
+const OUT_H = Math.round(OUT_W / ASPECT)
+// a product photo: at most 5 MB (lib/uploadImage.js)
+const PHOTO_MAX_BYTES = 5 * 1024 * 1024
 
 const emit = defineEmits(['done', 'cancel'])
 
-// the crop square on screen, in CSS pixels (smaller on narrow phones)
-const VIEW = Math.max(200, Math.min(288, (typeof window !== 'undefined' ? window.innerWidth : 400) - 80))
+// the crop frame on screen, in CSS pixels (smaller on narrow phones);
+// a photo's frame is wider
+const SCREEN_W = typeof window !== 'undefined' ? window.innerWidth : 400
+const VIEW_W = isLogo
+  ? Math.max(200, Math.min(288, SCREEN_W - 80))
+  : Math.max(240, Math.min(456, SCREEN_W - 80))
+const VIEW_H = Math.round(VIEW_W / ASPECT)
 // pictures bigger than this are shrunk once first, so moving stays smooth
 const MAX_SOURCE = 2048
 
@@ -139,39 +157,46 @@ function zoomFor(scale) {
 // keep the picture covering the square (zoomed in) or inside it (zoomed out)
 function clampOffsets() {
   const scale = scaleOf(zoom.value)
-  const limitX = Math.abs(width * scale - VIEW) / 2
-  const limitY = Math.abs(height * scale - VIEW) / 2
+  const limitX = Math.abs(width * scale - VIEW_W) / 2
+  const limitY = Math.abs(height * scale - VIEW_H) / 2
   offsetX = Math.min(limitX, Math.max(-limitX, offsetX))
   offsetY = Math.min(limitY, Math.max(-limitY, offsetY))
 }
 
-// draws the square at `size` pixels
-function paint(canvas, size) {
+// draws the frame `pixelW` pixels wide (its height follows the frame's shape)
+function paint(canvas, pixelW, pixelH = Math.round(pixelW / ASPECT), background = '') {
   const ctx = canvas.getContext('2d')
-  const k = size / VIEW
+  const k = pixelW / VIEW_W
   const scale = scaleOf(zoom.value)
   const drawW = width * scale
   const drawH = height * scale
 
-  ctx.clearRect(0, 0, size, size)
+  ctx.clearRect(0, 0, pixelW, pixelH)
+  if (background) {
+    ctx.fillStyle = background
+    ctx.fillRect(0, 0, pixelW, pixelH)
+  }
   ctx.imageSmoothingEnabled = true
   ctx.imageSmoothingQuality = 'high'
   ctx.drawImage(
     source,
-    (VIEW / 2 + offsetX - drawW / 2) * k,
-    (VIEW / 2 + offsetY - drawH / 2) * k,
+    (VIEW_W / 2 + offsetX - drawW / 2) * k,
+    (VIEW_H / 2 + offsetY - drawH / 2) * k,
     drawW * k,
     drawH * k
   )
 }
 
-function sizeCanvas(canvas, cssSize) {
-  const pixels = Math.round(cssSize * (window.devicePixelRatio || 1))
-  if (canvas.width !== pixels) {
-    canvas.width = pixels
-    canvas.height = pixels
+// sizes a canvas for the screen; returns its width in pixels
+function sizeCanvas(canvas, cssW, cssH = cssW) {
+  const ratio = window.devicePixelRatio || 1
+  const w = Math.round(cssW * ratio)
+  const h = Math.round(cssH * ratio)
+  if (canvas.width !== w || canvas.height !== h) {
+    canvas.width = w
+    canvas.height = h
   }
-  return pixels
+  return w
 }
 
 let frame = 0
@@ -180,7 +205,7 @@ function redraw() {
   if (!ready.value || frame) return
   frame = requestAnimationFrame(() => {
     frame = 0
-    if (stage.value) paint(stage.value, sizeCanvas(stage.value, VIEW))
+    if (stage.value) paint(stage.value, sizeCanvas(stage.value, VIEW_W, VIEW_H))
     if (previewMenu.value) paint(previewMenu.value, sizeCanvas(previewMenu.value, 40))
     if (previewTab.value) paint(previewTab.value, sizeCanvas(previewTab.value, 16))
   })
@@ -205,7 +230,7 @@ function setFit() {
 function setFill() {
   offsetX = 0
   offsetY = 0
-  zoom.value = zoomFor(Math.max(VIEW / width, VIEW / height))
+  zoom.value = zoomFor(Math.max(VIEW_W / width, VIEW_H / height))
   redraw()
 }
 
@@ -287,16 +312,18 @@ onMounted(async () => {
       source = img
     }
 
-    fitScale = Math.min(VIEW / width, VIEW / height)
-    maxScale = Math.max(VIEW / width, VIEW / height) * 4
+    fitScale = Math.min(VIEW_W / width, VIEW_H / height)
+    maxScale = Math.max(VIEW_W / width, VIEW_H / height) * 4
     ready.value = true
+    // a photo starts filling the frame; a logo starts whole
+    if (!isLogo) zoom.value = zoomFor(Math.max(VIEW_W / width, VIEW_H / height))
     await nextTick()
     redraw()
     stage.value?.focus()
   } catch (error) {
     loadError.value =
       error?.message === 'small'
-        ? 'This picture is too small for a logo. Pick one at least 32 × 32 pixels.'
+        ? `This picture is too small${isLogo ? ' for a logo' : ''}. Pick one at least 32 × 32 pixels.`
         : "This picture can't be opened. Pick a PNG, JPG or WebP picture."
   }
 })
@@ -319,9 +346,20 @@ async function finish() {
 
   try {
     const canvas = document.createElement('canvas')
-    canvas.width = LOGO_SIZE
-    canvas.height = LOGO_SIZE
-    paint(canvas, LOGO_SIZE)
+    canvas.width = OUT_W
+    canvas.height = OUT_H
+
+    // a product photo: a JPEG on white
+    if (!isLogo) {
+      paint(canvas, OUT_W, OUT_H, '#ffffff')
+      let photo = await toBlob(canvas, 'image/jpeg', 0.88)
+      if (photo && photo.size > PHOTO_MAX_BYTES) photo = await toBlob(canvas, 'image/jpeg', 0.7)
+      if (!photo) throw new Error("The picture couldn't be made. Try another one.")
+      emit('done', photo)
+      return
+    }
+
+    paint(canvas, OUT_W, OUT_H)
 
     let blob = await toBlob(canvas, 'image/png')
     // a detailed photo can make a big PNG: WebP keeps it small (and see-through)

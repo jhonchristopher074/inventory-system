@@ -327,6 +327,15 @@
     />
 
     <!-- what to order, by supplier: copy or email it (nothing is sent from here) -->
+    <!-- crop a product's picture (Add and Edit), above their windows -->
+    <ImageCropper
+      v-if="cropJob"
+      kind="product"
+      :file="cropJob.file"
+      @done="useCroppedPicture"
+      @cancel="cropJob = null"
+    />
+
     <ReorderListModal
       v-if="showReorder"
       :fallback="products.filter(isLowStock)"
@@ -616,15 +625,27 @@
             <h3 class="text-lg font-bold text-white">Picture</h3>
 
             <div class="overflow-hidden rounded-2xl border border-white/10 bg-zinc-900">
+              <!-- 4:3, the shape the POS cards show -->
               <img
                 v-if="newProduct.image_url"
                 :src="newProduct.image_url"
-                class="h-40 w-full cursor-zoom-in object-cover" title="See it big" @click="previewImage = newProduct.image_url"
+                class="aspect-[4/3] w-full cursor-zoom-in object-cover" title="See it big" @click="previewImage = newProduct.image_url"
               />
-              <div v-else class="flex h-40 items-center justify-center text-sm text-zinc-500">
+              <div v-else class="flex aspect-[4/3] items-center justify-center text-sm text-zinc-500">
                 No picture
               </div>
             </div>
+
+            <!-- crop or move the picture already chosen -->
+            <button
+              v-if="newProduct.image_url"
+              type="button"
+              class="w-full rounded-xl border border-white/10 bg-zinc-900 py-2.5 text-sm font-bold text-zinc-200 hover:bg-zinc-800 disabled:opacity-50"
+              :disabled="uploading || adjustLoading"
+              @click="adjustPicture('add')"
+            >
+              {{ adjustLoading ? 'Opening…' : 'Adjust / crop picture' }}
+            </button>
 
             <label class="flex cursor-pointer items-center justify-center rounded-xl border-2 border-dashed border-red-500/70 bg-red-500/10 py-3 text-sm font-bold text-white hover:bg-red-500/20">
               {{ uploading ? 'Uploading...' : 'Upload picture' }}
@@ -632,7 +653,7 @@
                 type="file"
                 accept="image/*"
                 class="hidden"
-                @change="handleImageUpload"
+                @change="pickPicture($event, 'add')"
               />
             </label>
 
@@ -769,15 +790,27 @@
             <h3 class="text-lg font-bold text-white">Picture</h3>
 
             <div class="overflow-hidden rounded-2xl border border-white/10 bg-zinc-900">
+              <!-- 4:3, the shape the POS cards show -->
               <img
                 v-if="editForm.image_url"
                 :src="editForm.image_url"
-                class="h-40 w-full cursor-zoom-in object-cover" title="See it big" @click="previewImage = editForm.image_url"
+                class="aspect-[4/3] w-full cursor-zoom-in object-cover" title="See it big" @click="previewImage = editForm.image_url"
               />
-              <div v-else class="flex h-40 items-center justify-center text-sm text-zinc-500">
+              <div v-else class="flex aspect-[4/3] items-center justify-center text-sm text-zinc-500">
                 No picture
               </div>
             </div>
+
+            <!-- crop or move the picture already chosen -->
+            <button
+              v-if="editForm.image_url"
+              type="button"
+              class="w-full rounded-xl border border-white/10 bg-zinc-900 py-2.5 text-sm font-bold text-zinc-200 hover:bg-zinc-800 disabled:opacity-50"
+              :disabled="editUploading || adjustLoading"
+              @click="adjustPicture('edit')"
+            >
+              {{ adjustLoading ? 'Opening…' : 'Adjust / crop picture' }}
+            </button>
 
             <label class="flex cursor-pointer items-center justify-center rounded-xl border-2 border-dashed border-red-500/70 bg-red-500/10 py-3 text-sm font-bold text-white hover:bg-red-500/20">
               {{ editUploading ? 'Uploading...' : 'Upload picture' }}
@@ -785,7 +818,7 @@
                 type="file"
                 accept="image/*"
                 class="hidden"
-                @change="handleEditImageUpload"
+                @change="pickPicture($event, 'edit')"
               />
             </label>
 
@@ -840,6 +873,7 @@ import NavIcon from '../../components/NavIcon.vue'
 import StockLevel from '../../components/StockLevel.vue'
 import CategoryManager from '../../components/CategoryManager.vue'
 import ReorderListModal from '../../components/ReorderListModal.vue'
+import ImageCropper from '../../components/ImageCropper.vue'
 import { NO_CATEGORY, fetchCategories } from '../../lib/categories'
 import { supabase } from '../../lib/supabase'
 import { heldProductIds, withoutHeld } from '../../lib/heldProducts'
@@ -1207,22 +1241,63 @@ async function addProduct() {
   await Promise.all([fetchProducts(), categoryList.value ? loadCategories() : null])
 }
 
-async function handleImageUpload(event) {
+/* ------------------------------------------------------------------
+   The product's picture (Add and Edit): a picked photo opens the cropper
+   first (components/ImageCropper.vue: 4:3, the shape of the POS cards),
+   and only the cropped picture is uploaded. "Adjust / crop picture" opens
+   the picture already there in the cropper again.
+------------------------------------------------------------------ */
+const cropJob = ref(null) // { file, target: 'add' | 'edit' }
+const adjustLoading = ref(false)
+
+function setPictureError(target, message) {
+  if (target === 'add') addError.value = message
+  else editError.value = message
+}
+
+function pickPicture(event, target) {
   const file = event.target.files[0]
-
+  event.target.value = '' // the same file can be picked again
   if (!file) return
+  setPictureError(target, '')
+  cropJob.value = { file, target }
+}
 
-  uploading.value = true
-  addError.value = ''
-
+// the picture already chosen (uploaded or a pasted link), back in the cropper
+async function adjustPicture(target) {
+  const url = target === 'add' ? newProduct.value.image_url : editForm.value.image_url
+  if (!url || adjustLoading.value) return
+  adjustLoading.value = true
+  setPictureError(target, '')
   try {
-    newProduct.value.image_url = await uploadImage(file, { bucket: 'products' })
-  } catch (err) {
-    addError.value = err.message
-    event.target.value = ''
+    const response = await fetch(url)
+    if (!response.ok) throw new Error('missing')
+    const blob = await response.blob()
+    if (!blob.type.startsWith('image/')) throw new Error('missing')
+    cropJob.value = { file: new File([blob], 'picture', { type: blob.type }), target }
+  } catch {
+    setPictureError(target, "This picture can't be opened for cropping. Upload it again from your device.")
+  } finally {
+    adjustLoading.value = false
   }
+}
 
-  uploading.value = false
+async function useCroppedPicture(blob) {
+  const { target } = cropJob.value
+  cropJob.value = null
+  const busy = target === 'add' ? uploading : editUploading
+  busy.value = true
+  setPictureError(target, '')
+  try {
+    const file = new File([blob], 'product.jpg', { type: 'image/jpeg' })
+    const url = await uploadImage(file, { bucket: 'products' })
+    if (target === 'add') newProduct.value.image_url = url
+    else editForm.value.image_url = url
+  } catch (err) {
+    setPictureError(target, err.message)
+  } finally {
+    busy.value = false
+  }
 }
 
 // ----- Stock history -----
@@ -1270,24 +1345,6 @@ function openEditModal(product) {
 function closeEditModal() {
   showEditModal.value = false
   editError.value = ''
-}
-
-async function handleEditImageUpload(event) {
-  const file = event.target.files[0]
-
-  if (!file) return
-
-  editUploading.value = true
-  editError.value = ''
-
-  try {
-    editForm.value.image_url = await uploadImage(file, { bucket: 'products' })
-  } catch (err) {
-    editError.value = err.message
-  }
-
-  event.target.value = ''
-  editUploading.value = false
 }
 
 async function saveEdit() {

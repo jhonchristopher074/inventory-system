@@ -51,7 +51,7 @@
     <p v-if="error" class="mt-3 rounded-xl bg-red-600/15 p-3 text-sm text-red-400" role="alert">{{ error }}</p>
     <p v-if="success" class="mt-3 rounded-xl bg-emerald-600/15 p-3 text-sm text-emerald-400">{{ success }}</p>
 
-    <LogoCropper v-if="cropFile" :file="cropFile" @done="cropped" @cancel="cropFile = null" />
+    <ImageCropper v-if="cropFile" kind="logo" :file="cropFile" @done="cropped" @cancel="cropFile = null" />
 
     <AdminPasswordPrompt
       v-if="prompt"
@@ -80,7 +80,7 @@ import {
   setLogoPath,
   showDefaultLogo,
 } from '../lib/storeLogo'
-import LogoCropper from './LogoCropper.vue'
+import ImageCropper from './ImageCropper.vue'
 import AdminPasswordPrompt from './AdminPasswordPrompt.vue'
 
 const cropFile = ref(null)
