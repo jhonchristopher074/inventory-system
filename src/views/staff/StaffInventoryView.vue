@@ -62,16 +62,16 @@
                Owner's -->
           <colgroup>
             <col />
+            <col class="w-[15rem]" />
+            <col class="w-[8rem]" />
             <col class="w-[12rem]" />
-            <col class="w-[7rem]" />
-            <col class="w-[9rem]" />
             <col class="w-[8rem]" />
           </colgroup>
           <thead>
             <tr>
               <th>Product</th>
               <th>Category</th>
-              <th class="num">Stock</th>
+              <th class="stock-col">Stock</th>
               <th>Inspection</th>
               <th class="text-right">Action</th>
             </tr>
@@ -101,7 +101,7 @@
                 {{ product.category || 'Uncategorized' }}
               </td>
 
-              <td data-label="Stock" class="num text-sm font-bold">
+              <td data-label="Stock" class="stock-col text-sm font-bold">
                 <StockLevel :product="product" />
               </td>
 
@@ -395,6 +395,15 @@ function formatDate(date) {
 </script>
 
 <style scoped>
+/* Stock in the middle of its column on a computer, so it doesn't sit
+   against Inspection; phones keep the card's label: value layout */
+@media (min-width: 761px) {
+  .stock-col {
+    text-align: center;
+    white-space: nowrap;
+  }
+}
+
 .input {
   width: 100%;
   border-radius: 1rem;
