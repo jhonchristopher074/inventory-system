@@ -134,6 +134,27 @@ export function createDemoClient(role) {
     unread_notification_count: notifications.filter((notice) => !notice.is_read).length,
     list_documentations: documents,
     list_documentations_by_author: documents.filter((doc) => doc.created_by === 'Guest Staff'),
+    // orders to suppliers (lib/orders.js): one waiting, one accepted
+    admin_list_purchase_orders: [
+      { id: 2, supplier_name: 'JM Supply', supplier_email: 'jm@example.com', created_at: ago(36e5), created_by_name: 'Guest Owner',
+        order_status: 'requested', status: 'sent', sent_at: ago(36e5), note: 'Deliver before Friday please',
+        items: [{ product_name: 'Cement 40kg', qty: 20 }, { product_name: 'Steel nails 2"', qty: 50 }] },
+      { id: 1, supplier_name: 'Hardware Depot', supplier_email: 'depot@example.com', created_at: ago(2 * day), created_by_name: 'Ria Manager',
+        order_status: 'accepted', status: 'sent', sent_at: ago(2 * day), expected_date: new Date(now + day).toISOString().slice(0, 10),
+        supplier_reply: 'Coming on our Thursday truck', items: [{ product_name: 'PVC pipe 1/2"', qty: 13 }] },
+    ],
+    supplier_list_my_orders: [
+      { id: 2, created_at: ago(36e5), ordered_by: 'Guest Owner', note: 'Deliver before Friday please', order_status: 'requested',
+        items: [{ product_name: 'Cement 40kg', qty: 20 }, { product_name: 'Steel nails 2"', qty: 50 }] },
+      { id: 1, created_at: ago(2 * day), ordered_by: 'Ria Manager', order_status: 'accepted', expected_date: new Date(now + day).toISOString().slice(0, 10),
+        supplier_reply: 'Coming on our Thursday truck', items: [{ product_name: 'PVC pipe 1/2"', qty: 13 }] },
+    ],
+    admin_reorder_candidates: {
+      products: products.filter((p) => p.quantity <= 10).map((p, i) => ({
+        ...p, supplier_id: i % 2 ? 'u6' : null, supplier_name: i % 2 ? 'JM Supply' : null, supplier_email: i % 2 ? 'jm@example.com' : null,
+      })),
+      suppliers: [{ id: 'u6', name: 'JM Supply', email: 'jm@example.com' }, { id: 'u7', name: 'Hardware Depot', email: 'depot@example.com' }],
+    },
     list_products: products,
     list_all_sales: sales,
     list_my_sales: sales,

@@ -30,6 +30,15 @@
         Stock History
       </button>
 
+      <!-- orders sent to suppliers: their answers and the emails -->
+      <button
+        class="flex-1 rounded-2xl border border-white/10 bg-zinc-900 px-5 py-3 font-bold text-zinc-200 hover:bg-zinc-800 sm:flex-none"
+        title="Orders sent to suppliers"
+        @click="showOrders = true"
+      >
+        Orders
+      </button>
+
       <!-- phones: on its own line under the other two -->
       <button
         class="basis-full rounded-2xl bg-red-600 px-5 py-3 font-bold text-white hover:bg-red-700 sm:basis-auto sm:flex-none"
@@ -83,9 +92,18 @@
         </span>
       </button>
 
-      <!-- The "Reorder list" button (the low products by supplier, with how
-           many to order: ReorderListModal below, opened by showReorder)
-           is hidden for now (2026-11-24); its window and code are kept. -->
+      <!-- with Low stock on: order from the suppliers (by supplier, with
+           how many to order; components/ReorderListModal.vue) -->
+      <button
+        v-if="lowOnly && lowCount > 0"
+        type="button"
+        class="flex shrink-0 items-center gap-2 rounded-full border border-yellow-500/40 bg-zinc-900 px-4 py-2 text-sm font-bold text-yellow-300 transition hover:bg-yellow-500/10"
+        title="Send order requests to the suppliers of the low products"
+        @click="showReorder = true"
+      >
+        <NavIcon name="mail" class="h-4 w-4" />
+        Reorder
+      </button>
 
       <span class="mt-2 h-6 w-px shrink-0 bg-white/10" aria-hidden="true"></span>
 
@@ -336,6 +354,8 @@
       :fallback="products.filter(isLowStock)"
       @close="showReorder = false"
     />
+
+    <OrdersModal v-if="showOrders" @close="closeOrders" />
 
     <ActionSheet
       v-if="manageProduct"
@@ -858,6 +878,7 @@
 
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import PageHeader from '../../components/PageHeader.vue'
 import ZoomThumb from '../../components/ZoomThumb.vue'
 import DatePicker from '../../components/DatePicker.vue'
@@ -868,6 +889,7 @@ import NavIcon from '../../components/NavIcon.vue'
 import StockLevel from '../../components/StockLevel.vue'
 import CategoryManager from '../../components/CategoryManager.vue'
 import ReorderListModal from '../../components/ReorderListModal.vue'
+import OrdersModal from '../../components/OrdersModal.vue'
 import ImageCropper from '../../components/ImageCropper.vue'
 import { NO_CATEGORY, fetchCategories } from '../../lib/categories'
 import { supabase } from '../../lib/supabase'
@@ -1001,6 +1023,28 @@ async function changeCategory(product, value) {
 const stockFilter = useQueryParam('stock', 'all', ['all', 'low'])
 const lowOnly = computed(() => stockFilter.value === 'low')
 const showReorder = ref(false)
+
+// Orders to suppliers (components/OrdersModal.vue); a notification about an
+// order opens it (?orders=1)
+const ordersRoute = useRoute()
+const ordersRouter = useRouter()
+const showOrders = ref(ordersRoute.query.orders === '1')
+
+function closeOrders() {
+  showOrders.value = false
+  if (ordersRoute.query.orders) {
+    const query = { ...ordersRoute.query }
+    delete query.orders
+    ordersRouter.replace({ query }).catch(() => {})
+  }
+}
+
+watch(
+  () => ordersRoute.query.orders,
+  (value) => {
+    if (value === '1') showOrders.value = true
+  }
+)
 
 // the category and the search
 const shownProducts = computed(() => {

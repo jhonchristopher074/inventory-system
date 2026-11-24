@@ -1,17 +1,19 @@
 <script setup>
-// Reorder list (Inventory > Low stock): the products running low, by
-// supplier, with how many to order (lib/reorder.js). Only a suggestion:
-// Copy puts the list on the clipboard, Email opens the owner's own mail app
-// with it filled in. Nothing is ordered or sent from here.
+// Reorder (Inventory > Low stock): the products running low, by supplier,
+// with how many to order (lib/reorder.js: enough for the last 30 days'
+// sales, and at least 20 in stock after; the owner can change it). "Send
+// order request" sends it to that supplier (lib/orders.js): it shows in
+// their Drop Box > Orders and is emailed to them.
 //
-//   <ReorderListModal :fallback="lowProducts" @close="..." />
+//   <ReorderListModal :fallback="lowProducts" @close="..." @sent="..." />
 // fallback: the low products Inventory already has, used when the
 // database can't say who supplies them (no admin_reorder_candidates).
 import { computed, onMounted, ref } from 'vue'
 import { supabase } from '../lib/supabase'
 import { listSales } from '../lib/salesQuery'
 import { LOW_STOCK } from '../lib/stock'
-import { MIN_AFTER_ORDER, bySupplier, orderEmailLink, orderText, soldByProduct } from '../lib/reorder'
+import { MIN_AFTER_ORDER, bySupplier, soldByProduct } from '../lib/reorder'
+import { sendOrder } from '../lib/orders'
 import { count, dayAndTime } from '../lib/format'
 import HelpTip from './HelpTip.vue'
 import NavIcon from './NavIcon.vue'
@@ -19,19 +21,21 @@ import NavIcon from './NavIcon.vue'
 const props = defineProps({
   fallback: { type: Array, default: () => [] },
 })
-const emit = defineEmits(['close'])
+const emit = defineEmits(['close', 'sent'])
 
 const groups = ref([])
+const suppliers = ref([]) // every active supplier: [{ id, name, email }]
 const loading = ref(true)
 const errorMessage = ref('')
-const copied = ref('') // the group just copied ('all' for every one)
-let copiedTimer = null
 
 const productCount = computed(() => groups.value.reduce((n, group) => n + group.items.length, 0))
 
 async function lowProducts() {
   const { data, error } = await supabase.rpc('admin_reorder_candidates', { p_low: LOW_STOCK })
-  if (!error && Array.isArray(data?.products)) return data.products
+  if (!error && Array.isArray(data?.products)) {
+    suppliers.value = data.suppliers || []
+    return data.products
+  }
   return props.fallback
 }
 
@@ -50,7 +54,14 @@ async function soldLast30Days() {
 onMounted(async () => {
   try {
     const [products, sold] = await Promise.all([lowProducts(), soldLast30Days()])
-    groups.value = bySupplier(products, sold)
+    groups.value = bySupplier(products, sold).map((group) => ({
+      ...group,
+      // who gets it: the product's own supplier, or one picked here
+      supplierId: group.key === 'none' ? '' : group.key,
+      note: '',
+      sending: false,
+      result: null, // { ok, text }
+    }))
   } catch (err) {
     errorMessage.value = err.message || "Couldn't load the low products."
   } finally {
@@ -64,31 +75,43 @@ function fixQty(item) {
 
 function lastOrderText(order) {
   if (!order) return ''
-  if (order.status === 'sent') return `Ordered ${dayAndTime(order.at)} · ${count(order.qty)} pcs`
-  if (order.status === 'failed') return 'An order was not sent'
-  return 'An order is waiting to be sent'
-}
-
-async function copy(text, which) {
-  try {
-    await navigator.clipboard.writeText(text)
-    copied.value = which
-    clearTimeout(copiedTimer)
-    copiedTimer = setTimeout(() => (copied.value = ''), 2000)
-  } catch {
-    errorMessage.value = "Couldn't copy. Select the list and copy it by hand."
+  if (order.status === 'accepted') {
+    return `On its way · ${count(order.qty)} pcs${order.expected_date ? ` · ${order.expected_date}` : ''}`
   }
+  return `Ordered ${dayAndTime(order.at)} · ${count(order.qty)} pcs · waiting for the supplier`
 }
 
-function copyGroup(group) {
-  copy(orderText(group), group.key)
-}
+const linesOf = (group) => group.items.filter((item) => Number(item.qty) > 0)
 
-function copyAll() {
-  const text = groups.value
-    .map((group) => `${group.name}${group.email ? ` <${group.email}>` : ''}\n${orderText(group)}`)
-    .join('\n\n----------\n\n')
-  copy(text, 'all')
+async function send(group) {
+  if (group.sending || group.result?.ok) return
+  const lines = linesOf(group)
+  if (!group.supplierId) {
+    group.result = { ok: false, text: 'Pick the supplier first.' }
+    return
+  }
+  if (lines.length === 0) {
+    group.result = { ok: false, text: 'Set at least one quantity above 0.' }
+    return
+  }
+
+  group.sending = true
+  group.result = null
+  try {
+    const { order, sent, reason } = await sendOrder(
+      group.supplierId,
+      lines.map((item) => ({ product_id: item.id, qty: Number(item.qty) })),
+      group.note.trim()
+    )
+    group.result = sent
+      ? { ok: true, text: `Order #${order.id} sent. It's in the supplier's Orders and was emailed to them.` }
+      : { ok: true, text: `Order #${order.id} sent to the supplier's Orders. The email didn't go out: ${reason}. Try again from Orders.` }
+    emit('sent', order)
+  } catch (err) {
+    group.result = { ok: false, text: err.message }
+  } finally {
+    group.sending = false
+  }
 }
 </script>
 
@@ -107,12 +130,12 @@ function copyAll() {
       >
         <div class="mb-4 flex items-center justify-between gap-3">
           <div class="flex min-w-0 items-center gap-2.5">
-            <h2 id="reorder-title" class="text-2xl font-extrabold text-white">Reorder list</h2>
+            <h2 id="reorder-title" class="text-2xl font-extrabold text-white">Reorder</h2>
             <span v-if="!loading" class="rounded-full bg-yellow-500/15 px-2 py-0.5 text-xs font-bold text-yellow-300">
               {{ count(productCount) }}
             </span>
             <HelpTip
-              :text="`Products with ${LOW_STOCK} or fewer left, by supplier. The pieces are a suggestion: enough for the last 30 days' sales, and at least ${MIN_AFTER_ORDER} in stock after. Nothing is sent from here: copy the list, or email it from your own mail app.`"
+              :text="`Products with ${LOW_STOCK} or fewer left, by supplier. The pieces are a suggestion: enough for the last 30 days' sales, and at least ${MIN_AFTER_ORDER} in stock after. Change any of them, then send the order: the supplier sees it in their Orders and gets it by email.`"
             />
           </div>
           <button
@@ -137,7 +160,8 @@ function copyAll() {
           <section
             v-for="group in groups"
             :key="group.key"
-            class="overflow-hidden rounded-2xl border border-white/10 bg-black/20"
+            class="overflow-hidden rounded-2xl border bg-black/20"
+            :class="group.result?.ok ? 'border-emerald-500/40' : 'border-white/10'"
           >
             <header class="flex flex-wrap items-center justify-between gap-2 border-b border-white/5 px-4 py-3">
               <div class="min-w-0">
@@ -146,16 +170,18 @@ function copyAll() {
                 </p>
                 <p v-if="group.email" class="truncate text-xs text-zinc-500">{{ group.email }}</p>
               </div>
-              <div class="flex shrink-0 gap-2">
-                <button type="button" class="act-btn" @click="copyGroup(group)">
-                  <NavIcon name="docs" class="h-3.5 w-3.5" />
-                  {{ copied === group.key ? 'Copied' : 'Copy' }}
-                </button>
-                <a v-if="group.email" class="act-btn" :href="orderEmailLink(group)">
-                  <NavIcon name="mail" class="h-3.5 w-3.5" />
-                  Email
-                </a>
-              </div>
+              <!-- no supplier on these products yet: pick who gets the order -->
+              <select
+                v-if="group.key === 'none'"
+                :id="`reorder-supplier-${group.key}`"
+                v-model="group.supplierId"
+                class="rounded-lg border border-white/10 bg-zinc-950 px-2.5 py-1.5 text-sm text-white"
+                aria-label="Send this order to"
+                :disabled="group.sending || group.result?.ok"
+              >
+                <option value="">Pick the supplier…</option>
+                <option v-for="supplier in suppliers" :key="supplier.id" :value="supplier.id">{{ supplier.name }}</option>
+              </select>
             </header>
 
             <table class="w-full text-sm">
@@ -187,20 +213,45 @@ function copyAll() {
                       min="0"
                       max="9999"
                       class="w-20 rounded-lg border border-white/10 bg-zinc-950 px-2 py-1.5 text-right text-sm font-bold text-white outline-none focus:border-yellow-400"
+                      :disabled="group.sending || group.result?.ok"
                       @blur="fixQty(item)"
                     />
                   </td>
                 </tr>
               </tbody>
             </table>
-          </section>
-        </div>
 
-        <div v-if="groups.length > 1" class="mt-4 flex justify-end">
-          <button type="button" class="act-btn" @click="copyAll">
-            <NavIcon name="docs" class="h-3.5 w-3.5" />
-            {{ copied === 'all' ? 'Copied' : 'Copy all' }}
-          </button>
+            <!-- the note and Send -->
+            <footer class="flex flex-wrap items-center gap-2 border-t border-white/5 px-4 py-3">
+              <label class="sr-only" :for="`reorder-note-${group.key}`">Note for the supplier</label>
+              <input
+                :id="`reorder-note-${group.key}`"
+                v-model="group.note"
+                type="text"
+                maxlength="500"
+                placeholder="Note for the supplier (optional)"
+                class="min-w-0 flex-1 basis-48 rounded-lg border border-white/10 bg-zinc-950 px-3 py-2 text-sm text-white"
+                :disabled="group.sending || group.result?.ok"
+              />
+              <button
+                type="button"
+                class="send-btn"
+                :disabled="group.sending || group.result?.ok"
+                @click="send(group)"
+              >
+                <NavIcon name="mail" class="h-4 w-4" />
+                {{ group.sending ? 'Sending…' : group.result?.ok ? 'Sent' : 'Send order request' }}
+              </button>
+              <p
+                v-if="group.result"
+                class="w-full rounded-lg px-3 py-2 text-xs font-bold"
+                :class="group.result.ok ? 'bg-emerald-600/15 text-emerald-300' : 'bg-red-600/15 text-red-300'"
+                role="status"
+              >
+                {{ group.result.text }}
+              </p>
+            </footer>
+          </section>
         </div>
       </div>
     </div>
@@ -208,20 +259,24 @@ function copyAll() {
 </template>
 
 <style scoped>
-.act-btn {
+.send-btn {
   display: inline-flex;
+  flex: none;
   align-items: center;
-  gap: 0.35rem;
+  gap: 0.4rem;
   border-radius: 0.65rem;
-  border: 1px solid rgba(234, 179, 8, 0.35);
-  padding: 0.4rem 0.75rem;
-  font-size: 0.78rem;
-  font-weight: 700;
-  color: #fde047;
+  background: var(--brand);
+  padding: 0.5rem 0.9rem;
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: #fff;
 }
 
-.act-btn:hover {
-  background: rgba(234, 179, 8, 0.12);
-  color: #fff;
+.send-btn:hover:not(:disabled) {
+  background: var(--brand-bright);
+}
+
+.send-btn:disabled {
+  opacity: 0.55;
 }
 </style>

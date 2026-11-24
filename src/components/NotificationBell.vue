@@ -573,6 +573,8 @@ const ROUTES = {
     overdue: '/calendar',
     return: '/calendar',
     sale: '/admin/sales',
+    // a supplier accepted or declined an order: Inventory > Orders
+    purchase_order: '/inventory?orders=1',
     default: '/',
   },
   staff: {
@@ -626,6 +628,7 @@ const BADGES = {
   refund: 'bg-amber-500/20 text-amber-300',
   receipt: 'bg-sky-500/20 text-sky-300',
   delivery_receipt: 'bg-amber-500/20 text-amber-300',
+  purchase_order: 'bg-sky-500/20 text-sky-300',
 }
 
 function badgeClass(type) {
@@ -662,6 +665,7 @@ const ICONS = {
   refund: 'tag',
   receipt: 'docs',
   delivery_receipt: 'docs',
+  purchase_order: 'mail',
 }
 
 function iconFor(type) {

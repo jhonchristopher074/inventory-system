@@ -196,6 +196,9 @@
     <!-- ============================================================
          MY UPLOADS: a data table, newest first, 10 / 15 / all a page
     ============================================================ -->
+    <!-- ORDERS from the store (components/SupplierOrdersTab.vue) -->
+    <SupplierOrdersTab v-else-if="activeTab === 'orders'" @count="openOrders = $event" />
+
     <section v-else aria-label="My uploads">
       <div class="mb-3 flex flex-wrap items-center justify-between gap-3">
         <div class="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1" role="group" aria-label="Show uploads">
@@ -430,6 +433,8 @@ import NavIcon from '../../components/NavIcon.vue'
 import TablePager from '../../components/TablePager.vue'
 import { usePagination } from '../../lib/usePagination'
 import { useQueryParam } from '../../lib/useQueryParam'
+import { listMyOrders } from '../../lib/orders'
+import SupplierOrdersTab from '../../components/SupplierOrdersTab.vue'
 import { count, dayAndTime } from '../../lib/format'
 import {
   APPROVED_BUCKET,
@@ -676,7 +681,7 @@ async function submit() {
   many seconds are left (supplier_list_my_uploads), so the countdown is
   right even when this device's clock isn't.
 ------------------------------------------------------------------ */
-const activeTab = useQueryParam('tab', 'upload', ['upload', 'uploads'])
+const activeTab = useQueryParam('tab', 'upload', ['upload', 'uploads', 'orders'])
 const myUploads = ref([])
 const fetchedAt = ref(0) // when myUploads was loaded (this device's time)
 const nowMs = ref(Date.now()) // ticks every second while the page is open
@@ -979,10 +984,21 @@ function onKey(event) {
 // waiting for approval or not sent yet: the number on the My uploads tab
 const openCount = computed(() => myUploads.value.filter(isOpen).length)
 
+// orders from the store still to answer (the Orders tab's number)
+const openOrders = ref(0)
+
 const tabs = computed(() => [
   { key: 'upload', label: 'Upload', icon: 'upload', count: 0 },
   { key: 'uploads', label: 'My uploads', icon: 'docs', count: openCount.value },
+  { key: 'orders', label: 'Orders', icon: 'inventory', count: openOrders.value },
 ])
+
+// the Orders tab's number, also while another tab is open
+async function countOpenOrders() {
+  const { list } = await listMyOrders().catch(() => ({ list: [] }))
+  openOrders.value = list.filter((order) => order.order_status === 'requested').length
+}
+countOpenOrders()
 
 const activeTimers = computed(() =>
   uploadRows.value.filter((row) => row.state.kind === 'countdown' || row.state.kind === 'sending')
