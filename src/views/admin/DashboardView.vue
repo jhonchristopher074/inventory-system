@@ -1,7 +1,7 @@
 <template>
   <!-- @container: the layout follows the width of the page area (the
        sidebar takes part of the window), not the whole window -->
-  <div class="@container">
+  <div class="dash-fit @container">
     <DashboardHero
       tone="red"
       icon="dashboard"
@@ -29,13 +29,13 @@
 
     <!-- while refreshing, the numbers stay where they are (dimmed) instead
          of disappearing and jumping back -->
-    <div class="transition-opacity" :class="{ 'opacity-60': refreshing && loaded }">
+    <div class="dash-body transition-opacity" :class="{ 'opacity-60': refreshing && loaded }">
       <!-- ============================================================
            AT A GLANCE: today's sales is the big number. Low stock and
            Overdue turn alert orange with a caution sign, and name what it is,
            when something needs action.
       ============================================================ -->
-      <section class="mb-5 grid grid-cols-2 gap-3 @min-[900px]:grid-cols-5" aria-label="At a glance">
+      <section class="dash-tiles mb-5 grid grid-cols-2 gap-3 @min-[900px]:grid-cols-5" aria-label="At a glance">
         <RouterLink to="/admin/sales" class="kpi tone-red col-span-2">
           <div class="kpi-top">
             <p class="kpi-label">Sales today</p>
@@ -92,7 +92,7 @@
       <!-- ============================================================
            SALES OF THE WEEK + WHAT NEEDS ATTENTION
       ============================================================ -->
-      <section class="mb-5 grid gap-5 @min-[1000px]:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
+      <section class="dash-row dash-row-2 mb-5 grid gap-5 @min-[1000px]:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
         <!-- the chart grows to the height of the to-do card beside it -->
         <div class="card flex flex-col p-5">
           <div class="card-head">
@@ -129,7 +129,7 @@
           <p class="eyebrow tone-blue">To do</p>
           <h2 class="card-title mb-4">Waiting for you</h2>
 
-          <ul v-if="attention.length > 0" class="space-y-2">
+          <ul v-if="attention.length > 0" class="dash-list space-y-2">
             <li v-for="item in attention" :key="item.key">
               <RouterLink :to="item.to" class="todo">
                 <span class="todo-icon" :class="TONES[item.tone]">
@@ -158,7 +158,7 @@
       <!-- ============================================================
            STOCK RUNNING LOW · BEST SELLERS · INSPECTIONS
       ============================================================ -->
-      <section class="grid gap-5 @min-[700px]:grid-cols-2 @min-[1100px]:grid-cols-3">
+      <section class="dash-row dash-row-3 grid gap-5 @min-[700px]:grid-cols-2 @min-[1100px]:grid-cols-3">
         <div class="card p-5">
           <div class="card-head">
             <div>
@@ -170,7 +170,7 @@
             </RouterLink>
           </div>
 
-          <ul v-if="lowStockList.length > 0" class="divide-y divide-white/5">
+          <ul v-if="lowStockList.length > 0" class="dash-list divide-y divide-white/5">
             <li v-for="product in lowStockList" :key="product.id" class="flex items-center gap-3 py-2.5">
 <div class="min-w-0 flex-1">
                 <p class="truncate text-sm font-bold text-white" :title="product.name">{{ product.name }}</p>
@@ -209,7 +209,7 @@
             </RouterLink>
           </div>
 
-          <ol v-if="bestSellers.length > 0" class="space-y-3">
+          <ol v-if="bestSellers.length > 0" class="dash-list space-y-3">
             <li v-for="item in bestSellers" :key="item.key">
               <div class="flex items-baseline justify-between gap-2">
                 <p class="min-w-0 truncate text-sm font-bold text-white" :title="item.name">{{ item.name }}</p>
@@ -243,7 +243,7 @@
             </RouterLink>
           </div>
 
-          <ul v-if="inspections.length > 0" class="space-y-2.5">
+          <ul v-if="inspections.length > 0" class="dash-list space-y-2.5">
             <li
               v-for="item in inspections.slice(0, 3)"
               :key="item.id"
@@ -601,3 +601,72 @@ const attention = computed(() => {
 </script>
 
 <style scoped src="../../styles/dashboard.css"></style>
+
+<style scoped>
+/* A computer screen (1280px or more wide, 820px or more tall): the
+   dashboard is one screen, no scrolling (shorter windows squeezed the chart). The greeting and the tiles keep
+   their size; the chart row and the lists row share the rest, the chart
+   shrinks to fit and a long list scrolls inside its own card. Smaller
+   windows and phones scroll the page as before. */
+@media (min-width: 1280px) and (min-height: 820px) {
+  .dash-fit {
+    display: flex;
+    flex-direction: column;
+    /* the screen, less the page's padding (and the bell + name row when
+       it has its own: --topbar-space) */
+    height: calc(100dvh - 3.5rem - var(--topbar-space, 0px));
+  }
+
+  .dash-body {
+    display: flex;
+    min-height: 0;
+    flex: 1 1 auto;
+    flex-direction: column;
+  }
+
+  .dash-tiles {
+    flex: none;
+    margin-bottom: 1rem;
+  }
+
+  .dash-row {
+    min-height: 0;
+    flex: 1 1 0;
+    grid-template-rows: minmax(0, 1fr);
+  }
+
+  .dash-row-2 {
+    margin-bottom: 1rem;
+    grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+  }
+
+  /* the three lists side by side */
+  .dash-row-3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .dash-row-3 > .card {
+    grid-column: auto;
+  }
+
+  .dash-row > .card {
+    display: flex;
+    min-height: 0;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .dash-list {
+    min-height: 0;
+    flex: 1 1 auto;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    padding-right: 0.25rem;
+  }
+
+  /* the chart takes the height there is */
+  .dash-row :deep(.min-h-44) {
+    min-height: 5rem;
+  }
+}
+</style>
