@@ -116,7 +116,7 @@ async function send(group) {
     )
     group.result = sent
       ? { ok: true, text: `Order #${order.id} sent. It's in the supplier's Orders and was emailed to them.` }
-      : { ok: true, text: `Order #${order.id} sent to the supplier's Orders. The email didn't go out: ${reason}. Try again from Orders.` }
+      : { ok: true, text: `Order #${order.id} sent to the supplier's Orders. The email didn't go out: ${String(reason).replace(/[.\s]+$/, '')}. Try again from Orders.` }
     emit('sent', order)
   } catch (err) {
     group.result = { ok: false, text: err.message }
