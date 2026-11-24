@@ -319,7 +319,7 @@
         </div>
 
         <!-- total and Charge -->
-        <footer class="border-t border-white/5 px-5 py-4">
+        <footer class="border-t border-white/5 px-5 py-3">
           <dl class="space-y-1 text-sm">
             <div class="flex justify-between text-zinc-400">
               <dt>Items</dt>
@@ -331,14 +331,56 @@
             </div>
           </dl>
 
+          <!-- CASH: what the customer hands over, and the change to give back -->
+          <div v-if="cart.length" class="mt-2 space-y-1.5">
+            <label for="pos-cash" class="block text-xs font-bold uppercase tracking-[0.12em] text-zinc-500">Cash received</label>
+            <div class="flex items-center gap-2 rounded-xl border border-white/10 bg-zinc-950 px-3 focus-within:border-red-500">
+              <span class="text-lg font-bold text-zinc-500">₱</span>
+              <input
+                id="pos-cash"
+                v-model="cashText"
+                type="text"
+                inputmode="decimal"
+                autocomplete="off"
+                placeholder="0.00"
+                class="min-w-0 flex-1 bg-transparent py-2 text-lg font-extrabold text-white outline-none"
+                :disabled="checkingOut"
+                @keydown.enter.prevent="checkout"
+              />
+            </div>
+            <!-- one tap: the exact amount, or the bills a customer usually gives -->
+            <div class="flex flex-wrap gap-1.5">
+              <button
+                v-for="(amount, i) in cashSuggestions"
+                :key="amount"
+                type="button"
+                class="rounded-lg bg-zinc-800 px-2.5 py-1.5 text-xs font-bold text-zinc-200 hover:bg-zinc-700 disabled:opacity-50"
+                :disabled="checkingOut"
+                @click="cashText = String(amount)"
+              >
+                {{ i === 0 ? 'Exact' : peso(amount) }}
+              </button>
+            </div>
+            <p
+              v-if="cashText !== ''"
+              class="flex items-baseline justify-between rounded-xl px-3 py-1.5 font-bold"
+              :class="cashEnough ? 'bg-emerald-600/15 text-emerald-300' : 'bg-red-600/15 text-red-300'"
+              role="status"
+            >
+              <span class="text-sm">{{ cashEnough ? 'Change' : 'Short' }}</span>
+              <span class="text-lg font-extrabold">{{ peso(Math.abs(changeAmount)) }}</span>
+            </p>
+          </div>
+
           <p v-if="errorMessage" class="mt-3 rounded-xl bg-red-600/15 p-3 text-sm text-red-400" role="alert">
             {{ errorMessage }}
           </p>
 
           <button
             type="button"
-            class="charge-btn mt-4"
-            :disabled="cart.length === 0 || checkingOut"
+            class="charge-btn mt-3"
+            :disabled="cart.length === 0 || checkingOut || !cashEnough"
+            :title="cart.length && !cashEnough ? 'Enter the cash received first' : ''"
             @click="checkout"
           >
             {{ checkingOut ? 'Processing…' : cart.length ? `Charge ${peso(totalAmount)}` : 'Charge' }}
@@ -434,6 +476,16 @@
             <span>Total</span>
             <span>{{ peso(receipt.total_amount) }}</span>
           </div>
+          <template v-if="receipt.cash != null">
+            <div class="mt-1 flex justify-between text-sm">
+              <span>Cash</span>
+              <span>{{ peso(receipt.cash) }}</span>
+            </div>
+            <div class="flex justify-between text-sm font-bold">
+              <span>Change</span>
+              <span>{{ peso(receipt.change) }}</span>
+            </div>
+          </template>
 
           <p class="mt-5 text-center text-xs">Thank you for your purchase!</p>
         </div>
@@ -741,8 +793,32 @@ function validateQty(item) {
 function clearCart() {
   if (checkingOut.value) return
   cart.value = []
+  cashText.value = ''
   errorMessage.value = ''
 }
+
+/* ---- cash: what the customer gives, and the change ---- */
+const cashText = ref('')
+const cashGiven = computed(() => Number(String(cashText.value).replace(/,/g, '')) || 0)
+// in centavos, so 0.1 + 0.2 never shows ₱0.30000001
+const changeAmount = computed(() => Math.round((cashGiven.value - totalAmount.value) * 100) / 100)
+const cashEnough = computed(() => cashText.value !== '' && changeAmount.value >= 0)
+
+// Exact, then the next round bills up: 9,050 -> Exact, ₱9,100, ₱9,500, ₱10,000
+const cashSuggestions = computed(() => {
+  const total = Math.round(totalAmount.value * 100) / 100
+  if (total <= 0) return []
+  const ups = [100, 500, 1000].map((step) => Math.ceil(total / step) * step)
+  return [...new Set([total, ...ups])].filter((amount) => amount >= total).slice(0, 4)
+})
+
+// an empty cart: nothing to pay
+watch(
+  () => cart.value.length,
+  (n) => {
+    if (n === 0) cashText.value = ''
+  }
+)
 
 // who is selling: the account's current name (lib/currentUser.js), or the login
 async function seller() {
@@ -760,6 +836,14 @@ async function seller() {
 
 async function checkout() {
   if (cart.value.length === 0 || checkingOut.value) return
+
+  // the cash must cover the total (the change is worked out from it)
+  if (!cashEnough.value) {
+    errorMessage.value = cashText.value === ''
+      ? 'Enter the cash the customer gave.'
+      : `The cash is ${peso(Math.abs(changeAmount.value))} short.`
+    return
+  }
 
   checkingOut.value = true
   errorMessage.value = ''
@@ -785,12 +869,18 @@ async function checkout() {
     return
   }
 
+  // the cash and change of this sale, for its receipt (from the total the
+  // database charged)
+  const charged = Number(sale.total_amount ?? totalAmount.value)
   receipt.value = {
     ...sale,
     // the sale result has no time of its own ("Invalid Date" on the receipt)
     created_at: sale.created_at || new Date().toISOString(),
     items: sale.items,
+    cash: cashGiven.value,
+    change: Math.max(0, Math.round((cashGiven.value - charged) * 100) / 100),
   }
+  cashText.value = ''
 
   showCart.value = false // the receipt shows next
   cart.value = []
