@@ -56,6 +56,8 @@ onMounted(async () => {
     const [products, sold] = await Promise.all([lowProducts(), soldLast30Days()])
     groups.value = bySupplier(products, sold).map((group) => ({
       ...group,
+      // ticked = in the order; a product already on order starts unticked
+      items: group.items.map((item) => ({ ...item, picked: !item.lastOrder })),
       // who gets it: the product's own supplier, or one picked here
       supplierId: group.key === 'none' ? '' : group.key,
       note: '',
@@ -81,7 +83,16 @@ function lastOrderText(order) {
   return `Ordered ${dayAndTime(order.at)} · ${count(order.qty)} pcs · waiting for the supplier`
 }
 
-const linesOf = (group) => group.items.filter((item) => Number(item.qty) > 0)
+// what goes in the order: the ticked products with a quantity
+const linesOf = (group) => group.items.filter((item) => item.picked && Number(item.qty) > 0)
+
+const allPicked = (group) => group.items.every((item) => item.picked)
+
+function pickAll(group, on) {
+  group.items.forEach((item) => (item.picked = on))
+}
+
+const locked = (group) => group.sending || group.result?.ok
 
 async function send(group) {
   if (group.sending || group.result?.ok) return
@@ -91,7 +102,7 @@ async function send(group) {
     return
   }
   if (lines.length === 0) {
-    group.result = { ok: false, text: 'Set at least one quantity above 0.' }
+    group.result = { ok: false, text: 'Tick at least one product, with a quantity above 0.' }
     return
   }
 
@@ -135,7 +146,7 @@ async function send(group) {
               {{ count(productCount) }}
             </span>
             <HelpTip
-              :text="`Products with ${LOW_STOCK} or fewer left, by supplier. The pieces are a suggestion: enough for the last 30 days' sales, and at least ${MIN_AFTER_ORDER} in stock after. Change any of them, then send the order: the supplier sees it in their Orders and gets it by email.`"
+              :text="`Products with ${LOW_STOCK} or fewer left, by supplier. The pieces are a suggestion: enough for the last 30 days' sales, and at least ${MIN_AFTER_ORDER} in stock after. Tick the products to order and change any quantity, then send the order: the supplier sees it in their Orders and gets it by email.`"
             />
           </div>
           <button
@@ -187,15 +198,40 @@ async function send(group) {
             <table class="w-full text-sm">
               <thead class="text-left text-[0.68rem] font-bold uppercase tracking-[0.12em] text-zinc-500">
                 <tr>
-                  <th class="px-4 py-2">Product</th>
+                  <th class="w-10 py-2 pl-4 pr-0">
+                    <input
+                      type="checkbox"
+                      class="pick"
+                      :checked="allPicked(group)"
+                      :disabled="locked(group)"
+                      :aria-label="`Order every product from ${group.name}`"
+                      @change="pickAll(group, $event.target.checked)"
+                    />
+                  </th>
+                  <th class="px-3 py-2">Product</th>
                   <th class="px-2 py-2 text-right">Stock</th>
                   <th class="hidden px-2 py-2 text-right sm:table-cell">Sold · 30 days</th>
                   <th class="px-4 py-2 text-right">Order</th>
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="item in group.items" :key="item.id" class="border-t border-white/5">
-                  <td class="px-4 py-2.5">
+                <tr
+                  v-for="item in group.items"
+                  :key="item.id"
+                  class="border-t border-white/5 transition-opacity"
+                  :class="item.picked ? '' : 'opacity-45'"
+                >
+                  <td class="w-10 py-2.5 pl-4 pr-0">
+                    <input
+                      :id="`reorder-pick-${group.key}-${item.id}`"
+                      v-model="item.picked"
+                      type="checkbox"
+                      class="pick"
+                      :disabled="locked(group)"
+                      :aria-label="`Order ${item.name}`"
+                    />
+                  </td>
+                  <td class="cursor-pointer px-3 py-2.5" @click="!locked(group) && (item.picked = !item.picked)">
                     <p class="font-semibold text-zinc-100">{{ item.name }}</p>
                     <p v-if="item.lastOrder" class="text-xs text-sky-300">{{ lastOrderText(item.lastOrder) }}</p>
                     <p v-else-if="item.category" class="text-xs text-zinc-500">{{ item.category }}</p>
@@ -213,7 +249,7 @@ async function send(group) {
                       min="0"
                       max="9999"
                       class="w-20 rounded-lg border border-white/10 bg-zinc-950 px-2 py-1.5 text-right text-sm font-bold text-white outline-none focus:border-yellow-400"
-                      :disabled="group.sending || group.result?.ok"
+                      :disabled="locked(group) || !item.picked"
                       @blur="fixQty(item)"
                     />
                   </td>
@@ -236,11 +272,17 @@ async function send(group) {
               <button
                 type="button"
                 class="send-btn"
-                :disabled="group.sending || group.result?.ok"
+                :disabled="locked(group) || linesOf(group).length === 0"
                 @click="send(group)"
               >
                 <NavIcon name="mail" class="h-4 w-4" />
-                {{ group.sending ? 'Sending…' : group.result?.ok ? 'Sent' : 'Send order request' }}
+                {{
+                  group.sending
+                    ? 'Sending…'
+                    : group.result?.ok
+                      ? 'Sent'
+                      : `Send order request (${linesOf(group).length})`
+                }}
               </button>
               <p
                 v-if="group.result"
@@ -274,6 +316,13 @@ async function send(group) {
 
 .send-btn:hover:not(:disabled) {
   background: var(--brand-bright);
+}
+
+.pick {
+  width: 1.05rem;
+  height: 1.05rem;
+  accent-color: var(--brand);
+  cursor: pointer;
 }
 
 .send-btn:disabled {
