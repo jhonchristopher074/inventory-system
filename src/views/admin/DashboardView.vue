@@ -603,12 +603,13 @@ const attention = computed(() => {
 <style scoped src="../../styles/dashboard.css"></style>
 
 <style scoped>
-/* A computer screen (1280px or more wide, 820px or more tall): the
-   dashboard is one screen, no scrolling (shorter windows squeezed the chart). The greeting and the tiles keep
-   their size; the chart row and the lists row share the rest, the chart
-   shrinks to fit and a long list scrolls inside its own card. Smaller
-   windows and phones scroll the page as before. */
-@media (min-width: 1280px) and (min-height: 820px) {
+/* A computer screen (1200px or more wide, 600px or more tall, which is
+   also a 1920 x 1080 screen at Windows' 125% zoom): the dashboard is one
+   screen, no scrolling. Everything is a little more compact; the chart row
+   and the lists row share the height, the chart shrinks to fit and a long
+   list scrolls inside its own card. Smaller windows and phones scroll the
+   page as before. */
+@media (min-width: 1200px) and (min-height: 600px) {
   .dash-fit {
     display: flex;
     flex-direction: column;
@@ -666,7 +667,76 @@ const attention = computed(() => {
 
   /* the chart takes the height there is */
   .dash-row :deep(.min-h-44) {
-    min-height: 5rem;
+    min-height: 4rem;
   }
+
+  /* compact: the greeting */
+  .dash-fit :deep(.hero) {
+    margin-bottom: 0.75rem;
+    padding: 0.55rem 1rem;
+  }
+
+  .dash-fit :deep(.hero-icon) {
+    width: 2.5rem;
+    height: 2.5rem;
+  }
+
+  .dash-fit :deep(.hero-title) {
+    font-size: 1.3rem;
+  }
+
+  /* compact: the tiles */
+  .dash-tiles {
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .dash-tiles :deep(.kpi) {
+    padding: 0.65rem 0.9rem;
+  }
+
+  .dash-tiles :deep(.kpi-icon),
+  .dash-tiles :deep(.kpi-caution) {
+    width: 2rem;
+    height: 2rem;
+  }
+
+  .dash-tiles :deep(.kpi-hero) {
+    margin-top: 0.15rem;
+    font-size: clamp(1.5rem, 9cqi, 2.4rem);
+  }
+
+  .dash-tiles :deep(.kpi-value) {
+    margin-top: 0.15rem;
+    font-size: clamp(1.2rem, 11cqi, 1.6rem);
+  }
+
+  .dash-tiles :deep(.kpi-sub),
+  .dash-tiles :deep(.kpi-change) {
+    margin-top: 0.15rem;
+  }
+
+  /* compact: the cards */
+  .dash-row {
+    gap: 0.75rem;
+  }
+
+  .dash-row-2 {
+    margin-bottom: 0.75rem;
+  }
+
+  .dash-row > .card {
+    padding: 0.85rem 1.1rem;
+  }
+
+  .dash-row .card-head {
+    margin-bottom: 0.5rem;
+  }
+
+  /* the Sales tile and the menu open Sales History too */
+  .dash-row-2 > .card > .card-link {
+    display: none;
+  }
+
 }
 </style>
