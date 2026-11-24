@@ -334,7 +334,7 @@
           <!-- CASH: what the customer hands over, and the change to give back -->
           <div v-if="cart.length" class="mt-2 space-y-1.5">
             <label for="pos-cash" class="block text-xs font-bold uppercase tracking-[0.12em] text-zinc-500">Cash received</label>
-            <div class="flex items-center gap-2 rounded-xl border border-white/10 bg-zinc-950 px-3 focus-within:border-red-500">
+            <div class="cash-box flex items-center gap-2 rounded-xl border border-white/10 bg-zinc-950 px-3">
               <span class="text-lg font-bold text-zinc-500">₱</span>
               <input
                 id="pos-cash"
@@ -343,7 +343,7 @@
                 inputmode="decimal"
                 autocomplete="off"
                 placeholder="0.00"
-                class="min-w-0 flex-1 bg-transparent py-2 text-lg font-extrabold text-white outline-none"
+                class="cash-input min-w-0 flex-1 bg-transparent py-2 text-lg font-extrabold text-white outline-none"
                 :disabled="checkingOut"
                 @keydown.enter.prevent="checkout"
               />
@@ -904,6 +904,21 @@ onMounted(fetchProducts)
 </script>
 
 <style scoped>
+/* the cash box: one border, the box's (the app's red ring for a focused
+   field went around the input inside it too, a second border) */
+.cash-input,
+.cash-input:focus,
+.cash-input:focus-visible {
+  border: 0;
+  outline: none;
+  box-shadow: none;
+}
+
+.cash-box:focus-within {
+  border-color: rgba(224, 27, 50, 0.55);
+  box-shadow: 0 0 0 3px rgba(224, 27, 50, 0.16);
+}
+
 /* the category buttons: one row, scrolled sideways (a thin bar shows
    there's more; drag, swipe or shift + wheel) */
 .category-row {
