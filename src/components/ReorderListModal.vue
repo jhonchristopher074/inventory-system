@@ -17,7 +17,7 @@ import { listOrders, sendOrder } from '../lib/orders'
 import { count, dayAndTime } from '../lib/format'
 import HelpTip from './HelpTip.vue'
 import NavIcon from './NavIcon.vue'
-import OrderCard from './OrderCard.vue'
+import OrdersTable from './OrdersTable.vue'
 
 const props = defineProps({
   fallback: { type: Array, default: () => [] },
@@ -33,13 +33,11 @@ const productCount = computed(() => groups.value.reduce((n, group) => n + group.
 
 const tab = ref('order') // order | sent
 
-// the orders already sent, the "Orders sent" tab (OrderCard.vue)
+// the orders already sent, the "Orders sent" tab (OrdersTable.vue)
 const orders = ref([])
-const showAllOrders = ref(false)
-const openOrderId = ref(null)
+const focusOrderId = ref(null)
 const isOpenOrder = (order) => ['requested', 'accepted'].includes(order.order_status || 'requested')
 const openOrders = computed(() => orders.value.filter(isOpenOrder))
-const shownOrders = computed(() => (showAllOrders.value ? orders.value : openOrders.value))
 
 async function loadOrders() {
   try {
@@ -49,15 +47,29 @@ async function loadOrders() {
   }
 }
 
-function toggleOrder(id) {
-  openOrderId.value = openOrderId.value === id ? null : id
+// an order was cancelled or completed: the orders, and the "Ordered ..."
+// line under each product, again
+async function ordersChanged() {
+  await loadOrders()
+  try {
+    const { data, error } = await supabase.rpc('admin_reorder_candidates', { p_low: LOW_STOCK })
+    if (error || !Array.isArray(data?.products)) return
+    const last = new Map(data.products.map((product) => [product.id, product.last_order || null]))
+    for (const group of groups.value) {
+      for (const item of group.items) {
+        if (last.has(item.id)) item.lastOrder = last.get(item.id)
+      }
+    }
+  } catch (err) {
+    console.error(err)
+  }
 }
 
-// "See the order": its card, open, in the Orders sent tab
+// "See the order": its row, open, in the Orders sent tab
 function seeOrder(id) {
-  showAllOrders.value = false
-  openOrderId.value = id
+  focusOrderId.value = null
   tab.value = 'sent'
+  requestAnimationFrame(() => (focusOrderId.value = id))
 }
 
 async function lowProducts() {
@@ -153,9 +165,8 @@ async function send(group) {
           text: `Order #${order.id} sent to the supplier's Orders. The email didn't go out: ${String(reason).replace(/[.\s]+$/, '')}. Send it again from the order.`,
         }
     emit('sent', order)
-    // the new order shows open in the list below
+    // the new order is in the Orders sent tab
     await loadOrders()
-    openOrderId.value = order.id
   } catch (err) {
     group.result = { ok: false, text: err.message }
   } finally {
@@ -172,7 +183,7 @@ async function send(group) {
       @keydown.esc="emit('close')"
     >
       <div
-        class="flex max-h-[90vh] w-full min-w-0 max-w-3xl flex-col rounded-[28px] border border-white/10 bg-zinc-900 p-4 shadow-2xl sm:p-6"
+        class="flex h-[min(88vh,760px)] w-full min-w-0 max-w-3xl flex-col rounded-[28px] border border-white/10 bg-zinc-900 p-4 shadow-2xl sm:p-6"
         role="dialog"
         aria-modal="true"
         aria-labelledby="reorder-title"
@@ -360,32 +371,9 @@ async function send(group) {
           </section>
         </div>
 
-        <!-- the orders already sent: each card opens and closes -->
-        <div v-else class="min-h-0 flex-1 space-y-2.5 overflow-y-auto pr-1">
-          <div class="flex gap-2" role="group" aria-label="Show orders">
-            <button
-              v-for="option in [{ key: false, label: `Open · ${openOrders.length}` }, { key: true, label: `All · ${orders.length}` }]"
-              :key="option.label"
-              type="button"
-              class="rounded-xl px-3.5 py-1.5 text-sm font-bold"
-              :class="showAllOrders === option.key ? 'bg-red-600 text-white' : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'"
-              :aria-pressed="showAllOrders === option.key"
-              @click="showAllOrders = option.key"
-            >
-              {{ option.label }}
-            </button>
-          </div>
-          <p v-if="shownOrders.length === 0" class="py-10 text-center text-sm text-zinc-500">
-            {{ showAllOrders ? 'No orders yet.' : 'No open orders. Send one from To order.' }}
-          </p>
-          <OrderCard
-            v-for="order in shownOrders"
-            :key="order.id"
-            :order="order"
-            :open="openOrderId === order.id"
-            @toggle="toggleOrder"
-            @changed="loadOrders"
-          />
+        <!-- the orders already sent: a table, each row opens -->
+        <div v-else class="min-h-0 flex-1 overflow-y-auto pr-1">
+          <OrdersTable :orders="orders" :focus-id="focusOrderId" @changed="ordersChanged" />
         </div>
       </div>
     </div>
