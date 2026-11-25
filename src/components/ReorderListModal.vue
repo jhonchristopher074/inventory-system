@@ -135,6 +135,9 @@ function pickAll(group, on) {
   group.items.forEach((item) => (item.picked = on))
 }
 
+// the supplier picked for the "No supplier yet" products
+const pickedSupplier = (group) => suppliers.value.find((supplier) => supplier.id === group.supplierId) || null
+
 const locked = (group) => group.sending || group.result?.ok
 
 async function send(group) {
@@ -183,7 +186,7 @@ async function send(group) {
       @keydown.esc="emit('close')"
     >
       <div
-        class="flex h-[min(88vh,760px)] w-full min-w-0 max-w-3xl flex-col rounded-[28px] border border-white/10 bg-zinc-900 p-4 shadow-2xl sm:p-6"
+        class="flex h-[90vh] w-full min-w-0 max-w-3xl flex-col rounded-[28px] border border-white/10 bg-zinc-900 p-4 shadow-2xl sm:p-6"
         role="dialog"
         aria-modal="true"
         aria-labelledby="reorder-title"
@@ -229,7 +232,7 @@ async function send(group) {
           {{ errorMessage }}
         </p>
 
-        <div v-if="tab === 'order'" class="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
+        <div v-if="tab === 'order'" class="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto pr-1">
           <p v-if="loading" class="py-10 text-center text-sm text-zinc-500">Loading…</p>
           <p v-else-if="groups.length === 0" class="py-10 text-center text-sm text-zinc-500">
             Nothing is running low.
@@ -238,11 +241,18 @@ async function send(group) {
           <section
             v-for="group in groups"
             :key="group.key"
-            class="overflow-hidden rounded-2xl border bg-black/20"
+            class="reorder-group flex shrink-0 flex-col rounded-2xl border bg-black/20"
             :class="group.result?.ok ? 'border-emerald-500/40' : 'border-white/10'"
           >
             <header class="flex flex-wrap items-center justify-between gap-2 border-b border-white/5 px-4 py-3">
-              <div class="min-w-0">
+              <!-- a supplier picked for products that have none: show who gets it -->
+              <div v-if="group.key === 'none' && pickedSupplier(group)" class="min-w-0">
+                <p class="truncate font-bold text-white">{{ pickedSupplier(group).name }}</p>
+                <p class="truncate text-xs text-zinc-500">
+                  {{ pickedSupplier(group).email }}<span class="text-amber-300/80"> · picked for products with no supplier</span>
+                </p>
+              </div>
+              <div v-else class="min-w-0">
                 <p class="truncate font-bold" :class="group.key === 'none' ? 'italic text-zinc-400' : 'text-white'">
                   {{ group.name }}
                 </p>
@@ -325,7 +335,8 @@ async function send(group) {
             </table>
 
             <!-- the note and Send -->
-            <footer class="flex flex-wrap items-center gap-2 border-t border-white/5 px-4 py-3">
+            <!-- at the bottom of the window, and stays in sight while scrolling -->
+            <footer class="reorder-foot mt-auto flex flex-wrap items-center gap-2 rounded-b-2xl border-t border-white/5 px-4 py-3">
               <label class="sr-only" :for="`reorder-note-${group.key}`">Note for the supplier</label>
               <input
                 :id="`reorder-note-${group.key}`"
@@ -396,6 +407,19 @@ async function send(group) {
 
 .send-btn:hover:not(:disabled) {
   background: var(--brand-bright);
+}
+
+/* the last supplier fills the window, so its Send sits at the bottom */
+.reorder-group:last-of-type {
+  flex-grow: 1;
+}
+
+.reorder-foot {
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
+  /* the card's own colour (zinc-900 under black/20) */
+  background: color-mix(in srgb, var(--color-zinc-900) 80%, black);
 }
 
 .pick {
