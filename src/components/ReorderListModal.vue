@@ -31,7 +31,9 @@ const errorMessage = ref('')
 
 const productCount = computed(() => groups.value.reduce((n, group) => n + group.items.length, 0))
 
-// the orders already sent, under the products (OrderCard.vue)
+const tab = ref('order') // order | sent
+
+// the orders already sent, the "Orders sent" tab (OrderCard.vue)
 const orders = ref([])
 const showAllOrders = ref(false)
 const openOrderId = ref(null)
@@ -49,6 +51,13 @@ async function loadOrders() {
 
 function toggleOrder(id) {
   openOrderId.value = openOrderId.value === id ? null : id
+}
+
+// "See the order": its card, open, in the Orders sent tab
+function seeOrder(id) {
+  showAllOrders.value = false
+  openOrderId.value = id
+  tab.value = 'sent'
 }
 
 async function lowProducts() {
@@ -137,8 +146,12 @@ async function send(group) {
       group.note.trim()
     )
     group.result = sent
-      ? { ok: true, text: `Order #${order.id} sent. It's in the supplier's Orders and was emailed to them.` }
-      : { ok: true, text: `Order #${order.id} sent to the supplier's Orders. The email didn't go out: ${String(reason).replace(/[.\s]+$/, '')}. Try again from Orders.` }
+      ? { ok: true, orderId: order.id, text: `Order #${order.id} sent. It's in the supplier's Orders and was emailed to them.` }
+      : {
+          ok: true,
+          orderId: order.id,
+          text: `Order #${order.id} sent to the supplier's Orders. The email didn't go out: ${String(reason).replace(/[.\s]+$/, '')}. Send it again from the order.`,
+        }
     emit('sent', order)
     // the new order shows open in the list below
     await loadOrders()
@@ -167,9 +180,6 @@ async function send(group) {
         <div class="mb-4 flex items-center justify-between gap-3">
           <div class="flex min-w-0 items-center gap-2.5">
             <h2 id="reorder-title" class="text-2xl font-extrabold text-white">Reorder</h2>
-            <span v-if="!loading" class="rounded-full bg-yellow-500/15 px-2 py-0.5 text-xs font-bold text-yellow-300">
-              {{ count(productCount) }}
-            </span>
             <HelpTip
               :text="`Products with ${LOW_STOCK} or fewer left, by supplier. The pieces are a suggestion: enough for the last 30 days' sales, and at least ${MIN_AFTER_ORDER} in stock after. Tick the products to order and change any quantity, then send the order: the supplier sees it in their Orders and gets it by email.`"
             />
@@ -183,11 +193,32 @@ async function send(group) {
           </button>
         </div>
 
+        <!-- two tabs: the products to order, and the orders already sent -->
+        <div class="mb-4 flex gap-1 rounded-2xl bg-black/30 p-1" role="tablist" aria-label="Reorder">
+          <button
+            v-for="option in [
+              { key: 'order', label: 'To order', n: productCount, tone: 'bg-yellow-500/20 text-yellow-300' },
+              { key: 'sent', label: 'Orders sent', n: openOrders.length, tone: 'bg-sky-500/20 text-sky-300' },
+            ]"
+            :key="option.key"
+            type="button"
+            role="tab"
+            class="flex flex-1 items-center justify-center gap-2 rounded-xl px-3 py-2 text-sm font-bold transition-colors"
+            :class="tab === option.key ? 'bg-zinc-700 text-white shadow' : 'text-zinc-400 hover:text-white'"
+            :aria-selected="tab === option.key"
+            @click="tab = option.key"
+          >
+            <NavIcon :name="option.key === 'order' ? 'inventory' : 'mail'" class="h-4 w-4" />
+            {{ option.label }}
+            <span v-if="!loading && option.n" class="rounded-full px-2 py-0.5 text-xs" :class="option.tone">{{ count(option.n) }}</span>
+          </button>
+        </div>
+
         <p v-if="errorMessage" class="mb-3 rounded-xl bg-red-600/20 p-3 text-sm text-red-400" role="alert">
           {{ errorMessage }}
         </p>
 
-        <div class="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
+        <div v-if="tab === 'order'" class="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
           <p v-if="loading" class="py-10 text-center text-sm text-zinc-500">Loading…</p>
           <p v-else-if="groups.length === 0" class="py-10 text-center text-sm text-zinc-500">
             Nothing is running low.
@@ -316,41 +347,45 @@ async function send(group) {
                 role="status"
               >
                 {{ group.result.text }}
+                <button
+                  v-if="group.result.orderId"
+                  type="button"
+                  class="ml-1 underline underline-offset-2 hover:text-white"
+                  @click="seeOrder(group.result.orderId)"
+                >
+                  See the order ›
+                </button>
               </p>
             </footer>
           </section>
+        </div>
 
-          <!-- the orders already sent: each card opens and closes -->
-          <section v-if="!loading && orders.length" aria-labelledby="reorder-sent-title" class="space-y-2.5 pt-1">
-            <div class="flex flex-wrap items-center justify-between gap-2">
-              <h3 id="reorder-sent-title" class="flex items-center gap-2 text-sm font-extrabold uppercase tracking-[0.12em] text-zinc-400">
-                <NavIcon name="mail" class="h-4 w-4" />
-                {{ showAllOrders ? 'All orders' : 'Open orders' }}
-                <span class="rounded-full bg-white/10 px-2 py-0.5 text-xs text-zinc-200">
-                  {{ count(shownOrders.length) }}
-                </span>
-              </h3>
-              <button
-                v-if="orders.length > openOrders.length"
-                type="button"
-                class="text-xs font-bold text-zinc-400 hover:text-white"
-                @click="showAllOrders = !showAllOrders"
-              >
-                {{ showAllOrders ? 'Show open only' : `Show all (${orders.length})` }}
-              </button>
-            </div>
-            <p v-if="shownOrders.length === 0" class="rounded-xl bg-black/20 px-4 py-3 text-sm text-zinc-500">
-              No open orders right now.
-            </p>
-            <OrderCard
-              v-for="order in shownOrders"
-              :key="order.id"
-              :order="order"
-              :open="openOrderId === order.id"
-              @toggle="toggleOrder"
-              @changed="loadOrders"
-            />
-          </section>
+        <!-- the orders already sent: each card opens and closes -->
+        <div v-else class="min-h-0 flex-1 space-y-2.5 overflow-y-auto pr-1">
+          <div class="flex gap-2" role="group" aria-label="Show orders">
+            <button
+              v-for="option in [{ key: false, label: `Open · ${openOrders.length}` }, { key: true, label: `All · ${orders.length}` }]"
+              :key="option.label"
+              type="button"
+              class="rounded-xl px-3.5 py-1.5 text-sm font-bold"
+              :class="showAllOrders === option.key ? 'bg-red-600 text-white' : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'"
+              :aria-pressed="showAllOrders === option.key"
+              @click="showAllOrders = option.key"
+            >
+              {{ option.label }}
+            </button>
+          </div>
+          <p v-if="shownOrders.length === 0" class="py-10 text-center text-sm text-zinc-500">
+            {{ showAllOrders ? 'No orders yet.' : 'No open orders. Send one from To order.' }}
+          </p>
+          <OrderCard
+            v-for="order in shownOrders"
+            :key="order.id"
+            :order="order"
+            :open="openOrderId === order.id"
+            @toggle="toggleOrder"
+            @changed="loadOrders"
+          />
         </div>
       </div>
     </div>
