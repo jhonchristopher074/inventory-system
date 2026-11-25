@@ -116,7 +116,7 @@ Deno.serve(async (req) => {
               <img src="https://10five7hardware.com/apple-touch-icon.png" width="48" height="48" alt="10 FIVE 7 Hardware" style="display:block;border-radius:12px">
             </td>
             <td style="vertical-align:middle">
-              <div style="font-size:18px;font-weight:bold;color:#111">10 FIVE 7 <span style="color:#e01b32">Hardware</span></div>
+              <div style="font-size:18px;font-weight:bold;color:#111">10 <span style="color:#e01b32">FIVE</span> 7 Hardware</div>
               <div style="font-size:12px;color:#777">Inventory Management System</div>
             </td>
           </tr></table>
