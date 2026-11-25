@@ -111,6 +111,15 @@ Deno.serve(async (req) => {
       subject: `Order #${order.id} from 10 FIVE 7 Hardware`,
       html: `
         <div style="font-family:Arial,sans-serif;max-width:560px;color:#222">
+          <table style="border-collapse:collapse;margin:0 0 18px"><tr>
+            <td style="padding:0 12px 0 0;vertical-align:middle">
+              <img src="https://10five7hardware.com/apple-touch-icon.png" width="48" height="48" alt="10 FIVE 7 Hardware" style="display:block;border-radius:12px">
+            </td>
+            <td style="vertical-align:middle">
+              <div style="font-size:18px;font-weight:bold;color:#111">10 FIVE 7 <span style="color:#e01b32">Hardware</span></div>
+              <div style="font-size:12px;color:#777">Inventory Management System</div>
+            </td>
+          </tr></table>
           <h2 style="color:#e01b32;margin:0 0 6px">Order #${order.id}</h2>
           <p style="margin:0 0 14px;color:#555">From 10 FIVE 7 Hardware · ${escapeHtml(day)}${order.created_by_name ? ` · by ${escapeHtml(order.created_by_name)}` : ""}</p>
           <p style="margin:0 0 10px">Hello ${escapeHtml(order.supplier_name)}, we would like to order:</p>
