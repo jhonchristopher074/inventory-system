@@ -13,10 +13,11 @@ import { supabase } from '../lib/supabase'
 import { listSales } from '../lib/salesQuery'
 import { LOW_STOCK } from '../lib/stock'
 import { MIN_AFTER_ORDER, bySupplier, soldByProduct } from '../lib/reorder'
-import { sendOrder } from '../lib/orders'
+import { listOrders, sendOrder } from '../lib/orders'
 import { count, dayAndTime } from '../lib/format'
 import HelpTip from './HelpTip.vue'
 import NavIcon from './NavIcon.vue'
+import OrderCard from './OrderCard.vue'
 
 const props = defineProps({
   fallback: { type: Array, default: () => [] },
@@ -29,6 +30,26 @@ const loading = ref(true)
 const errorMessage = ref('')
 
 const productCount = computed(() => groups.value.reduce((n, group) => n + group.items.length, 0))
+
+// the orders already sent, under the products (OrderCard.vue)
+const orders = ref([])
+const showAllOrders = ref(false)
+const openOrderId = ref(null)
+const isOpenOrder = (order) => ['requested', 'accepted'].includes(order.order_status || 'requested')
+const openOrders = computed(() => orders.value.filter(isOpenOrder))
+const shownOrders = computed(() => (showAllOrders.value ? orders.value : openOrders.value))
+
+async function loadOrders() {
+  try {
+    orders.value = (await listOrders()).list
+  } catch (err) {
+    console.error(err)
+  }
+}
+
+function toggleOrder(id) {
+  openOrderId.value = openOrderId.value === id ? null : id
+}
 
 async function lowProducts() {
   const { data, error } = await supabase.rpc('admin_reorder_candidates', { p_low: LOW_STOCK })
@@ -52,6 +73,7 @@ async function soldLast30Days() {
 }
 
 onMounted(async () => {
+  loadOrders()
   try {
     const [products, sold] = await Promise.all([lowProducts(), soldLast30Days()])
     groups.value = bySupplier(products, sold).map((group) => ({
@@ -118,6 +140,9 @@ async function send(group) {
       ? { ok: true, text: `Order #${order.id} sent. It's in the supplier's Orders and was emailed to them.` }
       : { ok: true, text: `Order #${order.id} sent to the supplier's Orders. The email didn't go out: ${String(reason).replace(/[.\s]+$/, '')}. Try again from Orders.` }
     emit('sent', order)
+    // the new order shows open in the list below
+    await loadOrders()
+    openOrderId.value = order.id
   } catch (err) {
     group.result = { ok: false, text: err.message }
   } finally {
@@ -293,6 +318,38 @@ async function send(group) {
                 {{ group.result.text }}
               </p>
             </footer>
+          </section>
+
+          <!-- the orders already sent: each card opens and closes -->
+          <section v-if="!loading && orders.length" aria-labelledby="reorder-sent-title" class="space-y-2.5 pt-1">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <h3 id="reorder-sent-title" class="flex items-center gap-2 text-sm font-extrabold uppercase tracking-[0.12em] text-zinc-400">
+                <NavIcon name="mail" class="h-4 w-4" />
+                {{ showAllOrders ? 'All orders' : 'Open orders' }}
+                <span class="rounded-full bg-white/10 px-2 py-0.5 text-xs text-zinc-200">
+                  {{ count(shownOrders.length) }}
+                </span>
+              </h3>
+              <button
+                v-if="orders.length > openOrders.length"
+                type="button"
+                class="text-xs font-bold text-zinc-400 hover:text-white"
+                @click="showAllOrders = !showAllOrders"
+              >
+                {{ showAllOrders ? 'Show open only' : `Show all (${orders.length})` }}
+              </button>
+            </div>
+            <p v-if="shownOrders.length === 0" class="rounded-xl bg-black/20 px-4 py-3 text-sm text-zinc-500">
+              No open orders right now.
+            </p>
+            <OrderCard
+              v-for="order in shownOrders"
+              :key="order.id"
+              :order="order"
+              :open="openOrderId === order.id"
+              @toggle="toggleOrder"
+              @changed="loadOrders"
+            />
           </section>
         </div>
       </div>
