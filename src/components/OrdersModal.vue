@@ -36,7 +36,7 @@ onMounted(load)
       @keydown.esc="emit('close')"
     >
       <div
-        class="flex h-[90vh] w-full min-w-0 max-w-3xl flex-col rounded-[28px] border border-white/10 bg-zinc-900 p-4 shadow-2xl sm:p-6"
+        class="flex h-[min(80vh,680px)] w-full min-w-0 max-w-3xl flex-col rounded-[28px] border border-white/10 bg-zinc-900 p-4 shadow-2xl sm:p-6"
         role="dialog"
         aria-modal="true"
         aria-labelledby="orders-title"
